@@ -7,8 +7,23 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// Ptr returns a pointer to v. Handy for the many optional scalar fields,
-// e.g. Ptr("hello") or Ptr[float32](1.5).
+// This file is a fluent (chain) builder API for assembling schemas, e.g.
+//
+//	s := NewSchema("infra", "disk", "v1").
+//		Descr("disk config").
+//		Fields(
+//			Int64("shared_buffers").Gte(16).Default(128).Unit("MB").Group("Resource Usage"),
+//			Str("wal_level").In("minimal", "replica", "logical").Default("replica"),
+//			Computed("effective_cache_size", "root.shared_buffers * 3").Result(ResultInt64),
+//		).
+//		Rules(Rule("root.work_mem * root.max_connections <= 4096", "budget").ID("mem")).
+//		MustBuild()
+//
+// Kind-first: each kind has a constructor taking the field name; constraint
+// methods are kind-specific, common field methods (Required/Group/Unit/...)
+// come from the shared generic base.
+
+// Ptr returns a pointer to v.
 func Ptr[T any](v T) *T { return &v }
 
 // Short aliases for the verbose generated enum constants.
@@ -26,454 +41,437 @@ const (
 )
 
 // =============================================================================
-// Schema
+// Schema builder
 // =============================================================================
 
-// SchemaOption configures a Schema.
-type SchemaOption func(*Schema)
+// SchemaB builds a Schema.
+type SchemaB struct{ s *Schema }
 
-// Schema builds a Schema (form descriptor) from the given options.
-func NewSchema(opts ...SchemaOption) *Schema {
-	s := &Schema{}
-	for _, o := range opts {
-		o(s)
+// NewSchema starts a schema with the given identity (namespace may be empty;
+// name is required by the validator).
+func NewSchema(namespace, name, version string) *SchemaB {
+	return &SchemaB{s: &Schema{Id: &SchemaIdentity{Namespace: namespace, Name: name, Version: version}}}
+}
+
+// Descr sets the schema description.
+func (b *SchemaB) Descr(d string) *SchemaB { b.s.Description = &d; return b }
+
+// Fields appends fields (field builders or raw *Schema_Filed).
+func (b *SchemaB) Fields(defs ...FieldDef) *SchemaB {
+	for _, d := range defs {
+		b.s.Fields = append(b.s.Fields, d.Done())
+	}
+	return b
+}
+
+// Rules appends form-wide rules (rule builders or raw *Schema_Filed_Rule).
+func (b *SchemaB) Rules(rules ...RuleDef) *SchemaB {
+	for _, r := range rules {
+		b.s.Rules = append(b.s.Rules, r.Done())
+	}
+	return b
+}
+
+// Build assembles and validates the schema; it returns a *SchemaError if the
+// descriptor is malformed.
+func (b *SchemaB) Build() (*Schema, error) {
+	if errs := ValidateSchema(b.s); len(errs) > 0 {
+		return nil, &SchemaError{Errors: errs}
+	}
+	return b.s, nil
+}
+
+// MustBuild is Build that panics on a malformed schema.
+func (b *SchemaB) MustBuild() *Schema {
+	s, err := b.Build()
+	if err != nil {
+		panic(err)
 	}
 	return s
 }
 
-// Identity sets the schema identity. namespace and version may be empty; name
-// is required by the validator.
-func Identity(namespace, name, version string) SchemaOption {
-	return func(s *Schema) {
-		s.Id = &SchemaIdentity{Namespace: namespace, Name: name, Version: version}
-	}
-}
-
-// Description sets the human description of the schema.
-func Description(desc string) SchemaOption {
-	return func(s *Schema) { s.Description = &desc }
-}
-
-// Fields sets the form fields.
-func Fields(fields ...*Schema_Filed) SchemaOption {
-	return func(s *Schema) { s.Fields = fields }
-}
-
-// Rules sets the form-wide invariant rules (`root` only).
-func Rules(rules ...*Schema_Filed_Rule) SchemaOption {
-	return func(s *Schema) { s.Rules = rules }
-}
-
 // =============================================================================
-// Field
+// Rule builder
 // =============================================================================
 
-// FieldOption configures a Schema_Filed.
-type FieldOption func(*Schema_Filed)
+// RuleDef is anything that yields a rule: a *RuleB or a raw *Schema_Filed_Rule.
+type RuleDef interface{ Done() *Schema_Filed_Rule }
 
-// Kind sets the oneof field kind on a Schema_Filed. Produced by the kind
-// builders (Float, Int32, String, Object, ...).
-type Kind func(*Schema_Filed)
+// Done lets a raw rule satisfy RuleDef.
+func (r *Schema_Filed_Rule) Done() *Schema_Filed_Rule { return r }
 
-// Field builds a field with the given name and kind:
-//
-//	Field("temp", Float(FloatGte(0), FloatLte(100)), FieldRequired())
-func Field(name string, kind Kind, opts ...FieldOption) *Schema_Filed {
-	f := &Schema_Filed{Name: name}
-	kind(f)
-	for _, o := range opts {
-		o(f)
-	}
-	return f
+// RuleB builds a validation Rule.
+type RuleB struct{ r *Schema_Filed_Rule }
+
+// Rule builds a CEL/expr validation rule. expr must evaluate to bool; true
+// means valid. msg is shown when it is false.
+func Rule(expr, msg string) *RuleB {
+	return &RuleB{r: &Schema_Filed_Rule{Expr: expr, Message: msg}}
 }
 
-// FieldDescription sets the human description.
-func FieldDescription(desc string) FieldOption {
-	return func(f *Schema_Filed) { f.Description = &desc }
-}
+// ID sets the stable rule id.
+func (b *RuleB) ID(id string) *RuleB { b.r.Id = &id; return b }
 
-// FieldNullable marks the value as allowed to be null/empty.
-func FieldNullable() FieldOption {
-	return func(f *Schema_Filed) { f.Nullable = true }
-}
+// Warn marks the rule as a WARNING (does not block submit).
+func (b *RuleB) Warn() *RuleB { s := SeverityWarning; b.r.Severity = &s; return b }
 
-// FieldRequired marks the value as required.
-func FieldRequired() FieldOption {
-	return func(f *Schema_Filed) { f.Required = true }
-}
+// Severity sets the rule severity explicitly.
+func (b *RuleB) Severity(s Schema_Filed_Severity) *RuleB { b.r.Severity = &s; return b }
 
-// FieldRules sets the cross-field CEL validation rules (see NewRule).
-func FieldRules(rules ...*Schema_Filed_Rule) FieldOption {
-	return func(f *Schema_Filed) { f.Rules = rules }
-}
-
-// FieldImmutable marks the field as system-fixed: it is forced to its default
-// and any different submitted value is rejected (renderers show it disabled).
-func FieldImmutable() FieldOption {
-	return func(f *Schema_Filed) { f.Immutable = true }
-}
-
-// FieldGroup sets the informative section label (the engine ignores it).
-func FieldGroup(group string) FieldOption {
-	return func(f *Schema_Filed) { f.Group = &group }
-}
-
-// FieldUnit sets the informative value unit, e.g. "MB" (the engine ignores it).
-func FieldUnit(unit string) FieldOption {
-	return func(f *Schema_Filed) { f.Unit = &unit }
-}
+// Done returns the built rule.
+func (b *RuleB) Done() *Schema_Filed_Rule { return b.r }
 
 // =============================================================================
-// Kind builders — each returns a Kind setter accepted by Field.
+// Field builders
 // =============================================================================
 
-// FloatOption configures a Float kind.
-type FloatOption func(*Schema_Filed_Float)
+// FieldDef is anything that yields a field: a kind builder or a raw *Schema_Filed.
+type FieldDef interface{ Done() *Schema_Filed }
 
-// Float builds a float field kind.
-func Float(opts ...FloatOption) Kind {
-	k := &Schema_Filed_Float{}
-	for _, o := range opts {
-		o(k)
+// Done lets a raw field satisfy FieldDef.
+func (f *Schema_Filed) Done() *Schema_Filed { return f }
+
+// fieldBase provides the common field methods. S is the concrete builder type
+// so the methods chain back to it (self-type pattern, no per-kind duplication).
+type fieldBase[S any] struct {
+	f    *Schema_Filed
+	self S
+}
+
+func newField[S any](name string, self S) fieldBase[S] {
+	return fieldBase[S]{f: &Schema_Filed{Name: name}, self: self}
+}
+
+func (b fieldBase[S]) Required() S      { b.f.Required = true; return b.self }
+func (b fieldBase[S]) Nullable() S      { b.f.Nullable = true; return b.self }
+func (b fieldBase[S]) Immutable() S     { b.f.Immutable = true; return b.self }
+func (b fieldBase[S]) Group(g string) S { b.f.Group = &g; return b.self }
+func (b fieldBase[S]) Unit(u string) S  { b.f.Unit = &u; return b.self }
+func (b fieldBase[S]) Desc(d string) S  { b.f.Description = &d; return b.self }
+
+// Rules attaches cross-field validation rules to this field.
+func (b fieldBase[S]) Rules(rules ...RuleDef) S {
+	for _, r := range rules {
+		b.f.Rules = append(b.f.Rules, r.Done())
 	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Float_{Float: k} }
+	return b.self
 }
 
-func FloatDefault(v float32) FloatOption  { return func(k *Schema_Filed_Float) { k.Default = &v } }
-func FloatConst(v float32) FloatOption    { return func(k *Schema_Filed_Float) { k.Const = &v } }
-func FloatGt(v float32) FloatOption       { return func(k *Schema_Filed_Float) { k.Gt = &v } }
-func FloatGte(v float32) FloatOption      { return func(k *Schema_Filed_Float) { k.Gte = &v } }
-func FloatLt(v float32) FloatOption       { return func(k *Schema_Filed_Float) { k.Lt = &v } }
-func FloatLte(v float32) FloatOption      { return func(k *Schema_Filed_Float) { k.Lte = &v } }
-func FloatIn(v ...float32) FloatOption    { return func(k *Schema_Filed_Float) { k.In = v } }
-func FloatNotIn(v ...float32) FloatOption { return func(k *Schema_Filed_Float) { k.NotIn = v } }
-func FloatMultipleOf(v float32) FloatOption {
-	return func(k *Schema_Filed_Float) { k.MultipleOf = &v }
+// Done returns the built field.
+func (b fieldBase[S]) Done() *Schema_Filed { return b.f }
+
+// --- numeric kinds ---------------------------------------------------------
+
+// FloatB builds a float field.
+type FloatB struct {
+	fieldBase[*FloatB]
+	k *Schema_Filed_Float
 }
 
-// DoubleOption configures a Double kind.
-type DoubleOption func(*Schema_Filed_Double)
+func Float(name string) *FloatB {
+	b := &FloatB{k: &Schema_Filed_Float{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Float_{Float: b.k}
+	return b
+}
 
-// Double builds a double field kind.
-func Double(opts ...DoubleOption) Kind {
-	k := &Schema_Filed_Double{}
-	for _, o := range opts {
-		o(k)
+func (b *FloatB) Default(v float32) *FloatB    { b.k.Default = &v; return b }
+func (b *FloatB) Const(v float32) *FloatB      { b.k.Const = &v; return b }
+func (b *FloatB) Gt(v float32) *FloatB         { b.k.Gt = &v; return b }
+func (b *FloatB) Gte(v float32) *FloatB        { b.k.Gte = &v; return b }
+func (b *FloatB) Lt(v float32) *FloatB         { b.k.Lt = &v; return b }
+func (b *FloatB) Lte(v float32) *FloatB        { b.k.Lte = &v; return b }
+func (b *FloatB) In(v ...float32) *FloatB      { b.k.In = v; return b }
+func (b *FloatB) NotIn(v ...float32) *FloatB   { b.k.NotIn = v; return b }
+func (b *FloatB) MultipleOf(v float32) *FloatB { b.k.MultipleOf = &v; return b }
+
+// DoubleB builds a double field.
+type DoubleB struct {
+	fieldBase[*DoubleB]
+	k *Schema_Filed_Double
+}
+
+func Double(name string) *DoubleB {
+	b := &DoubleB{k: &Schema_Filed_Double{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Double_{Double: b.k}
+	return b
+}
+
+func (b *DoubleB) Default(v float64) *DoubleB    { b.k.Default = &v; return b }
+func (b *DoubleB) Const(v float64) *DoubleB      { b.k.Const = &v; return b }
+func (b *DoubleB) Gt(v float64) *DoubleB         { b.k.Gt = &v; return b }
+func (b *DoubleB) Gte(v float64) *DoubleB        { b.k.Gte = &v; return b }
+func (b *DoubleB) Lt(v float64) *DoubleB         { b.k.Lt = &v; return b }
+func (b *DoubleB) Lte(v float64) *DoubleB        { b.k.Lte = &v; return b }
+func (b *DoubleB) In(v ...float64) *DoubleB      { b.k.In = v; return b }
+func (b *DoubleB) NotIn(v ...float64) *DoubleB   { b.k.NotIn = v; return b }
+func (b *DoubleB) MultipleOf(v float64) *DoubleB { b.k.MultipleOf = &v; return b }
+
+// Int32B builds an int32 field.
+type Int32B struct {
+	fieldBase[*Int32B]
+	k *Schema_Filed_Int32
+}
+
+func Int32(name string) *Int32B {
+	b := &Int32B{k: &Schema_Filed_Int32{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Int32_{Int32: b.k}
+	return b
+}
+
+func (b *Int32B) Default(v int32) *Int32B    { b.k.Default = &v; return b }
+func (b *Int32B) Const(v int32) *Int32B      { b.k.Const = &v; return b }
+func (b *Int32B) Gt(v int32) *Int32B         { b.k.Gt = &v; return b }
+func (b *Int32B) Gte(v int32) *Int32B        { b.k.Gte = &v; return b }
+func (b *Int32B) Lt(v int32) *Int32B         { b.k.Lt = &v; return b }
+func (b *Int32B) Lte(v int32) *Int32B        { b.k.Lte = &v; return b }
+func (b *Int32B) In(v ...int32) *Int32B      { b.k.In = v; return b }
+func (b *Int32B) NotIn(v ...int32) *Int32B   { b.k.NotIn = v; return b }
+func (b *Int32B) MultipleOf(v int32) *Int32B { b.k.MultipleOf = &v; return b }
+
+// Int64B builds an int64 field.
+type Int64B struct {
+	fieldBase[*Int64B]
+	k *Schema_Filed_Int64
+}
+
+func Int64(name string) *Int64B {
+	b := &Int64B{k: &Schema_Filed_Int64{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Int64_{Int64: b.k}
+	return b
+}
+
+func (b *Int64B) Default(v int64) *Int64B    { b.k.Default = &v; return b }
+func (b *Int64B) Const(v int64) *Int64B      { b.k.Const = &v; return b }
+func (b *Int64B) Gt(v int64) *Int64B         { b.k.Gt = &v; return b }
+func (b *Int64B) Gte(v int64) *Int64B        { b.k.Gte = &v; return b }
+func (b *Int64B) Lt(v int64) *Int64B         { b.k.Lt = &v; return b }
+func (b *Int64B) Lte(v int64) *Int64B        { b.k.Lte = &v; return b }
+func (b *Int64B) In(v ...int64) *Int64B      { b.k.In = v; return b }
+func (b *Int64B) NotIn(v ...int64) *Int64B   { b.k.NotIn = v; return b }
+func (b *Int64B) MultipleOf(v int64) *Int64B { b.k.MultipleOf = &v; return b }
+
+// UInt32B builds a uint32 field.
+type UInt32B struct {
+	fieldBase[*UInt32B]
+	k *Schema_Filed_UInt32
+}
+
+func UInt32(name string) *UInt32B {
+	b := &UInt32B{k: &Schema_Filed_UInt32{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Uint32{Uint32: b.k}
+	return b
+}
+
+func (b *UInt32B) Default(v uint32) *UInt32B    { b.k.Default = &v; return b }
+func (b *UInt32B) Const(v uint32) *UInt32B      { b.k.Const = &v; return b }
+func (b *UInt32B) Gt(v uint32) *UInt32B         { b.k.Gt = &v; return b }
+func (b *UInt32B) Gte(v uint32) *UInt32B        { b.k.Gte = &v; return b }
+func (b *UInt32B) Lt(v uint32) *UInt32B         { b.k.Lt = &v; return b }
+func (b *UInt32B) Lte(v uint32) *UInt32B        { b.k.Lte = &v; return b }
+func (b *UInt32B) In(v ...uint32) *UInt32B      { b.k.In = v; return b }
+func (b *UInt32B) NotIn(v ...uint32) *UInt32B   { b.k.NotIn = v; return b }
+func (b *UInt32B) MultipleOf(v uint32) *UInt32B { b.k.MultipleOf = &v; return b }
+
+// UInt64B builds a uint64 field.
+type UInt64B struct {
+	fieldBase[*UInt64B]
+	k *Schema_Filed_UInt64
+}
+
+func UInt64(name string) *UInt64B {
+	b := &UInt64B{k: &Schema_Filed_UInt64{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Uint64{Uint64: b.k}
+	return b
+}
+
+func (b *UInt64B) Default(v uint64) *UInt64B    { b.k.Default = &v; return b }
+func (b *UInt64B) Const(v uint64) *UInt64B      { b.k.Const = &v; return b }
+func (b *UInt64B) Gt(v uint64) *UInt64B         { b.k.Gt = &v; return b }
+func (b *UInt64B) Gte(v uint64) *UInt64B        { b.k.Gte = &v; return b }
+func (b *UInt64B) Lt(v uint64) *UInt64B         { b.k.Lt = &v; return b }
+func (b *UInt64B) Lte(v uint64) *UInt64B        { b.k.Lte = &v; return b }
+func (b *UInt64B) In(v ...uint64) *UInt64B      { b.k.In = v; return b }
+func (b *UInt64B) NotIn(v ...uint64) *UInt64B   { b.k.NotIn = v; return b }
+func (b *UInt64B) MultipleOf(v uint64) *UInt64B { b.k.MultipleOf = &v; return b }
+
+// --- bool / string / enum --------------------------------------------------
+
+// BoolB builds a bool field.
+type BoolB struct {
+	fieldBase[*BoolB]
+	k *Schema_Filed_Bool
+}
+
+func Bool(name string) *BoolB {
+	b := &BoolB{k: &Schema_Filed_Bool{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Bool_{Bool: b.k}
+	return b
+}
+
+func (b *BoolB) Default(v bool) *BoolB { b.k.Default = &v; return b }
+func (b *BoolB) Const(v bool) *BoolB   { b.k.Const = &v; return b }
+
+// StrB builds a string field.
+type StrB struct {
+	fieldBase[*StrB]
+	k *Schema_Filed_String
+}
+
+func Str(name string) *StrB {
+	b := &StrB{k: &Schema_Filed_String{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_String_{String_: b.k}
+	return b
+}
+
+func (b *StrB) Default(v string) *StrB  { b.k.Default = &v; return b }
+func (b *StrB) Const(v string) *StrB    { b.k.Const = &v; return b }
+func (b *StrB) Len(v uint64) *StrB      { b.k.Len = &v; return b }
+func (b *StrB) MinLen(v uint64) *StrB   { b.k.MinLen = &v; return b }
+func (b *StrB) MaxLen(v uint64) *StrB   { b.k.MaxLen = &v; return b }
+func (b *StrB) Pattern(v string) *StrB  { b.k.Pattern = &v; return b }
+func (b *StrB) In(v ...string) *StrB    { b.k.In = v; return b }
+func (b *StrB) NotIn(v ...string) *StrB { b.k.NotIn = v; return b }
+
+// EnumB builds an enum field.
+type EnumB struct {
+	fieldBase[*EnumB]
+	k *Schema_Filed_Enum
+}
+
+func Enum(name string) *EnumB {
+	b := &EnumB{k: &Schema_Filed_Enum{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Enum_{Enum: b.k}
+	return b
+}
+
+func (b *EnumB) Default(v int32) *EnumB           { b.k.Default = &v; return b }
+func (b *EnumB) Values(v map[int32]string) *EnumB { b.k.Values = v; return b }
+func (b *EnumB) DefinedOnly() *EnumB              { b.k.DefinedOnly = true; return b }
+func (b *EnumB) In(v ...int32) *EnumB             { b.k.In = v; return b }
+func (b *EnumB) NotIn(v ...int32) *EnumB          { b.k.NotIn = v; return b }
+
+// --- duration / timestamp --------------------------------------------------
+
+// DurationB builds a duration field.
+type DurationB struct {
+	fieldBase[*DurationB]
+	k *Schema_Filed_Duration
+}
+
+func Duration(name string) *DurationB {
+	b := &DurationB{k: &Schema_Filed_Duration{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Duration_{Duration: b.k}
+	return b
+}
+
+func (b *DurationB) Default(d time.Duration) *DurationB { b.k.Default = durationpb.New(d); return b }
+func (b *DurationB) Gt(d time.Duration) *DurationB      { b.k.Gt = durationpb.New(d); return b }
+func (b *DurationB) Gte(d time.Duration) *DurationB     { b.k.Gte = durationpb.New(d); return b }
+func (b *DurationB) Lt(d time.Duration) *DurationB      { b.k.Lt = durationpb.New(d); return b }
+func (b *DurationB) Lte(d time.Duration) *DurationB     { b.k.Lte = durationpb.New(d); return b }
+
+// TimestampB builds a timestamp field.
+type TimestampB struct {
+	fieldBase[*TimestampB]
+	k *Schema_Filed_Timestamp
+}
+
+func Timestamp(name string) *TimestampB {
+	b := &TimestampB{k: &Schema_Filed_Timestamp{}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Timestamp_{Timestamp: b.k}
+	return b
+}
+
+func (b *TimestampB) Default(t time.Time) *TimestampB { b.k.Default = timestamppb.New(t); return b }
+func (b *TimestampB) Gt(t time.Time) *TimestampB      { b.k.Gt = timestamppb.New(t); return b }
+func (b *TimestampB) Gte(t time.Time) *TimestampB     { b.k.Gte = timestamppb.New(t); return b }
+func (b *TimestampB) Lt(t time.Time) *TimestampB      { b.k.Lt = timestamppb.New(t); return b }
+func (b *TimestampB) Lte(t time.Time) *TimestampB     { b.k.Lte = timestamppb.New(t); return b }
+
+// --- list / object / computed ----------------------------------------------
+
+// ListB builds a list field.
+type ListB struct {
+	fieldBase[*ListB]
+	k *Schema_Filed_List
+}
+
+// List builds a list field; items describe the element field(s).
+func List(name string, items ...FieldDef) *ListB {
+	b := &ListB{k: &Schema_Filed_List{}}
+	b.fieldBase = newField(name, b)
+	for _, d := range items {
+		b.k.Items = append(b.k.Items, d.Done())
 	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Double_{Double: k} }
+	b.f.Kind = &Schema_Filed_List_{List: b.k}
+	return b
 }
 
-func DoubleDefault(v float64) DoubleOption  { return func(k *Schema_Filed_Double) { k.Default = &v } }
-func DoubleConst(v float64) DoubleOption    { return func(k *Schema_Filed_Double) { k.Const = &v } }
-func DoubleGt(v float64) DoubleOption       { return func(k *Schema_Filed_Double) { k.Gt = &v } }
-func DoubleGte(v float64) DoubleOption      { return func(k *Schema_Filed_Double) { k.Gte = &v } }
-func DoubleLt(v float64) DoubleOption       { return func(k *Schema_Filed_Double) { k.Lt = &v } }
-func DoubleLte(v float64) DoubleOption      { return func(k *Schema_Filed_Double) { k.Lte = &v } }
-func DoubleIn(v ...float64) DoubleOption    { return func(k *Schema_Filed_Double) { k.In = v } }
-func DoubleNotIn(v ...float64) DoubleOption { return func(k *Schema_Filed_Double) { k.NotIn = v } }
-func DoubleMultipleOf(v float64) DoubleOption {
-	return func(k *Schema_Filed_Double) { k.MultipleOf = &v }
+func (b *ListB) MinItems(v uint64) *ListB { b.k.MinItems = &v; return b }
+func (b *ListB) MaxItems(v uint64) *ListB { b.k.MaxItems = &v; return b }
+func (b *ListB) Unique() *ListB           { b.k.Unique = true; return b }
+
+// ObjectB builds a nested object field.
+type ObjectB struct {
+	fieldBase[*ObjectB]
+	k *Schema_Filed_Object
 }
 
-// Int32Option configures an Int32 kind.
-type Int32Option func(*Schema_Filed_Int32)
-
-// Int32 builds an int32 field kind.
-func Int32(opts ...Int32Option) Kind {
-	k := &Schema_Filed_Int32{}
-	for _, o := range opts {
-		o(k)
+// Object builds a nested object field from its child fields (no identity needed
+// for nested schemas).
+func Object(name string, fields ...FieldDef) *ObjectB {
+	sub := &Schema{}
+	for _, d := range fields {
+		sub.Fields = append(sub.Fields, d.Done())
 	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Int32_{Int32: k} }
+	b := &ObjectB{k: &Schema_Filed_Object{Schema: sub}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Object_{Object: b.k}
+	return b
 }
 
-func Int32Default(v int32) Int32Option  { return func(k *Schema_Filed_Int32) { k.Default = &v } }
-func Int32Const(v int32) Int32Option    { return func(k *Schema_Filed_Int32) { k.Const = &v } }
-func Int32Gt(v int32) Int32Option       { return func(k *Schema_Filed_Int32) { k.Gt = &v } }
-func Int32Gte(v int32) Int32Option      { return func(k *Schema_Filed_Int32) { k.Gte = &v } }
-func Int32Lt(v int32) Int32Option       { return func(k *Schema_Filed_Int32) { k.Lt = &v } }
-func Int32Lte(v int32) Int32Option      { return func(k *Schema_Filed_Int32) { k.Lte = &v } }
-func Int32In(v ...int32) Int32Option    { return func(k *Schema_Filed_Int32) { k.In = v } }
-func Int32NotIn(v ...int32) Int32Option { return func(k *Schema_Filed_Int32) { k.NotIn = v } }
-func Int32MultipleOf(v int32) Int32Option {
-	return func(k *Schema_Filed_Int32) { k.MultipleOf = &v }
-}
-
-// Int64Option configures an Int64 kind.
-type Int64Option func(*Schema_Filed_Int64)
-
-// Int64 builds an int64 field kind.
-func Int64(opts ...Int64Option) Kind {
-	k := &Schema_Filed_Int64{}
-	for _, o := range opts {
-		o(k)
+// Rule adds a form-wide rule to the nested object schema.
+func (b *ObjectB) Rule(rules ...RuleDef) *ObjectB {
+	for _, r := range rules {
+		b.k.Schema.Rules = append(b.k.Schema.Rules, r.Done())
 	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Int64_{Int64: k} }
+	return b
 }
 
-func Int64Default(v int64) Int64Option  { return func(k *Schema_Filed_Int64) { k.Default = &v } }
-func Int64Const(v int64) Int64Option    { return func(k *Schema_Filed_Int64) { k.Const = &v } }
-func Int64Gt(v int64) Int64Option       { return func(k *Schema_Filed_Int64) { k.Gt = &v } }
-func Int64Gte(v int64) Int64Option      { return func(k *Schema_Filed_Int64) { k.Gte = &v } }
-func Int64Lt(v int64) Int64Option       { return func(k *Schema_Filed_Int64) { k.Lt = &v } }
-func Int64Lte(v int64) Int64Option      { return func(k *Schema_Filed_Int64) { k.Lte = &v } }
-func Int64In(v ...int64) Int64Option    { return func(k *Schema_Filed_Int64) { k.In = v } }
-func Int64NotIn(v ...int64) Int64Option { return func(k *Schema_Filed_Int64) { k.NotIn = v } }
-func Int64MultipleOf(v int64) Int64Option {
-	return func(k *Schema_Filed_Int64) { k.MultipleOf = &v }
+// ComputedB builds a derived field.
+type ComputedB struct {
+	fieldBase[*ComputedB]
+	k *Schema_Filed_Computed
 }
 
-// UInt32Option configures a UInt32 kind.
-type UInt32Option func(*Schema_Filed_UInt32)
-
-// UInt32 builds a uint32 field kind.
-func UInt32(opts ...UInt32Option) Kind {
-	k := &Schema_Filed_UInt32{}
-	for _, o := range opts {
-		o(k)
-	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Uint32{Uint32: k} }
+// Computed builds a derived field; expr reads root (inputs + computed) and
+// produces the value.
+func Computed(name, expr string) *ComputedB {
+	b := &ComputedB{k: &Schema_Filed_Computed{Expr: expr}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Computed_{Computed: b.k}
+	return b
 }
 
-func UInt32Default(v uint32) UInt32Option  { return func(k *Schema_Filed_UInt32) { k.Default = &v } }
-func UInt32Const(v uint32) UInt32Option    { return func(k *Schema_Filed_UInt32) { k.Const = &v } }
-func UInt32Gt(v uint32) UInt32Option       { return func(k *Schema_Filed_UInt32) { k.Gt = &v } }
-func UInt32Gte(v uint32) UInt32Option      { return func(k *Schema_Filed_UInt32) { k.Gte = &v } }
-func UInt32Lt(v uint32) UInt32Option       { return func(k *Schema_Filed_UInt32) { k.Lt = &v } }
-func UInt32Lte(v uint32) UInt32Option      { return func(k *Schema_Filed_UInt32) { k.Lte = &v } }
-func UInt32In(v ...uint32) UInt32Option    { return func(k *Schema_Filed_UInt32) { k.In = v } }
-func UInt32NotIn(v ...uint32) UInt32Option { return func(k *Schema_Filed_UInt32) { k.NotIn = v } }
-func UInt32MultipleOf(v uint32) UInt32Option {
-	return func(k *Schema_Filed_UInt32) { k.MultipleOf = &v }
-}
-
-// UInt64Option configures a UInt64 kind.
-type UInt64Option func(*Schema_Filed_UInt64)
-
-// UInt64 builds a uint64 field kind.
-func UInt64(opts ...UInt64Option) Kind {
-	k := &Schema_Filed_UInt64{}
-	for _, o := range opts {
-		o(k)
-	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Uint64{Uint64: k} }
-}
-
-func UInt64Default(v uint64) UInt64Option  { return func(k *Schema_Filed_UInt64) { k.Default = &v } }
-func UInt64Const(v uint64) UInt64Option    { return func(k *Schema_Filed_UInt64) { k.Const = &v } }
-func UInt64Gt(v uint64) UInt64Option       { return func(k *Schema_Filed_UInt64) { k.Gt = &v } }
-func UInt64Gte(v uint64) UInt64Option      { return func(k *Schema_Filed_UInt64) { k.Gte = &v } }
-func UInt64Lt(v uint64) UInt64Option       { return func(k *Schema_Filed_UInt64) { k.Lt = &v } }
-func UInt64Lte(v uint64) UInt64Option      { return func(k *Schema_Filed_UInt64) { k.Lte = &v } }
-func UInt64In(v ...uint64) UInt64Option    { return func(k *Schema_Filed_UInt64) { k.In = v } }
-func UInt64NotIn(v ...uint64) UInt64Option { return func(k *Schema_Filed_UInt64) { k.NotIn = v } }
-func UInt64MultipleOf(v uint64) UInt64Option {
-	return func(k *Schema_Filed_UInt64) { k.MultipleOf = &v }
-}
-
-// BoolOption configures a Bool kind.
-type BoolOption func(*Schema_Filed_Bool)
-
-// Bool builds a bool field kind.
-func Bool(opts ...BoolOption) Kind {
-	k := &Schema_Filed_Bool{}
-	for _, o := range opts {
-		o(k)
-	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Bool_{Bool: k} }
-}
-
-func BoolDefault(v bool) BoolOption { return func(k *Schema_Filed_Bool) { k.Default = &v } }
-func BoolConst(v bool) BoolOption   { return func(k *Schema_Filed_Bool) { k.Const = &v } }
-
-// StringOption configures a String kind.
-type StringOption func(*Schema_Filed_String)
-
-// String builds a string field kind.
-func String(opts ...StringOption) Kind {
-	k := &Schema_Filed_String{}
-	for _, o := range opts {
-		o(k)
-	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_String_{String_: k} }
-}
-
-func StringDefault(v string) StringOption  { return func(k *Schema_Filed_String) { k.Default = &v } }
-func StringConst(v string) StringOption    { return func(k *Schema_Filed_String) { k.Const = &v } }
-func StringLen(v uint64) StringOption      { return func(k *Schema_Filed_String) { k.Len = &v } }
-func StringMinLen(v uint64) StringOption   { return func(k *Schema_Filed_String) { k.MinLen = &v } }
-func StringMaxLen(v uint64) StringOption   { return func(k *Schema_Filed_String) { k.MaxLen = &v } }
-func StringPattern(v string) StringOption  { return func(k *Schema_Filed_String) { k.Pattern = &v } }
-func StringIn(v ...string) StringOption    { return func(k *Schema_Filed_String) { k.In = v } }
-func StringNotIn(v ...string) StringOption { return func(k *Schema_Filed_String) { k.NotIn = v } }
-
-// EnumOption configures an Enum kind.
-type EnumOption func(*Schema_Filed_Enum)
-
-// Enum builds an enum field kind.
-func Enum(opts ...EnumOption) Kind {
-	k := &Schema_Filed_Enum{}
-	for _, o := range opts {
-		o(k)
-	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Enum_{Enum: k} }
-}
-
-func EnumDefault(v int32) EnumOption           { return func(k *Schema_Filed_Enum) { k.Default = &v } }
-func EnumValues(v map[int32]string) EnumOption { return func(k *Schema_Filed_Enum) { k.Values = v } }
-func EnumDefinedOnly() EnumOption              { return func(k *Schema_Filed_Enum) { k.DefinedOnly = true } }
-func EnumIn(v ...int32) EnumOption             { return func(k *Schema_Filed_Enum) { k.In = v } }
-func EnumNotIn(v ...int32) EnumOption          { return func(k *Schema_Filed_Enum) { k.NotIn = v } }
-
-// DurationOption configures a Duration kind.
-type DurationOption func(*Schema_Filed_Duration)
-
-// Duration builds a duration field kind.
-func Duration(opts ...DurationOption) Kind {
-	k := &Schema_Filed_Duration{}
-	for _, o := range opts {
-		o(k)
-	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Duration_{Duration: k} }
-}
-
-func DurationDefault(d time.Duration) DurationOption {
-	return func(k *Schema_Filed_Duration) { k.Default = durationpb.New(d) }
-}
-func DurationGt(d time.Duration) DurationOption {
-	return func(k *Schema_Filed_Duration) { k.Gt = durationpb.New(d) }
-}
-func DurationGte(d time.Duration) DurationOption {
-	return func(k *Schema_Filed_Duration) { k.Gte = durationpb.New(d) }
-}
-func DurationLt(d time.Duration) DurationOption {
-	return func(k *Schema_Filed_Duration) { k.Lt = durationpb.New(d) }
-}
-func DurationLte(d time.Duration) DurationOption {
-	return func(k *Schema_Filed_Duration) { k.Lte = durationpb.New(d) }
-}
-
-// TimestampOption configures a Timestamp kind.
-type TimestampOption func(*Schema_Filed_Timestamp)
-
-// Timestamp builds a timestamp field kind.
-func Timestamp(opts ...TimestampOption) Kind {
-	k := &Schema_Filed_Timestamp{}
-	for _, o := range opts {
-		o(k)
-	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Timestamp_{Timestamp: k} }
-}
-
-func TimestampDefault(t time.Time) TimestampOption {
-	return func(k *Schema_Filed_Timestamp) { k.Default = timestamppb.New(t) }
-}
-func TimestampGt(t time.Time) TimestampOption {
-	return func(k *Schema_Filed_Timestamp) { k.Gt = timestamppb.New(t) }
-}
-func TimestampGte(t time.Time) TimestampOption {
-	return func(k *Schema_Filed_Timestamp) { k.Gte = timestamppb.New(t) }
-}
-func TimestampLt(t time.Time) TimestampOption {
-	return func(k *Schema_Filed_Timestamp) { k.Lt = timestamppb.New(t) }
-}
-func TimestampLte(t time.Time) TimestampOption {
-	return func(k *Schema_Filed_Timestamp) { k.Lte = timestamppb.New(t) }
-}
-
-// ListOption configures a List kind.
-type ListOption func(*Schema_Filed_List)
-
-// List builds a list field kind. Items describe the element field(s).
-func List(opts ...ListOption) Kind {
-	k := &Schema_Filed_List{}
-	for _, o := range opts {
-		o(k)
-	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_List_{List: k} }
-}
-
-func ListItems(items ...*Schema_Filed) ListOption {
-	return func(k *Schema_Filed_List) { k.Items = items }
-}
-func ListMinItems(v uint64) ListOption { return func(k *Schema_Filed_List) { k.MinItems = &v } }
-func ListMaxItems(v uint64) ListOption { return func(k *Schema_Filed_List) { k.MaxItems = &v } }
-func ListUnique() ListOption           { return func(k *Schema_Filed_List) { k.Unique = true } }
-
-// Object builds a nested object field kind from a sub-schema.
-func Object(schema *Schema) Kind {
-	return func(f *Schema_Filed) {
-		f.Kind = &Schema_Filed_Object_{Object: &Schema_Filed_Object{Schema: schema}}
-	}
-}
-
-// ComputedOption configures a Computed kind.
-type ComputedOption func(*Schema_Filed_Computed)
-
-// Computed builds a derived field kind. expr reads root (inputs + already
-// computed values) and produces the field's value.
-func Computed(expr string, opts ...ComputedOption) Kind {
-	c := &Schema_Filed_Computed{Expr: expr}
-	for _, o := range opts {
-		o(c)
-	}
-	return func(f *Schema_Filed) { f.Kind = &Schema_Filed_Computed_{Computed: c} }
-}
-
-// ComputedResult sets the result type hint used to marshal the derived value.
-func ComputedResult(rt Schema_Filed_ResultType) ComputedOption {
-	return func(c *Schema_Filed_Computed) { c.Result = &rt }
-}
+// Result sets the result-type hint used to marshal the derived value.
+func (b *ComputedB) Result(rt Schema_Filed_ResultType) *ComputedB { b.k.Result = &rt; return b }
 
 // =============================================================================
-// Rule
+// FieldError builder (server-side validation failure)
 // =============================================================================
-
-// RuleOption configures a validation Rule.
-type RuleOption func(*Schema_Filed_Rule)
-
-// NewRule builds a CEL validation rule. expr must evaluate to bool; true means
-// valid. message is shown to the user when expr is false.
-func NewRule(expr, message string, opts ...RuleOption) *Schema_Filed_Rule {
-	r := &Schema_Filed_Rule{Expr: expr, Message: message}
-	for _, o := range opts {
-		o(r)
-	}
-	return r
-}
-
-// RuleID sets the stable rule id.
-func RuleID(id string) RuleOption {
-	return func(r *Schema_Filed_Rule) { r.Id = &id }
-}
-
-// RuleSeverity sets the rule severity (defaults to ERROR).
-func RuleSeverity(s Schema_Filed_Severity) RuleOption {
-	return func(r *Schema_Filed_Rule) { r.Severity = &s }
-}
-
-// =============================================================================
-// FieldError
-// =============================================================================
-
-// FieldErrorOption configures a FieldError.
-type FieldErrorOption func(*FieldError)
 
 // NewFieldError builds a single validation failure for the given field.
-func NewFieldError(field, message string, opts ...FieldErrorOption) *FieldError {
-	e := &FieldError{Field: field, Message: message}
-	for _, o := range opts {
-		o(e)
-	}
-	return e
-}
-
-// FieldErrorRuleID sets the id of the rule that failed.
-func FieldErrorRuleID(id string) FieldErrorOption {
-	return func(e *FieldError) { e.RuleId = &id }
-}
-
-// FieldErrorSeverity sets the failure severity.
-func FieldErrorSeverity(s Schema_Filed_Severity) FieldErrorOption {
-	return func(e *FieldError) { e.Severity = s }
+func NewFieldError(field, message string) *FieldError {
+	return &FieldError{Field: field, Message: message, Severity: SeverityError}
 }

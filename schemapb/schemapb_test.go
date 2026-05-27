@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +27,8 @@ func msgs(errs []*schemapb.FieldError) map[string]string {
 	return m
 }
 
+func has(m map[string]string, field string) bool { _, ok := m[field]; return ok }
+
 func mustValidator(t *testing.T, s *schemapb.Schema) *schemapb.Validator {
 	t.Helper()
 	v, err := schemapb.NewValidator(s)
@@ -33,6 +36,12 @@ func mustValidator(t *testing.T, s *schemapb.Schema) *schemapb.Validator {
 		t.Fatalf("NewValidator: %v", err)
 	}
 	return v
+}
+
+// build makes a validator for a test schema with the given fields.
+func build(t *testing.T, fields ...schemapb.FieldDef) *schemapb.Validator {
+	t.Helper()
+	return mustValidator(t, schemapb.NewSchema("test", "s", "v1").Fields(fields...).MustBuild())
 }
 
 // validateJSON validates body and returns field->message.
@@ -45,10 +54,14 @@ func validateJSON(t *testing.T, v *schemapb.Validator, body string) map[string]s
 	return msgs(errs)
 }
 
-// id is a valid identity for building schemas in tests.
-func id() schemapb.SchemaOption { return schemapb.Identity("test", "s", "v1") }
-
-func has(m map[string]string, field string) bool { _, ok := m[field]; return ok }
+func mustStruct(t *testing.T, m map[string]any) *structpb.Struct {
+	t.Helper()
+	st, err := structpb.NewStruct(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
 
 // ---------------------------------------------------------------------------
 // builders
@@ -61,32 +74,25 @@ func TestPtr(t *testing.T) {
 }
 
 func TestBuilders_AllKinds(t *testing.T) {
-	s := schemapb.NewSchema(
-		id(),
-		schemapb.Description("kitchen sink"),
-		schemapb.Fields(
-			schemapb.Field("f", schemapb.Float(schemapb.FloatGte(0), schemapb.FloatLte(1))),
-			schemapb.Field("d", schemapb.Double(schemapb.DoubleMultipleOf(0.5))),
-			schemapb.Field("i32", schemapb.Int32(schemapb.Int32In(1, 2, 3))),
-			schemapb.Field("i64", schemapb.Int64(schemapb.Int64Gt(0))),
-			schemapb.Field("u32", schemapb.UInt32(schemapb.UInt32Lte(9))),
-			schemapb.Field("u64", schemapb.UInt64(schemapb.UInt64Const(4))),
-			schemapb.Field("b", schemapb.Bool(schemapb.BoolConst(true))),
-			schemapb.Field("s", schemapb.String(schemapb.StringMinLen(1)), schemapb.FieldDescription("name")),
-			schemapb.Field("e", schemapb.Enum(schemapb.EnumValues(map[int32]string{1: "a"}), schemapb.EnumDefinedOnly())),
-			schemapb.Field("dur", schemapb.Duration(schemapb.DurationLte(time.Minute))),
-			schemapb.Field("ts", schemapb.Timestamp(schemapb.TimestampGte(time.Unix(0, 0)))),
-			schemapb.Field("list", schemapb.List(schemapb.ListMinItems(1), schemapb.ListItems(
-				schemapb.Field("it", schemapb.String()),
-			))),
-			schemapb.Field("obj", schemapb.Object(schemapb.NewSchema(schemapb.Fields(
-				schemapb.Field("inner", schemapb.Bool()),
-			)))),
-		),
-	)
-	if errs := schemapb.ValidateSchema(s); len(errs) != 0 {
-		t.Fatalf("kitchen-sink schema invalid: %v", msgs(errs))
-	}
+	s := schemapb.NewSchema("test", "s", "v1").
+		Descr("kitchen sink").
+		Fields(
+			schemapb.Float("f").Gte(0).Lte(1),
+			schemapb.Double("d").MultipleOf(0.5),
+			schemapb.Int32("i32").In(1, 2, 3),
+			schemapb.Int64("i64").Gt(0),
+			schemapb.UInt32("u32").Lte(9),
+			schemapb.UInt64("u64").Const(4),
+			schemapb.Bool("b").Const(true),
+			schemapb.Str("s").MinLen(1).Desc("name"),
+			schemapb.Enum("e").Values(map[int32]string{1: "a"}).DefinedOnly(),
+			schemapb.Duration("dur").Lte(time.Minute),
+			schemapb.Timestamp("ts").Gte(time.Unix(0, 0)),
+			schemapb.List("list", schemapb.Str("it")).MinItems(1),
+			schemapb.Object("obj", schemapb.Bool("inner")),
+		).
+		MustBuild()
+
 	if s.GetId().GetName() != "s" || s.GetDescription() != "kitchen sink" {
 		t.Errorf("identity/description not set: %v", s.GetId())
 	}
@@ -131,7 +137,7 @@ func TestValidateSchema_Malformed(t *testing.T) {
 }
 
 func TestValidateSchema_RequiresID(t *testing.T) {
-	s := schemapb.NewSchema(schemapb.Fields(schemapb.Field("x", schemapb.Bool())))
+	s := &schemapb.Schema{Fields: []*schemapb.Schema_Filed{schemapb.Bool("x").Done()}} // no id
 	if !has(msgs(schemapb.ValidateSchema(s)), "id") {
 		t.Fatal("expected id-required error")
 	}
@@ -145,10 +151,10 @@ func TestValidateSchema_RequiresID(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestValidateNumeric(t *testing.T) {
-	v := mustValidator(t, schemapb.NewSchema(id(), schemapb.Fields(
-		schemapb.Field("n", schemapb.Int32(schemapb.Int32Gte(0), schemapb.Int32Lte(10), schemapb.Int32MultipleOf(2))),
-		schemapb.Field("f", schemapb.Float(schemapb.FloatGt(0))),
-	)))
+	v := build(t,
+		schemapb.Int32("n").Gte(0).Lte(10).MultipleOf(2),
+		schemapb.Float("f").Gt(0),
+	)
 	if g := validateJSON(t, v, `{"n":4,"f":0.5}`); len(g) != 0 {
 		t.Errorf("want valid, got %v", g)
 	}
@@ -167,9 +173,7 @@ func TestValidateNumeric(t *testing.T) {
 }
 
 func TestValidateString(t *testing.T) {
-	v := mustValidator(t, schemapb.NewSchema(id(), schemapb.Fields(
-		schemapb.Field("s", schemapb.String(schemapb.StringMinLen(2), schemapb.StringMaxLen(5), schemapb.StringPattern(`^[a-z]+$`))),
-	)))
+	v := build(t, schemapb.Str("s").MinLen(2).MaxLen(5).Pattern(`^[a-z]+$`))
 	if g := validateJSON(t, v, `{"s":"abc"}`); len(g) != 0 {
 		t.Errorf("valid: %v", g)
 	}
@@ -182,13 +186,10 @@ func TestValidateString(t *testing.T) {
 }
 
 func TestValidateBoolEnum(t *testing.T) {
-	v := mustValidator(t, schemapb.NewSchema(id(), schemapb.Fields(
-		schemapb.Field("b", schemapb.Bool(schemapb.BoolConst(true))),
-		schemapb.Field("e", schemapb.Enum(
-			schemapb.EnumValues(map[int32]string{1: "a", 2: "b", 3: "c"}),
-			schemapb.EnumDefinedOnly(), schemapb.EnumIn(1, 2),
-		)),
-	)))
+	v := build(t,
+		schemapb.Bool("b").Const(true),
+		schemapb.Enum("e").Values(map[int32]string{1: "a", 2: "b", 3: "c"}).DefinedOnly().In(1, 2),
+	)
 	if g := validateJSON(t, v, `{"b":true,"e":1}`); len(g) != 0 {
 		t.Errorf("valid: %v", g)
 	}
@@ -202,10 +203,10 @@ func TestValidateBoolEnum(t *testing.T) {
 
 func TestValidateDurationTimestamp(t *testing.T) {
 	t0 := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
-	v := mustValidator(t, schemapb.NewSchema(id(), schemapb.Fields(
-		schemapb.Field("d", schemapb.Duration(schemapb.DurationGte(time.Second), schemapb.DurationLte(time.Minute))),
-		schemapb.Field("t", schemapb.Timestamp(schemapb.TimestampGte(t0))),
-	)))
+	v := build(t,
+		schemapb.Duration("d").Gte(time.Second).Lte(time.Minute),
+		schemapb.Timestamp("t").Gte(t0),
+	)
 	if g := validateJSON(t, v, `{"d":"30s","t":"2021-01-01T00:00:00Z"}`); len(g) != 0 {
 		t.Errorf("valid: %v", g)
 	}
@@ -218,12 +219,8 @@ func TestValidateDurationTimestamp(t *testing.T) {
 }
 
 func TestValidateList(t *testing.T) {
-	v := mustValidator(t, schemapb.NewSchema(id(), schemapb.Fields(
-		schemapb.Field("tags", schemapb.List(
-			schemapb.ListMinItems(1), schemapb.ListMaxItems(2), schemapb.ListUnique(),
-			schemapb.ListItems(schemapb.Field("tag", schemapb.String(schemapb.StringMinLen(1)))),
-		)),
-	)))
+	v := build(t, schemapb.List("tags", schemapb.Str("tag").MinLen(1)).
+		MinItems(1).MaxItems(2).Unique())
 	if g := validateJSON(t, v, `{"tags":["a","b"]}`); len(g) != 0 {
 		t.Errorf("valid: %v", g)
 	}
@@ -242,11 +239,7 @@ func TestValidateList(t *testing.T) {
 }
 
 func TestValidateObject(t *testing.T) {
-	v := mustValidator(t, schemapb.NewSchema(id(), schemapb.Fields(
-		schemapb.Field("addr", schemapb.Object(schemapb.NewSchema(schemapb.Fields(
-			schemapb.Field("zip", schemapb.String(schemapb.StringLen(5)), schemapb.FieldRequired()),
-		)))),
-	)))
+	v := build(t, schemapb.Object("addr", schemapb.Str("zip").Len(5).Required()))
 	if g := validateJSON(t, v, `{"addr":{"zip":"12345"}}`); len(g) != 0 {
 		t.Errorf("valid: %v", g)
 	}
@@ -259,11 +252,11 @@ func TestValidateObject(t *testing.T) {
 }
 
 func TestNullableRequired(t *testing.T) {
-	v := mustValidator(t, schemapb.NewSchema(id(), schemapb.Fields(
-		schemapb.Field("req", schemapb.String(), schemapb.FieldRequired()),
-		schemapb.Field("opt", schemapb.String(), schemapb.FieldNullable()),
-		schemapb.Field("nn", schemapb.String()),
-	)))
+	v := build(t,
+		schemapb.Str("req").Required(),
+		schemapb.Str("opt").Nullable(),
+		schemapb.Str("nn"),
+	)
 	if g := validateJSON(t, v, `{"req":"x","opt":null}`); len(g) != 0 { // nullable null ok
 		t.Errorf("valid: %v", g)
 	}
@@ -280,16 +273,15 @@ func TestNullableRequired(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestRules(t *testing.T) {
-	v := mustValidator(t, schemapb.NewSchema(id(),
-		schemapb.Fields(
-			schemapb.Field("a", schemapb.Int32()),
-			schemapb.Field("b", schemapb.Int32()),
-			schemapb.Field("w", schemapb.Int32(), schemapb.FieldRules(
-				schemapb.NewRule("this <= 100", "soft cap", schemapb.RuleID("cap"), schemapb.RuleSeverity(schemapb.SeverityWarning)),
-			)),
-		),
-		schemapb.Rules(schemapb.NewRule("root.a < root.b", "a<b", schemapb.RuleID("ab"))),
-	))
+	v := mustValidator(t, schemapb.NewSchema("test", "s", "v1").
+		Fields(
+			schemapb.Int32("a"),
+			schemapb.Int32("b"),
+			schemapb.Int32("w").Rules(schemapb.Rule("this <= 100", "soft cap").ID("cap").Warn()),
+		).
+		Rules(schemapb.Rule("root.a < root.b", "a<b").ID("ab")).
+		MustBuild())
+
 	// form-wide rule fails
 	errs, _ := v.ValidateJSON(json.RawMessage(`{"a":5,"b":1,"w":1}`))
 	if msgs(errs)["ab"] != "a<b" {
@@ -299,7 +291,7 @@ func TestRules(t *testing.T) {
 	errs, _ = v.ValidateJSON(json.RawMessage(`{"a":1,"b":2,"w":200}`))
 	var sawWarn bool
 	for _, e := range errs {
-		if e.GetRuleId() == "cap" && e.GetSeverity() == schemapb.Schema_Filed_WARNING {
+		if e.GetRuleId() == "cap" && e.GetSeverity() == schemapb.SeverityWarning {
 			sawWarn = true
 		}
 	}
@@ -313,10 +305,10 @@ func TestRules(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestValidateStruct_AndOneShot(t *testing.T) {
-	s := schemapb.NewSchema(id(), schemapb.Fields(
-		schemapb.Field("age", schemapb.Int32(schemapb.Int32Gte(0)), schemapb.FieldRequired()),
-	))
-	st, _ := structpb.NewStruct(map[string]any{"age": 30})
+	s := schemapb.NewSchema("test", "s", "v1").
+		Fields(schemapb.Int32("age").Gte(0).Required()).
+		MustBuild()
+	st := mustStruct(t, map[string]any{"age": 30})
 	if errs, err := schemapb.ValidateStruct(s, st); err != nil || len(errs) != 0 {
 		t.Fatalf("one-shot struct: errs=%v err=%v", msgs(errs), err)
 	}
@@ -326,18 +318,15 @@ func TestValidateStruct_AndOneShot(t *testing.T) {
 }
 
 func TestValidateJSON_ParseError(t *testing.T) {
-	v := mustValidator(t, schemapb.NewSchema(id(), schemapb.Fields(schemapb.Field("x", schemapb.Bool())))) //nolint
+	v := build(t, schemapb.Bool("x"))
 	if _, err := v.ValidateJSON(json.RawMessage(`not json`)); err == nil {
 		t.Fatal("expected parse error")
 	}
 }
 
 func TestFieldError(t *testing.T) {
-	e := schemapb.NewFieldError("age", "too low",
-		schemapb.FieldErrorRuleID("adult"),
-		schemapb.FieldErrorSeverity(schemapb.SeverityWarning),
-	)
-	if e.GetField() != "age" || e.GetRuleId() != "adult" || e.GetSeverity() != schemapb.Schema_Filed_WARNING {
+	e := schemapb.NewFieldError("age", "too low")
+	if e.GetField() != "age" || e.GetMessage() != "too low" || e.GetSeverity() != schemapb.SeverityError {
 		t.Errorf("field error: %v", e)
 	}
 }
@@ -349,36 +338,24 @@ func TestFieldError(t *testing.T) {
 // diskSchema models disk IOPS/bandwidth derived from size + type, plus the
 // conditional size bounds. Reused by several tests.
 func diskSchema() *schemapb.Schema {
-	return schemapb.NewSchema(
-		schemapb.Identity("infra", "disk", "v1"),
-		schemapb.Fields(
-			schemapb.Field("disk_type",
-				schemapb.Enum(schemapb.EnumValues(map[int32]string{1: "ssd", 2: "hdd"}), schemapb.EnumDefinedOnly()),
-				schemapb.FieldRequired(),
+	return schemapb.NewSchema("infra", "disk", "v1").
+		Fields(
+			schemapb.Enum("disk_type").Values(map[int32]string{1: "ssd", 2: "hdd"}).DefinedOnly().Required(),
+			schemapb.Int32("disk_size").Gte(1).Required().Rules(
+				schemapb.Rule(`int(root.disk_type) != 1 || (int(this) >= 20 && int(this) <= 8192)`,
+					"type 1: 20–8192 GB").ID("disk1_range"),
+				schemapb.Rule(`int(root.disk_type) != 2 || (int(this) >= 93 && int(this) <= 262074 && int(this) % 93 == 0)`,
+					"type 2: 93–262074 GB, multiple of 93").ID("disk2_range"),
 			),
-			schemapb.Field("disk_size", schemapb.Int32(schemapb.Int32Gte(1)), schemapb.FieldRequired(),
-				schemapb.FieldRules(
-					schemapb.NewRule(
-						`int(root.disk_type) != 1 || (int(this) >= 20 && int(this) <= 8192)`,
-						"type 1: 20–8192 GB", schemapb.RuleID("disk1_range")),
-					schemapb.NewRule(
-						`int(root.disk_type) != 2 || (int(this) >= 93 && int(this) <= 262074 && int(this) % 93 == 0)`,
-						"type 2: 93–262074 GB, multiple of 93", schemapb.RuleID("disk2_range")),
-				),
-			),
-			schemapb.Field("iops", schemapb.Computed(
-				`root.disk_type == 1 ? min(max(root.disk_size * 50, 3000), 16000) : min(max(root.disk_size * 5, 100), 3000)`,
-				schemapb.ComputedResult(schemapb.ResultInt64),
-			)),
-			schemapb.Field("bandwidth_mbps", schemapb.Computed(
-				`root.disk_type == 1 ? min(max(root.disk_size / 4, 125), 1000) : min(max(root.disk_size / 10, 40), 500)`,
-				schemapb.ComputedResult(schemapb.ResultInt64),
-			)),
-			schemapb.Field("score", schemapb.Computed(
-				`root.iops + root.bandwidth_mbps * 10`, schemapb.ComputedResult(schemapb.ResultInt64),
-			)),
-		),
-	)
+			schemapb.Computed("iops",
+				`root.disk_type == 1 ? min(max(root.disk_size * 50, 3000), 16000) : min(max(root.disk_size * 5, 100), 3000)`).
+				Result(schemapb.ResultInt64),
+			schemapb.Computed("bandwidth_mbps",
+				`root.disk_type == 1 ? min(max(root.disk_size / 4, 125), 1000) : min(max(root.disk_size / 10, 40), 500)`).
+				Result(schemapb.ResultInt64),
+			schemapb.Computed("score", `root.iops + root.bandwidth_mbps * 10`).Result(schemapb.ResultInt64),
+		).
+		MustBuild()
 }
 
 func TestCompute(t *testing.T) {
@@ -405,19 +382,20 @@ func TestCompute(t *testing.T) {
 	}
 
 	// ComputeStruct path
-	st, _ := structpb.NewStruct(map[string]any{"disk_type": 1, "disk_size": 100})
-	out, errs := v.ComputeStruct(st)
+	out, errs := v.ComputeStruct(mustStruct(t, map[string]any{"disk_type": 1, "disk_size": 100}))
 	if len(errs) != 0 || out["iops"] != float64(5000) {
 		t.Errorf("ComputeStruct: %v %v", out, msgs(errs))
 	}
 }
 
 func TestComputeCycleRejected(t *testing.T) {
-	s := schemapb.NewSchema(schemapb.Identity("x", "cyc", "v1"), schemapb.Fields(
-		schemapb.Field("a", schemapb.Computed(`root.b + 1`)),
-		schemapb.Field("b", schemapb.Computed(`root.a + 1`)),
-	))
-	if _, err := schemapb.NewValidator(s); err == nil {
+	_, err := schemapb.NewSchema("x", "cyc", "v1").
+		Fields(
+			schemapb.Computed("a", "root.b + 1"),
+			schemapb.Computed("b", "root.a + 1"),
+		).
+		Build()
+	if err == nil {
 		t.Fatal("expected cycle rejection")
 	}
 }
@@ -460,18 +438,56 @@ func TestDiskConditional(t *testing.T) {
 	}
 }
 
+func TestComputeDefaultsAndFullState(t *testing.T) {
+	v := build(t,
+		schemapb.Int32("disk_type").Default(1),
+		schemapb.Int32("disk_size").Default(20),
+		schemapb.Computed("iops", `root.disk_type == 1 ? root.disk_size * 50 : root.disk_size * 5`).Result(schemapb.ResultInt64),
+	)
+
+	// no input at all -> defaults seed inputs, derived computed; full state out
+	out, errs := v.Compute(map[string]any{})
+	if len(errs) != 0 {
+		t.Fatalf("compute({}): %v", msgs(errs))
+	}
+	if out["disk_type"] != float64(1) || out["disk_size"] != float64(20) {
+		t.Errorf("defaults not seeded: %v", out)
+	}
+	if out["iops"] != float64(1000) { // 20*50
+		t.Errorf("iops = %v, want 1000", out["iops"])
+	}
+
+	// partial input overrides default; output is the whole form
+	out2, _ := v.Compute(map[string]any{"disk_size": float64(100)})
+	if out2["disk_type"] != float64(1) || out2["disk_size"] != float64(100) || out2["iops"] != float64(5000) {
+		t.Errorf("full state = %v", out2)
+	}
+}
+
+func TestComputeNested(t *testing.T) {
+	v := build(t,
+		schemapb.Int32("base"),
+		schemapb.Object("box",
+			schemapb.Int32("factor").Default(3),
+			schemapb.Computed("total", `root.base * root.box.factor`).Result(schemapb.ResultInt64),
+		),
+	)
+	out, errs := v.Compute(map[string]any{"base": float64(10), "box": map[string]any{}})
+	if len(errs) != 0 {
+		t.Fatalf("nested compute: %v", msgs(errs))
+	}
+	box, _ := out["box"].(map[string]any)
+	if box["factor"] != float64(3) { // default seeded in nested object
+		t.Errorf("nested default: %v", box)
+	}
+	if box["total"] != float64(30) { // 10 * 3, computed in nested scope
+		t.Errorf("nested computed total = %v, want 30", box["total"])
+	}
+}
+
 // ---------------------------------------------------------------------------
 // SchemaService server
 // ---------------------------------------------------------------------------
-
-func mustStruct(t *testing.T, m map[string]any) *structpb.Struct {
-	t.Helper()
-	st, err := structpb.NewStruct(m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return st
-}
 
 func refID(id *schemapb.SchemaIdentity) *schemapb.SchemaRef {
 	return &schemapb.SchemaRef{Source: &schemapb.SchemaRef_Id{Id: id}}
@@ -493,7 +509,7 @@ func TestServer_RegisterGetList(t *testing.T) {
 		t.Fatalf("get: %v err=%v", got, err)
 	}
 
-	other := schemapb.NewSchema(schemapb.Identity("infra", "net", "v1"), schemapb.Fields(schemapb.Field("x", schemapb.Bool())))
+	other := schemapb.NewSchema("infra", "net", "v1").Fields(schemapb.Bool("x")).MustBuild()
 	if _, err := srv.RegisterSchema(ctx, other); err != nil {
 		t.Fatal(err)
 	}
@@ -510,7 +526,7 @@ func TestServer_RegisterGetList(t *testing.T) {
 
 func TestServer_RegisterInvalid(t *testing.T) {
 	srv := schemapb.NewServer(schemapb.DefaultConfig())
-	bad := schemapb.NewSchema(schemapb.Fields(schemapb.Field("x", schemapb.Bool()))) // no identity
+	bad := &schemapb.Schema{Fields: []*schemapb.Schema_Filed{schemapb.Bool("x").Done()}} // no identity
 	resp, err := srv.RegisterSchema(context.Background(), bad)
 	if err != nil {
 		t.Fatal(err)
@@ -569,74 +585,14 @@ func TestServer_Policies(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// resolve: defaults + full resolved state + nested computed
+// immutable + end-to-end postgresql.conf slice
 // ---------------------------------------------------------------------------
 
-func TestComputeDefaultsAndFullState(t *testing.T) {
-	// disk_size defaults to 20, disk_type to 1; iops derived.
-	s := schemapb.NewSchema(id(),
-		schemapb.Fields(
-			schemapb.Field("disk_type", schemapb.Int32(schemapb.Int32Default(1))),
-			schemapb.Field("disk_size", schemapb.Int32(schemapb.Int32Default(20))),
-			schemapb.Field("iops", schemapb.Computed(
-				`root.disk_type == 1 ? root.disk_size * 50 : root.disk_size * 5`,
-				schemapb.ComputedResult(schemapb.ResultInt64))),
-		),
-	)
-	v := mustValidator(t, s)
-
-	// no input at all -> defaults seed inputs, derived computed; full state out
-	out, errs := v.Compute(map[string]any{})
-	if len(errs) != 0 {
-		t.Fatalf("compute({}): %v", msgs(errs))
-	}
-	if out["disk_type"] != float64(1) || out["disk_size"] != float64(20) {
-		t.Errorf("defaults not seeded: %v", out)
-	}
-	if out["iops"] != float64(1000) { // 20*50
-		t.Errorf("iops = %v, want 1000", out["iops"])
-	}
-
-	// partial input overrides default; output is the whole form
-	out2, _ := v.Compute(map[string]any{"disk_size": float64(100)})
-	if out2["disk_type"] != float64(1) || out2["disk_size"] != float64(100) || out2["iops"] != float64(5000) {
-		t.Errorf("full state = %v", out2)
-	}
-}
-
-func TestComputeNested(t *testing.T) {
-	// computed inside a nested object, reading top-level via root path
-	s := schemapb.NewSchema(id(),
-		schemapb.Fields(
-			schemapb.Field("base", schemapb.Int32()),
-			schemapb.Field("box", schemapb.Object(schemapb.NewSchema(schemapb.Fields(
-				schemapb.Field("factor", schemapb.Int32(schemapb.Int32Default(3))),
-				schemapb.Field("total", schemapb.Computed(
-					`root.base * root.box.factor`, schemapb.ComputedResult(schemapb.ResultInt64))),
-			)))),
-		),
-	)
-	v := mustValidator(t, s)
-	out, errs := v.Compute(map[string]any{"base": float64(10), "box": map[string]any{}})
-	if len(errs) != 0 {
-		t.Fatalf("nested compute: %v", msgs(errs))
-	}
-	box, _ := out["box"].(map[string]any)
-	if box["factor"] != float64(3) { // default seeded in nested object
-		t.Errorf("nested default: %v", box)
-	}
-	if box["total"] != float64(30) { // 10 * 3, computed in nested scope
-		t.Errorf("nested computed total = %v, want 30", box["total"])
-	}
-}
-
 func TestImmutable(t *testing.T) {
-	// system value: immutable + default. group/unit are informative only.
-	s := schemapb.NewSchema(id(), schemapb.Fields(
-		schemapb.Field("block_size", schemapb.Int32(schemapb.Int32Default(8192)),
-			schemapb.FieldImmutable(), schemapb.FieldGroup("system"), schemapb.FieldUnit("B")),
-		schemapb.Field("work_mem", schemapb.Int32(schemapb.Int32Default(4)), schemapb.FieldUnit("MB")),
-	))
+	s := schemapb.NewSchema("test", "s", "v1").Fields(
+		schemapb.Int32("block_size").Default(8192).Immutable().Group("system").Unit("B"),
+		schemapb.Int32("work_mem").Default(4).Unit("MB"),
+	).MustBuild()
 	v := mustValidator(t, s)
 
 	// Compute forces the immutable field to its default even if an input is sent.
@@ -652,13 +608,119 @@ func TestImmutable(t *testing.T) {
 	if g := validateJSON(t, v, `{"block_size":16384}`); g["block_size"] != "immutable: cannot be changed" {
 		t.Errorf("want immutable error, got %v", g)
 	}
-	// Absent (or equal) immutable field is fine.
 	if g := validateJSON(t, v, `{}`); len(g) != 0 {
 		t.Errorf("want valid, got %v", g)
 	}
 
-	// group/unit are carried, engine ignores them.
 	if s.GetFields()[0].GetGroup() != "system" || s.GetFields()[0].GetUnit() != "B" {
 		t.Errorf("group/unit not set")
+	}
+}
+
+// pgSchema models a few postgresql.conf settings via the chain API.
+func pgSchema() *schemapb.Schema {
+	return schemapb.NewSchema("pg", "postgresql", "16").
+		Descr("postgresql.conf (slice)").
+		Fields(
+			schemapb.Int32("block_size").Default(8192).Immutable().
+				Group("Preset Options").Unit("B").Desc("compile-time block size (fixed)"),
+			schemapb.Int32("max_connections").Gte(1).Lte(262143).Default(100).
+				Group("Connections").Desc("max concurrent connections"),
+			schemapb.Int64("shared_buffers").Gte(16).Default(128).
+				Group("Resource Usage").Unit("MB").Desc("shared memory for buffers"),
+			schemapb.Int64("work_mem").Gte(1).Default(4).Group("Resource Usage").Unit("MB"),
+			schemapb.Computed("effective_cache_size", "root.shared_buffers * 3").Result(schemapb.ResultInt64).
+				Group("Resource Usage").Unit("MB").Desc("planner cache estimate"),
+			schemapb.Str("wal_level").In("minimal", "replica", "logical").Default("replica").Group("WAL"),
+		).
+		Rules(schemapb.Rule("root.work_mem * root.max_connections <= 4096",
+			"work_mem * max_connections exceeds the 4096 MB budget").ID("mem_budget")).
+		MustBuild()
+}
+
+func TestPostgresConf(t *testing.T) {
+	v := mustValidator(t, pgSchema())
+
+	// Resolve from nothing: defaults seeded + derived computed.
+	resolved, errs := v.Compute(map[string]any{})
+	if len(errs) != 0 {
+		t.Fatalf("compute: %v", msgs(errs))
+	}
+	want := map[string]float64{"block_size": 8192, "max_connections": 100, "shared_buffers": 128, "work_mem": 4, "effective_cache_size": 384}
+	for k, w := range want {
+		if resolved[k] != w {
+			t.Errorf("%s = %v, want %v", k, resolved[k], w)
+		}
+	}
+	if resolved["wal_level"] != "replica" {
+		t.Errorf("wal_level = %v", resolved["wal_level"])
+	}
+
+	// Validation failures: immutable change, bad enum, blown memory budget.
+	if g := validateJSON(t, v, `{"block_size":4096}`); g["block_size"] != "immutable: cannot be changed" {
+		t.Errorf("block_size: %v", g)
+	}
+	if g := validateJSON(t, v, `{"wal_level":"bogus"}`); !has(g, "wal_level") {
+		t.Errorf("wal_level enum: %v", g)
+	}
+	if g := validateJSON(t, v, `{"work_mem":50,"max_connections":100}`); g["mem_budget"] != "work_mem * max_connections exceeds the 4096 MB budget" {
+		t.Errorf("budget rule: %v", g)
+	}
+
+	// Render the resolved values back into a postgresql.conf slice.
+	conf := renderConf(pgSchema(), resolved)
+	t.Logf("rendered:\n%s", conf)
+	for _, line := range []string{
+		"block_size = 8192",
+		"max_connections = 100",
+		"shared_buffers = 128MB",
+		"effective_cache_size = 384MB", // derived
+		"wal_level = replica",
+	} {
+		if !strings.Contains(conf, line) {
+			t.Errorf("rendered conf missing %q", line)
+		}
+	}
+}
+
+// renderConf serialises resolved values into postgresql.conf text using the
+// schema for comments, grouping and units.
+func renderConf(s *schemapb.Schema, vals map[string]any) string {
+	var b strings.Builder
+	group := ""
+	for _, f := range s.GetFields() {
+		v, ok := vals[f.GetName()]
+		if !ok || v == nil {
+			continue
+		}
+		if g := f.GetGroup(); g != group {
+			b.WriteString("\n# === " + g + " ===\n")
+			group = g
+		}
+		if d := f.GetDescription(); d != "" {
+			b.WriteString("# " + d + "\n")
+		}
+		b.WriteString(f.GetName() + " = " + confValue(f, v) + "\n")
+	}
+	return b.String()
+}
+
+func confValue(f *schemapb.Schema_Filed, v any) string {
+	switch x := v.(type) {
+	case bool:
+		if x {
+			return "on"
+		}
+		return "off"
+	case float64:
+		s := strconv.FormatInt(int64(x), 10)
+		if u := f.GetUnit(); u != "" && u != "B" { // 128 -> 128MB
+			return s + u
+		}
+		return s
+	case string:
+		return x
+	default:
+		return ""
 	}
 }
