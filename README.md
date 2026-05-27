@@ -1,5 +1,12 @@
 # schemapb
 
+[![CI](https://github.com/stroppy-io/schemapb/actions/workflows/ci.yml/badge.svg)](https://github.com/stroppy-io/schemapb/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/stroppy-io/schemapb/schemapb.svg)](https://pkg.go.dev/github.com/stroppy-io/schemapb/schemapb)
+[![Go Report Card](https://goreportcard.com/badge/github.com/stroppy-io/schemapb)](https://goreportcard.com/report/github.com/stroppy-io/schemapb)
+![Go](https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white)
+![npm](https://img.shields.io/badge/npm-%40stroppy--io%2Fschemapb-CB3837?logo=npm&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A **runtime, proto-defined form/config schema descriptor** with a validation and derived-value computation engine. The **same [expr-lang](https://github.com/expr-lang/expr) engine** runs on the Go server and in the browser via WebAssembly, so server and client agree on validation rules, computed fields, and defaults — no reimplementation, no drift.
 
 Typical use cases: `postgresql.conf`-style configuration UIs, dynamic form generation, cross-platform data validation. Build the schema once with the fluent Go API; ship it to the browser as a protobuf message; the browser validates and computes live using the embedded WASM engine.
