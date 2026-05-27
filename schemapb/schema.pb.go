@@ -737,6 +737,11 @@ type Schema_Filed struct {
 	Examples []*structpb.Value `protobuf:"bytes,25,rep,name=examples,proto3" json:"examples,omitempty"`
 	// If true, the value is sensitive (e.g. a password). Purely informative.
 	Secret bool `protobuf:"varint,26,opt,name=secret,proto3" json:"secret,omitempty"`
+	// Normalize expression: maps the field's own value before validation.
+	// `this` = current value, `root` = whole form. Returns the new value.
+	// Applied after defaults/coercion and before Computed evaluation and
+	// validation.
+	Normalize *string `protobuf:"bytes,27,opt,name=normalize,proto3,oneof" json:"normalize,omitempty"`
 	// The field kind; exactly one must be set.
 	// Types that are valid to be assigned to Kind:
 	//
@@ -754,6 +759,7 @@ type Schema_Filed struct {
 	//	*Schema_Filed_List_
 	//	*Schema_Filed_Object_
 	//	*Schema_Filed_Computed_
+	//	*Schema_Filed_OneOf_
 	Kind          isSchema_Filed_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -871,6 +877,13 @@ func (x *Schema_Filed) GetSecret() bool {
 		return x.Secret
 	}
 	return false
+}
+
+func (x *Schema_Filed) GetNormalize() string {
+	if x != nil && x.Normalize != nil {
+		return *x.Normalize
+	}
+	return ""
 }
 
 func (x *Schema_Filed) GetKind() isSchema_Filed_Kind {
@@ -1006,6 +1019,15 @@ func (x *Schema_Filed) GetComputed() *Schema_Filed_Computed {
 	return nil
 }
 
+func (x *Schema_Filed) GetOneOf() *Schema_Filed_OneOf {
+	if x != nil {
+		if x, ok := x.Kind.(*Schema_Filed_OneOf_); ok {
+			return x.OneOf
+		}
+	}
+	return nil
+}
+
 type isSchema_Filed_Kind interface {
 	isSchema_Filed_Kind()
 }
@@ -1080,6 +1102,11 @@ type Schema_Filed_Computed_ struct {
 	Computed *Schema_Filed_Computed `protobuf:"bytes,19,opt,name=computed,proto3,oneof"`
 }
 
+type Schema_Filed_OneOf_ struct {
+	// Discriminated union field.
+	OneOf *Schema_Filed_OneOf `protobuf:"bytes,28,opt,name=one_of,json=oneOf,proto3,oneof"`
+}
+
 func (*Schema_Filed_Float_) isSchema_Filed_Kind() {}
 
 func (*Schema_Filed_Double_) isSchema_Filed_Kind() {}
@@ -1107,6 +1134,8 @@ func (*Schema_Filed_List_) isSchema_Filed_Kind() {}
 func (*Schema_Filed_Object_) isSchema_Filed_Kind() {}
 
 func (*Schema_Filed_Computed_) isSchema_Filed_Kind() {}
+
+func (*Schema_Filed_OneOf_) isSchema_Filed_Kind() {}
 
 // Float field kind and its single-field constraints.
 // gt = exclusive min (> 0), gte = inclusive min (>= 1).
@@ -2505,11 +2534,67 @@ func (x *Schema_Filed_Rule) GetSeverity() Schema_Filed_Severity {
 	return Schema_Filed_SEVERITY_UNSPECIFIED
 }
 
+// OneOf field kind: a discriminated union. The value must be an object
+// whose discriminator property selects a variant schema.
+type Schema_Filed_OneOf struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Property name in the value object that selects the variant.
+	Discriminator string `protobuf:"bytes,1,opt,name=discriminator,proto3" json:"discriminator,omitempty"`
+	// Variant schemas keyed by the discriminator value.
+	Variants      map[string]*Schema `protobuf:"bytes,2,rep,name=variants,proto3" json:"variants,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Schema_Filed_OneOf) Reset() {
+	*x = Schema_Filed_OneOf{}
+	mi := &file_schemapb_schema_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Schema_Filed_OneOf) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Schema_Filed_OneOf) ProtoMessage() {}
+
+func (x *Schema_Filed_OneOf) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_schema_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Schema_Filed_OneOf.ProtoReflect.Descriptor instead.
+func (*Schema_Filed_OneOf) Descriptor() ([]byte, []int) {
+	return file_schemapb_schema_proto_rawDescGZIP(), []int{0, 0, 15}
+}
+
+func (x *Schema_Filed_OneOf) GetDiscriminator() string {
+	if x != nil {
+		return x.Discriminator
+	}
+	return ""
+}
+
+func (x *Schema_Filed_OneOf) GetVariants() map[string]*Schema {
+	if x != nil {
+		return x.Variants
+	}
+	return nil
+}
+
 var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb6-\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe5/\n" +
 	"\x06Schema\x12(\n" +
 	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
@@ -2518,7 +2603,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x06strict\x18\x05 \x01(\bR\x06strict\x12*\n" +
 	"\x0emin_properties\x18\x06 \x01(\x04H\x01R\rminProperties\x88\x01\x01\x12*\n" +
 	"\x0emax_properties\x18\a \x01(\x04H\x02R\rmaxProperties\x88\x01\x01\x12\x16\n" +
-	"\x06coerce\x18\b \x01(\bR\x06coerce\x1a\xb9*\n" +
+	"\x06coerce\x18\b \x01(\bR\x06coerce\x1a\xe8,\n" +
 	"\x05Filed\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
@@ -2533,7 +2618,8 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"deprecated\x18\x18 \x01(\bR\n" +
 	"deprecated\x122\n" +
 	"\bexamples\x18\x19 \x03(\v2\x16.google.protobuf.ValueR\bexamples\x12\x16\n" +
-	"\x06secret\x18\x1a \x01(\bR\x06secret\x124\n" +
+	"\x06secret\x18\x1a \x01(\bR\x06secret\x12!\n" +
+	"\tnormalize\x18\x1b \x01(\tH\x05R\tnormalize\x88\x01\x01\x124\n" +
 	"\x05float\x18\x06 \x01(\v2\x1c.schemapb.Schema.Filed.FloatH\x00R\x05float\x127\n" +
 	"\x06double\x18\a \x01(\v2\x1d.schemapb.Schema.Filed.DoubleH\x00R\x06double\x124\n" +
 	"\x05int32\x18\b \x01(\v2\x1c.schemapb.Schema.Filed.Int32H\x00R\x05int32\x124\n" +
@@ -2548,7 +2634,8 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\ttimestamp\x18\x10 \x01(\v2 .schemapb.Schema.Filed.TimestampH\x00R\ttimestamp\x121\n" +
 	"\x04list\x18\x11 \x01(\v2\x1b.schemapb.Schema.Filed.ListH\x00R\x04list\x127\n" +
 	"\x06object\x18\x12 \x01(\v2\x1d.schemapb.Schema.Filed.ObjectH\x00R\x06object\x12=\n" +
-	"\bcomputed\x18\x13 \x01(\v2\x1f.schemapb.Schema.Filed.ComputedH\x00R\bcomputed\x1a\xaa\x02\n" +
+	"\bcomputed\x18\x13 \x01(\v2\x1f.schemapb.Schema.Filed.ComputedH\x00R\bcomputed\x125\n" +
+	"\x06one_of\x18\x1c \x01(\v2\x1c.schemapb.Schema.Filed.OneOfH\x00R\x05oneOf\x1a\xaa\x02\n" +
 	"\x05Float\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\x02H\x00R\adefault\x88\x01\x01\x12\x19\n" +
 	"\x05const\x18\x02 \x01(\x02H\x01R\x05const\x88\x01\x01\x12\x13\n" +
@@ -2760,7 +2847,13 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x02id\x18\x03 \x01(\tH\x00R\x02id\x88\x01\x01\x12@\n" +
 	"\bseverity\x18\x04 \x01(\x0e2\x1f.schemapb.Schema.Filed.SeverityH\x01R\bseverity\x88\x01\x01B\x05\n" +
 	"\x03_idB\v\n" +
-	"\t_severity\"\xb8\x01\n" +
+	"\t_severity\x1a\xc4\x01\n" +
+	"\x05OneOf\x12$\n" +
+	"\rdiscriminator\x18\x01 \x01(\tR\rdiscriminator\x12F\n" +
+	"\bvariants\x18\x02 \x03(\v2*.schemapb.Schema.Filed.OneOf.VariantsEntryR\bvariants\x1aM\n" +
+	"\rVariantsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12&\n" +
+	"\x05value\x18\x02 \x01(\v2\x10.schemapb.SchemaR\x05value:\x028\x01\"\xb8\x01\n" +
 	"\n" +
 	"ResultType\x12\x1b\n" +
 	"\x17RESULT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -2778,7 +2871,9 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\f_descriptionB\b\n" +
 	"\x06_groupB\a\n" +
 	"\x05_unitB\b\n" +
-	"\x06_titleB\x0e\n" +
+	"\x06_titleB\f\n" +
+	"\n" +
+	"_normalizeB\x0e\n" +
 	"\f_descriptionB\x11\n" +
 	"\x0f_min_propertiesB\x11\n" +
 	"\x0f_max_properties\"\\\n" +
@@ -2823,7 +2918,7 @@ func file_schemapb_schema_proto_rawDescGZIP() []byte {
 }
 
 var file_schemapb_schema_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_schemapb_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_schemapb_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_schemapb_schema_proto_goTypes = []any{
 	(Schema_Filed_ResultType)(0),          // 0: schemapb.Schema.Filed.ResultType
 	(Schema_Filed_Severity)(0),            // 1: schemapb.Schema.Filed.Severity
@@ -2850,27 +2945,29 @@ var file_schemapb_schema_proto_goTypes = []any{
 	(*Schema_Filed_Object)(nil),           // 22: schemapb.Schema.Filed.Object
 	(*Schema_Filed_Computed)(nil),         // 23: schemapb.Schema.Filed.Computed
 	(*Schema_Filed_Rule)(nil),             // 24: schemapb.Schema.Filed.Rule
-	nil,                                   // 25: schemapb.Schema.Filed.Enum.ValuesEntry
-	nil,                                   // 26: schemapb.FieldError.ParamsEntry
-	(*structpb.Struct)(nil),               // 27: google.protobuf.Struct
-	(*structpb.Value)(nil),                // 28: google.protobuf.Value
-	(*durationpb.Duration)(nil),           // 29: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),         // 30: google.protobuf.Timestamp
+	(*Schema_Filed_OneOf)(nil),            // 25: schemapb.Schema.Filed.OneOf
+	nil,                                   // 26: schemapb.Schema.Filed.Enum.ValuesEntry
+	nil,                                   // 27: schemapb.Schema.Filed.OneOf.VariantsEntry
+	nil,                                   // 28: schemapb.FieldError.ParamsEntry
+	(*structpb.Struct)(nil),               // 29: google.protobuf.Struct
+	(*structpb.Value)(nil),                // 30: google.protobuf.Value
+	(*durationpb.Duration)(nil),           // 31: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),         // 32: google.protobuf.Timestamp
 }
 var file_schemapb_schema_proto_depIdxs = []int32{
 	4,  // 0: schemapb.Schema.id:type_name -> schemapb.SchemaIdentity
 	9,  // 1: schemapb.Schema.fields:type_name -> schemapb.Schema.Filed
 	24, // 2: schemapb.Schema.rules:type_name -> schemapb.Schema.Filed.Rule
 	1,  // 3: schemapb.FieldError.severity:type_name -> schemapb.Schema.Filed.Severity
-	26, // 4: schemapb.FieldError.params:type_name -> schemapb.FieldError.ParamsEntry
+	28, // 4: schemapb.FieldError.params:type_name -> schemapb.FieldError.ParamsEntry
 	4,  // 5: schemapb.SchemaRef.id:type_name -> schemapb.SchemaIdentity
 	3,  // 6: schemapb.SchemaRef.schema:type_name -> schemapb.Schema
 	6,  // 7: schemapb.Filled.schema:type_name -> schemapb.SchemaRef
-	27, // 8: schemapb.Filled.values:type_name -> google.protobuf.Struct
+	29, // 8: schemapb.Filled.values:type_name -> google.protobuf.Struct
 	3,  // 9: schemapb.Baked.schema:type_name -> schemapb.Schema
-	27, // 10: schemapb.Baked.values:type_name -> google.protobuf.Struct
+	29, // 10: schemapb.Baked.values:type_name -> google.protobuf.Struct
 	24, // 11: schemapb.Schema.Filed.rules:type_name -> schemapb.Schema.Filed.Rule
-	28, // 12: schemapb.Schema.Filed.examples:type_name -> google.protobuf.Value
+	30, // 12: schemapb.Schema.Filed.examples:type_name -> google.protobuf.Value
 	10, // 13: schemapb.Schema.Filed.float:type_name -> schemapb.Schema.Filed.Float
 	11, // 14: schemapb.Schema.Filed.double:type_name -> schemapb.Schema.Filed.Double
 	12, // 15: schemapb.Schema.Filed.int32:type_name -> schemapb.Schema.Filed.Int32
@@ -2885,27 +2982,30 @@ var file_schemapb_schema_proto_depIdxs = []int32{
 	21, // 24: schemapb.Schema.Filed.list:type_name -> schemapb.Schema.Filed.List
 	22, // 25: schemapb.Schema.Filed.object:type_name -> schemapb.Schema.Filed.Object
 	23, // 26: schemapb.Schema.Filed.computed:type_name -> schemapb.Schema.Filed.Computed
-	2,  // 27: schemapb.Schema.Filed.String.format:type_name -> schemapb.Schema.Filed.String.StringFormat
-	25, // 28: schemapb.Schema.Filed.Enum.values:type_name -> schemapb.Schema.Filed.Enum.ValuesEntry
-	29, // 29: schemapb.Schema.Filed.Duration.default:type_name -> google.protobuf.Duration
-	29, // 30: schemapb.Schema.Filed.Duration.gt:type_name -> google.protobuf.Duration
-	29, // 31: schemapb.Schema.Filed.Duration.gte:type_name -> google.protobuf.Duration
-	29, // 32: schemapb.Schema.Filed.Duration.lt:type_name -> google.protobuf.Duration
-	29, // 33: schemapb.Schema.Filed.Duration.lte:type_name -> google.protobuf.Duration
-	30, // 34: schemapb.Schema.Filed.Timestamp.default:type_name -> google.protobuf.Timestamp
-	30, // 35: schemapb.Schema.Filed.Timestamp.gt:type_name -> google.protobuf.Timestamp
-	30, // 36: schemapb.Schema.Filed.Timestamp.gte:type_name -> google.protobuf.Timestamp
-	30, // 37: schemapb.Schema.Filed.Timestamp.lt:type_name -> google.protobuf.Timestamp
-	30, // 38: schemapb.Schema.Filed.Timestamp.lte:type_name -> google.protobuf.Timestamp
-	9,  // 39: schemapb.Schema.Filed.List.items:type_name -> schemapb.Schema.Filed
-	3,  // 40: schemapb.Schema.Filed.Object.schema:type_name -> schemapb.Schema
-	0,  // 41: schemapb.Schema.Filed.Computed.result:type_name -> schemapb.Schema.Filed.ResultType
-	1,  // 42: schemapb.Schema.Filed.Rule.severity:type_name -> schemapb.Schema.Filed.Severity
-	43, // [43:43] is the sub-list for method output_type
-	43, // [43:43] is the sub-list for method input_type
-	43, // [43:43] is the sub-list for extension type_name
-	43, // [43:43] is the sub-list for extension extendee
-	0,  // [0:43] is the sub-list for field type_name
+	25, // 27: schemapb.Schema.Filed.one_of:type_name -> schemapb.Schema.Filed.OneOf
+	2,  // 28: schemapb.Schema.Filed.String.format:type_name -> schemapb.Schema.Filed.String.StringFormat
+	26, // 29: schemapb.Schema.Filed.Enum.values:type_name -> schemapb.Schema.Filed.Enum.ValuesEntry
+	31, // 30: schemapb.Schema.Filed.Duration.default:type_name -> google.protobuf.Duration
+	31, // 31: schemapb.Schema.Filed.Duration.gt:type_name -> google.protobuf.Duration
+	31, // 32: schemapb.Schema.Filed.Duration.gte:type_name -> google.protobuf.Duration
+	31, // 33: schemapb.Schema.Filed.Duration.lt:type_name -> google.protobuf.Duration
+	31, // 34: schemapb.Schema.Filed.Duration.lte:type_name -> google.protobuf.Duration
+	32, // 35: schemapb.Schema.Filed.Timestamp.default:type_name -> google.protobuf.Timestamp
+	32, // 36: schemapb.Schema.Filed.Timestamp.gt:type_name -> google.protobuf.Timestamp
+	32, // 37: schemapb.Schema.Filed.Timestamp.gte:type_name -> google.protobuf.Timestamp
+	32, // 38: schemapb.Schema.Filed.Timestamp.lt:type_name -> google.protobuf.Timestamp
+	32, // 39: schemapb.Schema.Filed.Timestamp.lte:type_name -> google.protobuf.Timestamp
+	9,  // 40: schemapb.Schema.Filed.List.items:type_name -> schemapb.Schema.Filed
+	3,  // 41: schemapb.Schema.Filed.Object.schema:type_name -> schemapb.Schema
+	0,  // 42: schemapb.Schema.Filed.Computed.result:type_name -> schemapb.Schema.Filed.ResultType
+	1,  // 43: schemapb.Schema.Filed.Rule.severity:type_name -> schemapb.Schema.Filed.Severity
+	27, // 44: schemapb.Schema.Filed.OneOf.variants:type_name -> schemapb.Schema.Filed.OneOf.VariantsEntry
+	3,  // 45: schemapb.Schema.Filed.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
+	46, // [46:46] is the sub-list for method output_type
+	46, // [46:46] is the sub-list for method input_type
+	46, // [46:46] is the sub-list for extension type_name
+	46, // [46:46] is the sub-list for extension extendee
+	0,  // [0:46] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_schema_proto_init() }
@@ -2934,6 +3034,7 @@ func file_schemapb_schema_proto_init() {
 		(*Schema_Filed_List_)(nil),
 		(*Schema_Filed_Object_)(nil),
 		(*Schema_Filed_Computed_)(nil),
+		(*Schema_Filed_OneOf_)(nil),
 	}
 	file_schemapb_schema_proto_msgTypes[7].OneofWrappers = []any{}
 	file_schemapb_schema_proto_msgTypes[8].OneofWrappers = []any{}
@@ -2956,7 +3057,7 @@ func file_schemapb_schema_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schemapb_schema_proto_rawDesc), len(file_schemapb_schema_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   24,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

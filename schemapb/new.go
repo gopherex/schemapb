@@ -197,6 +197,10 @@ func (b fieldBase[S]) Rules(rules ...RuleDef) S {
 	return b.self
 }
 
+// Normalize sets the normalize expression for the field. `this` = current
+// value, `root` = whole form; the expression result becomes the new value.
+func (b fieldBase[S]) Normalize(e string) S { b.f.Normalize = &e; return b.self }
+
 // Done returns the built field.
 func (b fieldBase[S]) Done() *Schema_Filed { return b.f }
 
@@ -518,6 +522,32 @@ func Computed(name, expr string) *ComputedB {
 
 // Result sets the result-type hint used to marshal the derived value.
 func (b *ComputedB) Result(rt Schema_Filed_ResultType) *ComputedB { b.k.Result = &rt; return b }
+
+// OneOfB builds a discriminated-union (oneof) field.
+type OneOfB struct {
+	fieldBase[*OneOfB]
+	k *Schema_Filed_OneOf
+}
+
+// OneOf builds a discriminated-union field. The value must be an object; the
+// discriminator property selects the variant schema to validate against.
+func OneOf(name, discriminator string) *OneOfB {
+	b := &OneOfB{k: &Schema_Filed_OneOf{Discriminator: discriminator, Variants: map[string]*Schema{}}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_OneOf_{OneOf: b.k}
+	return b
+}
+
+// Variant adds a variant schema under the given key. fields become the variant
+// schema's fields (no identity — inline schema, like Object).
+func (b *OneOfB) Variant(key string, fields ...FieldDef) *OneOfB {
+	sub := &Schema{}
+	for _, d := range fields {
+		sub.Fields = append(sub.Fields, d.Done())
+	}
+	b.k.Variants[key] = sub
+	return b
+}
 
 // =============================================================================
 // FieldError builder (server-side validation failure)

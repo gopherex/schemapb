@@ -183,7 +183,62 @@ func mergeMaps(dst, src map[string]any, replaceLists bool) map[string]any {
 func (v *validator) resolve(form map[string]any) []*FieldError {
 	var tasks []computeTask
 	v.seed(v.schema, form, "", &tasks)
+	v.runNormalize(v.schema, form, form)
 	return v.runCompute(form, tasks)
+}
+
+// runNormalize applies normalize expressions to present fields in the scope,
+// recursing into objects and OneOf values. It must be called after seed (so
+// defaults are in place) and before runCompute (so Computed reads normalised values).
+func (v *validator) runNormalize(schema *Schema, scope, root map[string]any) {
+	for _, f := range schema.GetFields() {
+		name := f.GetName()
+		cur, exists := scope[name]
+		if !exists || cur == nil {
+			continue
+		}
+		if norm := f.GetNormalize(); norm != "" {
+			if prg := v.programs[norm]; prg != nil {
+				res, err := expr.Run(prg, map[string]any{"this": cur, "root": root})
+				if err == nil {
+					// Use the result-type of Computed as a hint if available; for
+					// normalize we just do the standard coerceResult with UNSPECIFIED.
+					scope[name] = coerceResult(res, Schema_Filed_RESULT_TYPE_UNSPECIFIED)
+					cur = scope[name]
+				}
+			}
+		}
+		// Recurse into objects.
+		if o := f.GetObject(); o != nil && o.GetSchema() != nil {
+			if child, ok := cur.(map[string]any); ok {
+				v.runNormalize(o.GetSchema(), child, root)
+			}
+		}
+		// Recurse into object-typed list items.
+		if l := f.GetList(); l != nil && len(l.GetItems()) >= 1 {
+			if obj := l.GetItems()[0].GetObject(); obj != nil && obj.GetSchema() != nil {
+				if arr, ok := cur.([]any); ok {
+					for _, el := range arr {
+						if m, ok := el.(map[string]any); ok {
+							v.runNormalize(obj.GetSchema(), m, root)
+						}
+					}
+				}
+			}
+		}
+		// Recurse into OneOf values: select the variant by discriminator.
+		if oo := f.GetOneOf(); oo != nil {
+			if m, ok := cur.(map[string]any); ok {
+				if discVal, ok := m[oo.GetDiscriminator()]; ok {
+					if discStr, ok := discVal.(string); ok && discStr != "" {
+						if variant, ok := oo.GetVariants()[discStr]; ok {
+							v.runNormalize(variant, m, root)
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 // computeTask is a Computed field pending evaluation: it reads from root
@@ -238,6 +293,17 @@ func (v *validator) seed(schema *Schema, scope map[string]any, prefix string, ta
 					for i, el := range arr {
 						if m, ok := el.(map[string]any); ok {
 							v.seed(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks)
+						}
+					}
+				}
+			}
+		case f.GetOneOf() != nil:
+			oo := f.GetOneOf()
+			if m, ok := scope[name].(map[string]any); ok {
+				if discVal, ok := m[oo.GetDiscriminator()]; ok {
+					if discStr, ok := discVal.(string); ok && discStr != "" {
+						if variant, ok := oo.GetVariants()[discStr]; ok {
+							v.seed(variant, m, path, tasks)
 						}
 					}
 				}

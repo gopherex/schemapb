@@ -1001,6 +1001,182 @@ func TestObjectStrictNested(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Feature 1: Normalize
+// ---------------------------------------------------------------------------
+
+func TestNormalize_LowercasesBeforePattern(t *testing.T) {
+	// Normalize runs BEFORE structured validation (pattern check), so the
+	// lowercased value must pass a lowercase-only pattern.
+	v := build(t,
+		schemapb.Str("name").Normalize("lower(this)").Pattern(`^[a-z]+$`),
+	)
+	// "Alice" -> lower -> "alice" -> matches pattern -> valid
+	if g := validateJSON(t, v, `{"name":"Alice"}`); len(g) != 0 {
+		t.Errorf("want valid (normalize runs first), got %v", g)
+	}
+	// Already lowercase -> still valid
+	if g := validateJSON(t, v, `{"name":"bob"}`); len(g) != 0 {
+		t.Errorf("want valid, got %v", g)
+	}
+}
+
+func TestNormalize_Compute(t *testing.T) {
+	// Normalize also updates the value seen by Computed fields.
+	v := build(t,
+		schemapb.Str("tag").Normalize("lower(this)"),
+		schemapb.Computed("tag_upper", `upper(root.tag)`).Result(schemapb.ResultString),
+	)
+	out, errs := v.Compute(map[string]any{"tag": "Hello"})
+	if len(errs) != 0 {
+		t.Fatalf("compute: %v", msgs(errs))
+	}
+	if out["tag"] != "hello" {
+		t.Errorf("normalize: tag = %v, want hello", out["tag"])
+	}
+	if out["tag_upper"] != "HELLO" {
+		t.Errorf("computed after normalize: tag_upper = %v, want HELLO", out["tag_upper"])
+	}
+}
+
+func TestNormalize_AbsentSkipped(t *testing.T) {
+	v := build(t,
+		schemapb.Str("name").Normalize("lower(this)"),
+	)
+	// absent field must not be forced present
+	if g := validateJSON(t, v, `{}`); len(g) != 0 {
+		t.Errorf("want valid (no value = no normalize), got %v", g)
+	}
+}
+
+func TestNormalize_BadExprRejectedByIsValid(t *testing.T) {
+	// bad normalize expr: deliberately malformed
+	badField := schemapb.Str("x").Normalize("lower(this >")
+	_, err := schemapb.NewSchema("t", "s", "v1").
+		Fields(badField).
+		Build()
+	if err == nil {
+		t.Fatal("want schema error for bad normalize expr")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Feature 2: OneOf (discriminated union)
+// ---------------------------------------------------------------------------
+
+func oneOfSchema(t *testing.T) *schemapb.Schema {
+	t.Helper()
+	return schemapb.NewSchema("test", "oneof", "v1").Fields(
+		schemapb.OneOf("target", "kind").
+			Variant("disk",
+				schemapb.Int32("size").Required(),
+			).
+			Variant("net",
+				schemapb.Str("cidr").Required(),
+			).
+			Required(),
+	).MustBuild()
+}
+
+func TestOneOf_ValidDisk(t *testing.T) {
+	v := mustValidator(t, oneOfSchema(t))
+	if g := validateJSON(t, v, `{"target":{"kind":"disk","size":100}}`); len(g) != 0 {
+		t.Errorf("valid disk: %v", g)
+	}
+}
+
+func TestOneOf_ValidNet(t *testing.T) {
+	v := mustValidator(t, oneOfSchema(t))
+	if g := validateJSON(t, v, `{"target":{"kind":"net","cidr":"10.0.0.0/8"}}`); len(g) != 0 {
+		t.Errorf("valid net: %v", g)
+	}
+}
+
+func TestOneOf_MissingDiscriminator(t *testing.T) {
+	v := mustValidator(t, oneOfSchema(t))
+	g := validateJSON(t, v, `{"target":{"size":10}}`)
+	if !has(g, "target") {
+		t.Errorf("want oneof_discriminator error, got %v", g)
+	}
+}
+
+func TestOneOf_UnknownVariant(t *testing.T) {
+	v := mustValidator(t, oneOfSchema(t))
+	g := validateJSON(t, v, `{"target":{"kind":"usb","size":10}}`)
+	if !has(g, "target") {
+		t.Errorf("want oneof_variant error, got %v", g)
+	}
+}
+
+func TestOneOf_MissingRequiredInVariant(t *testing.T) {
+	v := mustValidator(t, oneOfSchema(t))
+	// disk variant chosen but 'size' is missing
+	g := validateJSON(t, v, `{"target":{"kind":"disk"}}`)
+	if !has(g, "target.size") {
+		t.Errorf("want target.size required error, got %v", g)
+	}
+}
+
+func TestOneOf_WrongVariantFieldError(t *testing.T) {
+	v := mustValidator(t, oneOfSchema(t))
+	// net variant chosen but 'cidr' missing
+	g := validateJSON(t, v, `{"target":{"kind":"net"}}`)
+	if !has(g, "target.cidr") {
+		t.Errorf("want target.cidr required error, got %v", g)
+	}
+}
+
+func TestOneOf_NotObject(t *testing.T) {
+	v := mustValidator(t, oneOfSchema(t))
+	g := validateJSON(t, v, `{"target":"disk"}`)
+	if !has(g, "target") {
+		t.Errorf("want type error for non-object, got %v", g)
+	}
+}
+
+func TestOneOf_DefaultAndComputedInsideVariant(t *testing.T) {
+	v := mustValidator(t, schemapb.NewSchema("test", "oo2", "v1").Fields(
+		schemapb.OneOf("target", "kind").
+			Variant("disk",
+				schemapb.Int32("size").Default(20),
+				schemapb.Computed("iops", "root.target.size * 50").Result(schemapb.ResultInt64),
+			),
+	).MustBuild())
+
+	out, errs := v.Compute(map[string]any{
+		"target": map[string]any{"kind": "disk"},
+	})
+	if len(errs) != 0 {
+		t.Fatalf("compute: %v", msgs(errs))
+	}
+	inner, _ := out["target"].(map[string]any)
+	if inner["size"] != float64(20) {
+		t.Errorf("default inside variant: size = %v, want 20", inner["size"])
+	}
+	if inner["iops"] != float64(1000) {
+		t.Errorf("computed inside variant: iops = %v, want 1000", inner["iops"])
+	}
+}
+
+func TestOneOf_IsValidRejectsMissingDiscriminator(t *testing.T) {
+	_, err := schemapb.NewSchema("t", "s", "v1").Fields(
+		schemapb.OneOf("x", ""). // empty discriminator
+						Variant("a", schemapb.Bool("flag")),
+	).Build()
+	if err == nil {
+		t.Fatal("want schema error for empty discriminator")
+	}
+}
+
+func TestOneOf_IsValidRejectsNoVariants(t *testing.T) {
+	_, err := schemapb.NewSchema("t", "s", "v1").Fields(
+		schemapb.OneOf("x", "kind"), // no variants
+	).Build()
+	if err == nil {
+		t.Fatal("want schema error for no variants")
+	}
+}
+
 func TestFilledBakeIntoBaked(t *testing.T) {
 	s := schemapb.NewSchema("infra", "sizing", "v1").Fields(
 		schemapb.Int32("size").Gte(1).Default(20),

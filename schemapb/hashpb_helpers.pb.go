@@ -618,6 +618,40 @@ func schemapb_Schema_Filed_Object_hashpb_sum(m *Schema_Filed_Object, hasher hash
 	}
 }
 
+func schemapb_Schema_Filed_OneOf_hashpb_sum(m *Schema_Filed_OneOf, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {
+	if _, ok := ignore["schemapb.Schema.Filed.OneOf.discriminator"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.GetDiscriminator()))))
+		_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.GetDiscriminator()), len(m.GetDiscriminator())))
+	}
+	if _, ok := ignore["schemapb.Schema.Filed.OneOf.variants"]; !ok {
+		if len(m.Variants) > 0 {
+			if len(m.Variants) <= 32 {
+				keys := hashpb_stringKeyPool.Get().([]string)[:0]
+				for k := range m.Variants {
+					keys = append(keys, k)
+				}
+				slices.Sort(keys)
+				for _, k := range keys {
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(k))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(k), len(k)))
+					if m.Variants[k] != nil {
+						schemapb_Schema_hashpb_sum(m.Variants[k], hasher, ignore, b)
+					}
+				}
+				hashpb_stringKeyPool.Put(keys)
+			} else {
+				for _, k := range slices.Sorted(maps.Keys(m.Variants)) {
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(k))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(k), len(k)))
+					if m.Variants[k] != nil {
+						schemapb_Schema_hashpb_sum(m.Variants[k], hasher, ignore, b)
+					}
+				}
+			}
+		}
+	}
+}
+
 func schemapb_Schema_Filed_Rule_hashpb_sum(m *Schema_Filed_Rule, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {
 	if _, ok := ignore["schemapb.Schema.Filed.Rule.expr"]; !ok {
 		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.GetExpr()))))
@@ -866,6 +900,10 @@ func schemapb_Schema_Filed_hashpb_sum(m *Schema_Filed, hasher hash.Hash, ignore 
 				if t.Computed != nil {
 					schemapb_Schema_Filed_Computed_hashpb_sum(t.Computed, hasher, ignore, b)
 				}
+			case *Schema_Filed_OneOf_:
+				if t.OneOf != nil {
+					schemapb_Schema_Filed_OneOf_hashpb_sum(t.OneOf, hasher, ignore, b)
+				}
 			}
 		}
 	}
@@ -898,6 +936,10 @@ func schemapb_Schema_Filed_hashpb_sum(m *Schema_Filed, hasher hash.Hash, ignore 
 	}
 	if _, ok := ignore["schemapb.Schema.Filed.secret"]; !ok {
 		_, _ = hasher.Write(protowire.AppendVarint(b[:0], protowire.EncodeBool(m.GetSecret())))
+	}
+	if _, ok := ignore["schemapb.Schema.Filed.normalize"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.GetNormalize()))))
+		_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.GetNormalize()), len(m.GetNormalize())))
 	}
 }
 

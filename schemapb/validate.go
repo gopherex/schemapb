@@ -131,6 +131,11 @@ func (v *validator) compileField(f *Schema_Filed) error {
 			return err
 		}
 	}
+	if norm := f.GetNormalize(); norm != "" {
+		if err := v.addProgram(norm); err != nil {
+			return err
+		}
+	}
 	if l := f.GetList(); l != nil {
 		for _, it := range l.GetItems() {
 			if err := v.compileField(it); err != nil {
@@ -141,6 +146,13 @@ func (v *validator) compileField(f *Schema_Filed) error {
 	if o := f.GetObject(); o != nil && o.GetSchema() != nil {
 		if err := v.compileSchema(o.GetSchema()); err != nil {
 			return err
+		}
+	}
+	if oo := f.GetOneOf(); oo != nil {
+		for _, variant := range oo.GetVariants() {
+			if err := v.compileSchema(variant); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -327,6 +339,12 @@ func (v *validator) checkKind(f *Schema_Filed, val any, path string, root map[st
 		// Derived value: no structured constraints. Its Rules (if any) run in
 		// validateOne as sanity checks.
 		return nil
+	case f.GetOneOf() != nil:
+		m, ok := val.(map[string]any)
+		if !ok {
+			return typeErr(path, "object")
+		}
+		return v.checkOneOf(path, m, f.GetOneOf(), root)
 	}
 	return nil
 }
@@ -338,6 +356,29 @@ func (v *validator) checkObject(path string, m map[string]any, o *Schema_Filed_O
 	}
 	out := v.validateFields(s, m, root, path)
 	for _, r := range s.GetRules() {
+		out = append(out, v.evalRule(r, path, m, root)...)
+	}
+	return out
+}
+
+func (v *validator) checkOneOf(path string, m map[string]any, oo *Schema_Filed_OneOf, root map[string]any) []*FieldError {
+	disc := oo.GetDiscriminator()
+	discVal, ok := m[disc]
+	if !ok {
+		return []*FieldError{codeErr(path, "discriminator field "+disc+" is missing", "oneof_discriminator", map[string]string{"discriminator": disc})}
+	}
+	discStr, ok := discVal.(string)
+	if !ok || discStr == "" {
+		return []*FieldError{codeErr(path, "discriminator field "+disc+" must be a non-empty string", "oneof_discriminator", map[string]string{"discriminator": disc})}
+	}
+	variant, ok := oo.GetVariants()[discStr]
+	if !ok {
+		return []*FieldError{codeErr(path, "unknown variant: "+discStr, "oneof_variant", map[string]string{"variant": discStr})}
+	}
+	// Validate object fields against the chosen variant schema.
+	var out []*FieldError
+	out = append(out, v.validateFields(variant, m, root, path)...)
+	for _, r := range variant.GetRules() {
 		out = append(out, v.evalRule(r, path, m, root)...)
 	}
 	return out
@@ -689,6 +730,11 @@ func validateSchemaFields(fields []*Schema_Filed, prefix string) []*FieldError {
 				out = append(out, schemaErr(path, "computed expr does not compile: "+err.Error()))
 			}
 		}
+		if norm := f.GetNormalize(); norm != "" {
+			if _, err := expr.Compile(norm); err != nil {
+				out = append(out, schemaErr(path, "normalize expr does not compile: "+err.Error()))
+			}
+		}
 		if l := f.GetList(); l != nil {
 			if len(l.GetItems()) == 0 {
 				out = append(out, schemaErr(path, "list requires at least one item definition"))
@@ -703,6 +749,24 @@ func validateSchemaFields(fields []*Schema_Filed, prefix string) []*FieldError {
 				out = append(out, validateSchemaFields(o.GetSchema().GetFields(), path)...)
 				for j, r := range o.GetSchema().GetRules() {
 					out = append(out, validateRuleDef(r, fmt.Sprintf("%s.rules[%d]", path, j))...)
+				}
+			}
+		}
+		if oo := f.GetOneOf(); oo != nil {
+			if oo.GetDiscriminator() == "" {
+				out = append(out, schemaErr(path, "oneof requires a discriminator"))
+			}
+			if len(oo.GetVariants()) == 0 {
+				out = append(out, schemaErr(path, "oneof requires at least one variant"))
+			}
+			for vkey, variant := range oo.GetVariants() {
+				vpath := fmt.Sprintf("%s[variant=%s]", path, vkey)
+				out = append(out, validateSchemaFields(variant.GetFields(), vpath)...)
+				for j, r := range variant.GetRules() {
+					out = append(out, validateRuleDef(r, fmt.Sprintf("%s.rules[%d]", vpath, j))...)
+				}
+				if _, err := buildComputeOrder(variant.GetFields()); err != nil {
+					out = append(out, schemaErr(vpath, err.Error()))
 				}
 			}
 		}

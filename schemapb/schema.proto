@@ -386,6 +386,23 @@ message Schema {
         repeated google.protobuf.Value examples = 25;
         /* If true, the value is sensitive (e.g. a password). Purely informative. */
         bool secret = 26;
+        /*
+         * Normalize expression: maps the field's own value before validation.
+         * `this` = current value, `root` = whole form. Returns the new value.
+         * Applied after defaults/coercion and before Computed evaluation and
+         * validation.
+         */
+        optional string normalize = 27;
+        /*
+         * OneOf field kind: a discriminated union. The value must be an object
+         * whose discriminator property selects a variant schema.
+         */
+        message OneOf {
+            /* Property name in the value object that selects the variant. */
+            string discriminator = 1;
+            /* Variant schemas keyed by the discriminator value. */
+            map<string, Schema> variants = 2;
+        }
         /* The field kind; exactly one must be set. */
         oneof kind {
             /* Float field. */
@@ -416,6 +433,8 @@ message Schema {
             Object object = 18;
             /* Computed (derived) field. */
             Computed computed = 19;
+            /* Discriminated union field. */
+            OneOf one_of = 28;
         }
     }
     /* Stable identity of this schema. Required: the validator rejects a schema
