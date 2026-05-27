@@ -189,6 +189,35 @@ func schemapb_FieldError_hashpb_sum(m *FieldError, hasher hash.Hash, ignore map[
 	if _, ok := ignore["schemapb.FieldError.severity"]; !ok {
 		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(m.GetSeverity())))
 	}
+	if _, ok := ignore["schemapb.FieldError.code"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.GetCode()))))
+		_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.GetCode()), len(m.GetCode())))
+	}
+	if _, ok := ignore["schemapb.FieldError.params"]; !ok {
+		if len(m.Params) > 0 {
+			if len(m.Params) <= 32 {
+				keys := hashpb_stringKeyPool.Get().([]string)[:0]
+				for k := range m.Params {
+					keys = append(keys, k)
+				}
+				slices.Sort(keys)
+				for _, k := range keys {
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(k))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(k), len(k)))
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.Params[k]))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.Params[k]), len(m.Params[k])))
+				}
+				hashpb_stringKeyPool.Put(keys)
+			} else {
+				for _, k := range slices.Sorted(maps.Keys(m.Params)) {
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(k))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(k), len(k)))
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.Params[k]))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.Params[k]), len(m.Params[k])))
+				}
+			}
+		}
+	}
 }
 
 func schemapb_Filled_hashpb_sum(m *Filled, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {
@@ -645,6 +674,9 @@ func schemapb_Schema_Filed_String_hashpb_sum(m *Schema_Filed_String, hasher hash
 			}
 		}
 	}
+	if _, ok := ignore["schemapb.Schema.Filed.String.format"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(m.GetFormat())))
+	}
 }
 
 func schemapb_Schema_Filed_Timestamp_hashpb_sum(m *Schema_Filed_Timestamp, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {
@@ -848,6 +880,25 @@ func schemapb_Schema_Filed_hashpb_sum(m *Schema_Filed, hasher hash.Hash, ignore 
 		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.GetUnit()))))
 		_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.GetUnit()), len(m.GetUnit())))
 	}
+	if _, ok := ignore["schemapb.Schema.Filed.title"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.GetTitle()))))
+		_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.GetTitle()), len(m.GetTitle())))
+	}
+	if _, ok := ignore["schemapb.Schema.Filed.deprecated"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], protowire.EncodeBool(m.GetDeprecated())))
+	}
+	if _, ok := ignore["schemapb.Schema.Filed.examples"]; !ok {
+		if len(m.Examples) > 0 {
+			for _, v := range m.Examples {
+				if v != nil {
+					google_protobuf_Value_hashpb_sum(v, hasher, ignore, b)
+				}
+			}
+		}
+	}
+	if _, ok := ignore["schemapb.Schema.Filed.secret"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], protowire.EncodeBool(m.GetSecret())))
+	}
 }
 
 func schemapb_Schema_hashpb_sum(m *Schema, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {
@@ -877,6 +928,18 @@ func schemapb_Schema_hashpb_sum(m *Schema, hasher hash.Hash, ignore map[string]s
 				}
 			}
 		}
+	}
+	if _, ok := ignore["schemapb.Schema.strict"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], protowire.EncodeBool(m.GetStrict())))
+	}
+	if _, ok := ignore["schemapb.Schema.min_properties"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], m.GetMinProperties()))
+	}
+	if _, ok := ignore["schemapb.Schema.max_properties"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], m.GetMaxProperties()))
+	}
+	if _, ok := ignore["schemapb.Schema.coerce"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], protowire.EncodeBool(m.GetCoerce())))
 	}
 }
 

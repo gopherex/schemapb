@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -38,6 +39,18 @@ const (
 	ResultBool     = Schema_Filed_RESULT_TYPE_BOOL
 	ResultString   = Schema_Filed_RESULT_TYPE_STRING
 	ResultDuration = Schema_Filed_RESULT_TYPE_DURATION
+
+	// StringFormat aliases.
+	FormatEmail    = Schema_Filed_String_STRING_FORMAT_EMAIL
+	FormatURL      = Schema_Filed_String_STRING_FORMAT_URL
+	FormatUUID     = Schema_Filed_String_STRING_FORMAT_UUID
+	FormatIPv4     = Schema_Filed_String_STRING_FORMAT_IPV4
+	FormatIPv6     = Schema_Filed_String_STRING_FORMAT_IPV6
+	FormatIP       = Schema_Filed_String_STRING_FORMAT_IP
+	FormatHostname = Schema_Filed_String_STRING_FORMAT_HOSTNAME
+	FormatDate     = Schema_Filed_String_STRING_FORMAT_DATE
+	FormatTime     = Schema_Filed_String_STRING_FORMAT_TIME
+	FormatDatetime = Schema_Filed_String_STRING_FORMAT_DATETIME
 )
 
 // =============================================================================
@@ -55,6 +68,18 @@ func NewSchema(namespace, name, version string) *SchemaB {
 
 // Descr sets the schema description.
 func (b *SchemaB) Descr(d string) *SchemaB { b.s.Description = &d; return b }
+
+// Strict enables strict mode: unknown keys in the values map are rejected.
+func (b *SchemaB) Strict() *SchemaB { b.s.Strict = true; return b }
+
+// MinProps sets the minimum number of properties required in the values map.
+func (b *SchemaB) MinProps(n uint64) *SchemaB { b.s.MinProperties = &n; return b }
+
+// MaxProps sets the maximum number of properties allowed in the values map.
+func (b *SchemaB) MaxProps(n uint64) *SchemaB { b.s.MaxProperties = &n; return b }
+
+// Coerce enables input coercion: string inputs are coerced to the field's kind.
+func (b *SchemaB) Coerce() *SchemaB { b.s.Coerce = true; return b }
 
 // Fields appends fields (field builders or raw *Schema_Filed).
 func (b *SchemaB) Fields(defs ...FieldDef) *SchemaB {
@@ -148,6 +173,21 @@ func (b fieldBase[S]) Immutable() S     { b.f.Immutable = true; return b.self }
 func (b fieldBase[S]) Group(g string) S { b.f.Group = &g; return b.self }
 func (b fieldBase[S]) Unit(u string) S  { b.f.Unit = &u; return b.self }
 func (b fieldBase[S]) Desc(d string) S  { b.f.Description = &d; return b.self }
+
+// Title sets an informative human title for the field. Purely informative.
+func (b fieldBase[S]) Title(t string) S { b.f.Title = &t; return b.self }
+
+// Deprecated marks the field as deprecated. Purely informative.
+func (b fieldBase[S]) Deprecated() S { b.f.Deprecated = true; return b.self }
+
+// Secret marks the field as sensitive (e.g. a password). Purely informative.
+func (b fieldBase[S]) Secret() S { b.f.Secret = true; return b.self }
+
+// Examples sets example values for the field. Purely informative.
+func (b fieldBase[S]) Examples(vals ...*structpb.Value) S {
+	b.f.Examples = append(b.f.Examples, vals...)
+	return b.self
+}
 
 // Rules attaches cross-field validation rules to this field.
 func (b fieldBase[S]) Rules(rules ...RuleDef) S {
@@ -340,6 +380,9 @@ func (b *StrB) Pattern(v string) *StrB  { b.k.Pattern = &v; return b }
 func (b *StrB) In(v ...string) *StrB    { b.k.In = v; return b }
 func (b *StrB) NotIn(v ...string) *StrB { b.k.NotIn = v; return b }
 
+// Format sets the semantic string format constraint.
+func (b *StrB) Format(f Schema_Filed_String_StringFormat) *StrB { b.k.Format = &f; return b }
+
 // EnumB builds an enum field.
 type EnumB struct {
 	fieldBase[*EnumB]
@@ -448,6 +491,15 @@ func (b *ObjectB) Rule(rules ...RuleDef) *ObjectB {
 	}
 	return b
 }
+
+// Strict enables strict mode on the nested object schema.
+func (b *ObjectB) Strict() *ObjectB { b.k.Schema.Strict = true; return b }
+
+// MinProps sets the minimum number of properties on the nested object schema.
+func (b *ObjectB) MinProps(n uint64) *ObjectB { b.k.Schema.MinProperties = &n; return b }
+
+// MaxProps sets the maximum number of properties on the nested object schema.
+func (b *ObjectB) MaxProps(n uint64) *ObjectB { b.k.Schema.MaxProperties = &n; return b }
 
 // ComputedB builds a derived field.
 type ComputedB struct {

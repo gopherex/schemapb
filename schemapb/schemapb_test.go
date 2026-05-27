@@ -772,6 +772,235 @@ func TestBakeMerge(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Feature tests: string formats, strict, min/max properties, coercion,
+// metadata, and error codes
+// ---------------------------------------------------------------------------
+
+func TestStringFormat_Email(t *testing.T) {
+	v := build(t, schemapb.Str("email").Format(schemapb.FormatEmail))
+
+	if g := validateJSON(t, v, `{"email":"user@example.com"}`); len(g) != 0 {
+		t.Errorf("valid email rejected: %v", g)
+	}
+	if g := validateJSON(t, v, `{"email":"not-an-email"}`); !has(g, "email") {
+		t.Errorf("invalid email accepted: %v", g)
+	}
+}
+
+func TestStringFormat_URL(t *testing.T) {
+	v := build(t, schemapb.Str("u").Format(schemapb.FormatURL))
+
+	if g := validateJSON(t, v, `{"u":"https://example.com/path"}`); len(g) != 0 {
+		t.Errorf("valid url rejected: %v", g)
+	}
+	if g := validateJSON(t, v, `{"u":"not a url"}`); !has(g, "u") {
+		t.Errorf("invalid url accepted: %v", g)
+	}
+}
+
+func TestStringFormat_UUID(t *testing.T) {
+	v := build(t, schemapb.Str("uid").Format(schemapb.FormatUUID))
+
+	if g := validateJSON(t, v, `{"uid":"550e8400-e29b-41d4-a716-446655440000"}`); len(g) != 0 {
+		t.Errorf("valid uuid rejected: %v", g)
+	}
+	if g := validateJSON(t, v, `{"uid":"not-a-uuid"}`); !has(g, "uid") {
+		t.Errorf("invalid uuid accepted: %v", g)
+	}
+}
+
+func TestStringFormat_IP(t *testing.T) {
+	v4 := build(t, schemapb.Str("ip").Format(schemapb.FormatIPv4))
+	if g := validateJSON(t, v4, `{"ip":"192.168.1.1"}`); len(g) != 0 {
+		t.Errorf("valid ipv4 rejected: %v", g)
+	}
+	if g := validateJSON(t, v4, `{"ip":"::1"}`); !has(g, "ip") {
+		t.Errorf("ipv6 accepted as ipv4: %v", g)
+	}
+
+	v6 := build(t, schemapb.Str("ip").Format(schemapb.FormatIPv6))
+	if g := validateJSON(t, v6, `{"ip":"2001:db8::1"}`); len(g) != 0 {
+		t.Errorf("valid ipv6 rejected: %v", g)
+	}
+	if g := validateJSON(t, v6, `{"ip":"1.2.3.4"}`); !has(g, "ip") {
+		t.Errorf("ipv4 accepted as ipv6: %v", g)
+	}
+}
+
+func TestStringFormat_DateTimeDatetime(t *testing.T) {
+	vdate := build(t, schemapb.Str("d").Format(schemapb.FormatDate))
+	if g := validateJSON(t, vdate, `{"d":"2024-03-15"}`); len(g) != 0 {
+		t.Errorf("valid date rejected: %v", g)
+	}
+	if g := validateJSON(t, vdate, `{"d":"not-a-date"}`); !has(g, "d") {
+		t.Errorf("invalid date accepted: %v", g)
+	}
+
+	vtime := build(t, schemapb.Str("t").Format(schemapb.FormatTime))
+	if g := validateJSON(t, vtime, `{"t":"14:30:00"}`); len(g) != 0 {
+		t.Errorf("valid time rejected: %v", g)
+	}
+	if g := validateJSON(t, vtime, `{"t":"not-a-time"}`); !has(g, "t") {
+		t.Errorf("invalid time accepted: %v", g)
+	}
+
+	vdt := build(t, schemapb.Str("dt").Format(schemapb.FormatDatetime))
+	if g := validateJSON(t, vdt, `{"dt":"2024-03-15T14:30:00Z"}`); len(g) != 0 {
+		t.Errorf("valid datetime rejected: %v", g)
+	}
+	if g := validateJSON(t, vdt, `{"dt":"not-a-datetime"}`); !has(g, "dt") {
+		t.Errorf("invalid datetime accepted: %v", g)
+	}
+}
+
+func TestStrictMode_UnknownField(t *testing.T) {
+	v := mustValidator(t, schemapb.NewSchema("test", "s", "v1").
+		Strict().
+		Fields(schemapb.Str("name")).
+		MustBuild())
+
+	if g := validateJSON(t, v, `{"name":"alice"}`); len(g) != 0 {
+		t.Errorf("valid strict: %v", g)
+	}
+	if g := validateJSON(t, v, `{"name":"alice","extra":"field"}`); !has(g, "extra") {
+		t.Errorf("unknown field not rejected in strict mode: %v", g)
+	}
+}
+
+func TestMinMaxProperties(t *testing.T) {
+	v := mustValidator(t, schemapb.NewSchema("test", "s", "v1").
+		MinProps(2).
+		MaxProps(3).
+		Fields(
+			schemapb.Str("a"),
+			schemapb.Str("b"),
+			schemapb.Str("c"),
+		).
+		MustBuild())
+
+	// exactly 2 — ok
+	if g := validateJSON(t, v, `{"a":"x","b":"y"}`); len(g) != 0 {
+		t.Errorf("2 props should be valid: %v", g)
+	}
+	// 1 — too few
+	if g := validateJSON(t, v, `{"a":"x"}`); !has(g, "") {
+		t.Errorf("1 prop should fail min_properties: %v", g)
+	}
+	// 4 (unknown in non-strict) — too many; we use 3 declared fields to test max
+	if g := validateJSON(t, v, `{"a":"x","b":"y","c":"z"}`); len(g) != 0 {
+		t.Errorf("3 props should be valid: %v", g)
+	}
+}
+
+func TestCoercion(t *testing.T) {
+	v := mustValidator(t, schemapb.NewSchema("test", "s", "v1").
+		Coerce().
+		Fields(
+			schemapb.Int32("n").Gte(0).Lte(100),
+			schemapb.Bool("flag"),
+			schemapb.Enum("kind").Values(map[int32]string{1: "a", 2: "b"}).DefinedOnly(),
+		).
+		MustBuild())
+
+	// string "5" should be coerced to numeric 5 and pass Gte(0).
+	if g := validateJSON(t, v, `{"n":"5","flag":"true","kind":"1"}`); len(g) != 0 {
+		t.Errorf("coercion: want valid, got %v", g)
+	}
+	// Unparseable string stays as string -> type error.
+	if g := validateJSON(t, v, `{"n":"abc"}`); !has(g, "n") {
+		t.Errorf("coercion: unparseable string should still fail: %v", g)
+	}
+}
+
+func TestMetadataFields(t *testing.T) {
+	exampleVal, _ := structpb.NewValue("alice@example.com")
+	s := schemapb.NewSchema("test", "meta", "v1").
+		Fields(
+			schemapb.Str("email").
+				Format(schemapb.FormatEmail).
+				Title("Email address").
+				Deprecated().
+				Secret().
+				Examples(exampleVal),
+		).
+		MustBuild()
+
+	f := s.GetFields()[0]
+	if f.GetTitle() != "Email address" {
+		t.Errorf("title = %q", f.GetTitle())
+	}
+	if !f.GetDeprecated() {
+		t.Error("deprecated not set")
+	}
+	if !f.GetSecret() {
+		t.Error("secret not set")
+	}
+	if len(f.GetExamples()) != 1 || f.GetExamples()[0].GetStringValue() != "alice@example.com" {
+		t.Errorf("examples = %v", f.GetExamples())
+	}
+}
+
+func TestFieldError_Codes(t *testing.T) {
+	v := build(t,
+		schemapb.Str("name").Required(),
+		schemapb.Int32("age").Gte(0),
+		schemapb.Str("email").Format(schemapb.FormatEmail),
+	)
+
+	// required -> code "required"
+	errs, _ := v.ValidateJSON(json.RawMessage(`{}`))
+	var reqErr *schemapb.FieldError
+	for _, e := range errs {
+		if e.GetField() == "name" {
+			reqErr = e
+		}
+	}
+	if reqErr == nil || reqErr.GetCode() != "required" {
+		t.Errorf("want code='required', got %v", reqErr)
+	}
+
+	// type error -> code "type"
+	errs2, _ := v.ValidateJSON(json.RawMessage(`{"name":"x","age":"notanumber"}`))
+	var typeErrFound bool
+	for _, e := range errs2 {
+		if e.GetField() == "age" && e.GetCode() == "type" {
+			typeErrFound = true
+		}
+	}
+	if !typeErrFound {
+		t.Errorf("want code='type' for wrong type, got %v", msgs(errs2))
+	}
+
+	// format -> code "format"
+	errs3, _ := v.ValidateJSON(json.RawMessage(`{"name":"x","email":"notanemail"}`))
+	var fmtErr *schemapb.FieldError
+	for _, e := range errs3 {
+		if e.GetField() == "email" {
+			fmtErr = e
+		}
+	}
+	if fmtErr == nil || fmtErr.GetCode() != "format" {
+		t.Errorf("want code='format', got %v", fmtErr)
+	}
+}
+
+func TestObjectStrictNested(t *testing.T) {
+	v := build(t,
+		schemapb.Object("addr",
+			schemapb.Str("zip").Required(),
+		).Strict(),
+	)
+
+	if g := validateJSON(t, v, `{"addr":{"zip":"12345"}}`); len(g) != 0 {
+		t.Errorf("valid nested strict: %v", g)
+	}
+	// unknown key in nested strict object
+	if g := validateJSON(t, v, `{"addr":{"zip":"12345","extra":"x"}}`); !has(g, "addr.extra") {
+		t.Errorf("unknown nested field not rejected: %v", g)
+	}
+}
+
 func TestFilledBakeIntoBaked(t *testing.T) {
 	s := schemapb.NewSchema("infra", "sizing", "v1").Fields(
 		schemapb.Int32("size").Gte(1).Default(20),

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/expr-lang/expr"
@@ -181,7 +182,7 @@ func mergeMaps(dst, src map[string]any, replaceLists bool) map[string]any {
 // tree, mutating form into the fully resolved state.
 func (v *validator) resolve(form map[string]any) []*FieldError {
 	var tasks []computeTask
-	v.seed(v.schema.GetFields(), form, "", &tasks)
+	v.seed(v.schema, form, "", &tasks)
 	return v.runCompute(form, tasks)
 }
 
@@ -197,10 +198,20 @@ type computeTask struct {
 // recursing into present objects and object-typed list elements. It never
 // materialises an absent object, so optional sub-forms stay absent (and don't
 // spuriously trip their children's "required" checks).
-func (v *validator) seed(fields []*Schema_Filed, scope map[string]any, prefix string, tasks *[]computeTask) {
-	for _, f := range fields {
+func (v *validator) seed(schema *Schema, scope map[string]any, prefix string, tasks *[]computeTask) {
+	coerce := schema.GetCoerce()
+	for _, f := range schema.GetFields() {
 		name := f.GetName()
 		path := join(prefix, name)
+
+		// Coerce scalar string inputs to the field's kind when coerce is enabled.
+		if coerce {
+			if cur, ok := scope[name]; ok {
+				if coerced, changed := coerceInput(f, cur); changed {
+					scope[name] = coerced
+				}
+			}
+		}
 
 		// immutable fields are forced to their default (system-fixed); other
 		// fields take the default only when unset.
@@ -219,20 +230,49 @@ func (v *validator) seed(fields []*Schema_Filed, scope map[string]any, prefix st
 			*tasks = append(*tasks, computeTask{field: f, scope: scope, path: path})
 		case f.GetObject() != nil && f.GetObject().GetSchema() != nil:
 			if child, ok := scope[name].(map[string]any); ok {
-				v.seed(f.GetObject().GetSchema().GetFields(), child, path, tasks)
+				v.seed(f.GetObject().GetSchema(), child, path, tasks)
 			}
 		case f.GetList() != nil && len(f.GetList().GetItems()) >= 1:
 			if o := f.GetList().GetItems()[0].GetObject(); o != nil && o.GetSchema() != nil {
 				if arr, ok := scope[name].([]any); ok {
 					for i, el := range arr {
 						if m, ok := el.(map[string]any); ok {
-							v.seed(o.GetSchema().GetFields(), m, fmt.Sprintf("%s[%d]", path, i), tasks)
+							v.seed(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks)
 						}
 					}
 				}
 			}
 		}
 	}
+}
+
+// coerceInput attempts to convert a string value to the expected type for a
+// field. Returns the coerced value and true if conversion occurred.
+func coerceInput(f *Schema_Filed, val any) (any, bool) {
+	s, ok := val.(string)
+	if !ok {
+		return val, false
+	}
+	switch {
+	case f.GetFloat() != nil || f.GetDouble() != nil ||
+		f.GetInt32() != nil || f.GetInt64() != nil ||
+		f.GetUint32() != nil || f.GetUint64() != nil:
+		if n, err := strconv.ParseFloat(s, 64); err == nil {
+			return n, true
+		}
+	case f.GetBool() != nil:
+		switch s {
+		case "true":
+			return true, true
+		case "false":
+			return false, true
+		}
+	case f.GetEnum() != nil:
+		if n, err := strconv.ParseInt(s, 10, 64); err == nil {
+			return float64(n), true
+		}
+	}
+	return val, false
 }
 
 // runCompute evaluates tasks in dependency order (the root paths each

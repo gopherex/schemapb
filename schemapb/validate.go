@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"hash"
 	"math"
+	"net/mail"
+	"net/netip"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -166,7 +169,7 @@ func (v *validator) validate(form map[string]any) []*FieldError {
 	// Resolve: fill defaults and evaluate Computed fields, so structured and
 	// CEL/expr rules validate the fully resolved form.
 	out = append(out, v.resolve(form)...)
-	out = append(out, v.validateFields(v.schema.GetFields(), form, form, "")...)
+	out = append(out, v.validateFields(v.schema, form, form, "")...)
 	for _, r := range v.schema.GetRules() {
 		out = append(out, v.evalRule(r, ruleScope(r), nil, form)...)
 	}
@@ -184,7 +187,7 @@ func (v *validator) checkImmutable(fields []*Schema_Filed, scope map[string]any,
 		if f.GetImmutable() {
 			if cur, ok := scope[name]; ok {
 				if dv, has := defaultValue(f); has && cur != dv {
-					out = append(out, schemaErr(path, "immutable: cannot be changed"))
+					out = append(out, codeErr(path, "immutable: cannot be changed", "immutable", nil))
 				}
 			}
 			continue
@@ -209,8 +212,33 @@ func (v *validator) checkImmutable(fields []*Schema_Filed, scope map[string]any,
 	return out
 }
 
-func (v *validator) validateFields(fields []*Schema_Filed, scope, root map[string]any, prefix string) []*FieldError {
+func (v *validator) validateFields(schema *Schema, scope, root map[string]any, prefix string) []*FieldError {
+	fields := schema.GetFields()
 	var out []*FieldError
+
+	// Strict mode: reject unknown keys.
+	if schema.GetStrict() {
+		known := make(map[string]bool, len(fields))
+		for _, f := range fields {
+			known[f.GetName()] = true
+		}
+		for key := range scope {
+			if !known[key] {
+				p := join(prefix, key)
+				out = append(out, codeErr(p, "unknown field: "+key, "unknown_field", map[string]string{"field": key}))
+			}
+		}
+	}
+
+	// min_properties / max_properties.
+	n := uint64(len(scope))
+	if schema.MinProperties != nil && n < *schema.MinProperties {
+		out = append(out, codeErr(prefix, fmt.Sprintf("must have at least %d properties", *schema.MinProperties), "min_properties", map[string]string{"min": fmt.Sprintf("%d", *schema.MinProperties)}))
+	}
+	if schema.MaxProperties != nil && n > *schema.MaxProperties {
+		out = append(out, codeErr(prefix, fmt.Sprintf("must have at most %d properties", *schema.MaxProperties), "max_properties", map[string]string{"max": fmt.Sprintf("%d", *schema.MaxProperties)}))
+	}
+
 	for _, f := range fields {
 		val, exists := scope[f.GetName()]
 		out = append(out, v.validateOne(f, val, exists, join(prefix, f.GetName()), root)...)
@@ -221,16 +249,16 @@ func (v *validator) validateFields(fields []*Schema_Filed, scope, root map[strin
 func (v *validator) validateOne(f *Schema_Filed, val any, exists bool, path string, root map[string]any) []*FieldError {
 	if !exists {
 		if f.GetRequired() {
-			return []*FieldError{schemaErr(path, "required")}
+			return []*FieldError{codeErr(path, "required", "required", nil)}
 		}
 		return nil
 	}
 	if val == nil {
 		switch {
 		case f.GetRequired():
-			return []*FieldError{schemaErr(path, "required")}
+			return []*FieldError{codeErr(path, "required", "required", nil)}
 		case !f.GetNullable():
-			return []*FieldError{schemaErr(path, "must not be null")}
+			return []*FieldError{codeErr(path, "must not be null", "not_null", nil)}
 		default:
 			return nil
 		}
@@ -308,7 +336,7 @@ func (v *validator) checkObject(path string, m map[string]any, o *Schema_Filed_O
 	if s == nil {
 		return nil
 	}
-	out := v.validateFields(s.GetFields(), m, root, path)
+	out := v.validateFields(s, m, root, path)
 	for _, r := range s.GetRules() {
 		out = append(out, v.evalRule(r, path, m, root)...)
 	}
@@ -319,17 +347,17 @@ func (v *validator) checkList(path string, arr []any, l *Schema_Filed_List, root
 	var out []*FieldError
 	n := uint64(len(arr))
 	if l.MinItems != nil && n < *l.MinItems {
-		out = append(out, schemaErr(path, fmt.Sprintf("must have at least %d items", *l.MinItems)))
+		out = append(out, codeErr(path, fmt.Sprintf("must have at least %d items", *l.MinItems), "min_items", map[string]string{"min": fmt.Sprintf("%d", *l.MinItems)}))
 	}
 	if l.MaxItems != nil && n > *l.MaxItems {
-		out = append(out, schemaErr(path, fmt.Sprintf("must have at most %d items", *l.MaxItems)))
+		out = append(out, codeErr(path, fmt.Sprintf("must have at most %d items", *l.MaxItems), "max_items", map[string]string{"max": fmt.Sprintf("%d", *l.MaxItems)}))
 	}
 	if l.GetUnique() {
 		seen := map[string]bool{}
 		for i, el := range arr {
 			key, _ := json.Marshal(el)
 			if seen[string(key)] {
-				out = append(out, schemaErr(fmt.Sprintf("%s[%d]", path, i), "must be unique"))
+				out = append(out, codeErr(fmt.Sprintf("%s[%d]", path, i), "must be unique", "unique", nil))
 			}
 			seen[string(key)] = true
 		}
@@ -337,7 +365,13 @@ func (v *validator) checkList(path string, arr []any, l *Schema_Filed_List, root
 	if items := l.GetItems(); len(items) >= 1 {
 		def := items[0]
 		for i, el := range arr {
-			out = append(out, v.validateOne(def, el, true, fmt.Sprintf("%s[%d]", path, i), root)...)
+			errs := v.validateOne(def, el, true, fmt.Sprintf("%s[%d]", path, i), root)
+			for _, e := range errs {
+				if e.Code == "" {
+					e.Code = "item"
+				}
+			}
+			out = append(out, errs...)
 		}
 	}
 	return out
@@ -350,12 +384,16 @@ func (v *validator) evalRule(r *Schema_Filed_Rule, path string, this any, root m
 	}
 	out, err := expr.Run(prg, map[string]any{"this": this, "root": root})
 	if err != nil {
-		return []*FieldError{ferr(path, "rule error: "+err.Error(), Schema_Filed_ERROR, r.Id)}
+		e := ferr(path, "rule error: "+err.Error(), Schema_Filed_ERROR, r.Id)
+		e.Code = "rule"
+		return []*FieldError{e}
 	}
 	if b, ok := out.(bool); ok && b {
 		return nil
 	}
-	return []*FieldError{ferr(path, r.GetMessage(), r.GetSeverity(), r.Id)}
+	e := ferr(path, r.GetMessage(), r.GetSeverity(), r.Id)
+	e.Code = "rule"
+	return []*FieldError{e}
 }
 
 // =============================================================================
@@ -375,39 +413,41 @@ func numericCheck(path string, val any, r numRules) []*FieldError {
 		return typeErr(path, "number")
 	}
 	var out []*FieldError
-	add := func(m string) { out = append(out, schemaErr(path, m)) }
+	addc := func(m, code string, params map[string]string) {
+		out = append(out, codeErr(path, m, code, params))
+	}
 
 	if r.isInt && n != math.Trunc(n) {
-		add("must be an integer")
+		addc("must be an integer", "integer", nil)
 	}
 	if r.cst != nil && n != *r.cst {
-		add(fmt.Sprintf("must equal %v", *r.cst))
+		addc(fmt.Sprintf("must equal %v", *r.cst), "const", map[string]string{"const": fmt.Sprintf("%v", *r.cst)})
 	}
 	if r.gt != nil && !(n > *r.gt) {
-		add(fmt.Sprintf("must be > %v", *r.gt))
+		addc(fmt.Sprintf("must be > %v", *r.gt), "gt", map[string]string{"gt": fmt.Sprintf("%v", *r.gt)})
 	}
 	if r.gte != nil && !(n >= *r.gte) {
-		add(fmt.Sprintf("must be >= %v", *r.gte))
+		addc(fmt.Sprintf("must be >= %v", *r.gte), "gte", map[string]string{"gte": fmt.Sprintf("%v", *r.gte)})
 	}
 	if r.lt != nil && !(n < *r.lt) {
-		add(fmt.Sprintf("must be < %v", *r.lt))
+		addc(fmt.Sprintf("must be < %v", *r.lt), "lt", map[string]string{"lt": fmt.Sprintf("%v", *r.lt)})
 	}
 	if r.lte != nil && !(n <= *r.lte) {
-		add(fmt.Sprintf("must be <= %v", *r.lte))
+		addc(fmt.Sprintf("must be <= %v", *r.lte), "lte", map[string]string{"lte": fmt.Sprintf("%v", *r.lte)})
 	}
 	if len(r.in) > 0 && !contains(r.in, n) {
-		add(fmt.Sprintf("must be one of %v", r.in))
+		addc(fmt.Sprintf("must be one of %v", r.in), "in", nil)
 	}
 	if len(r.notIn) > 0 && contains(r.notIn, n) {
-		add(fmt.Sprintf("must not be one of %v", r.notIn))
+		addc(fmt.Sprintf("must not be one of %v", r.notIn), "not_in", nil)
 	}
 	if r.mul != nil && *r.mul != 0 {
 		if r.isInt {
 			if int64(n)%int64(*r.mul) != 0 {
-				add(fmt.Sprintf("must be a multiple of %v", *r.mul))
+				addc(fmt.Sprintf("must be a multiple of %v", *r.mul), "multiple_of", map[string]string{"multiple_of": fmt.Sprintf("%v", *r.mul)})
 			}
 		} else if math.Mod(n, *r.mul) != 0 {
-			add(fmt.Sprintf("must be a multiple of %v", *r.mul))
+			addc(fmt.Sprintf("must be a multiple of %v", *r.mul), "multiple_of", map[string]string{"multiple_of": fmt.Sprintf("%v", *r.mul)})
 		}
 	}
 	return out
@@ -415,40 +455,104 @@ func numericCheck(path string, val any, r numRules) []*FieldError {
 
 func checkBool(path string, b bool, k *Schema_Filed_Bool) []*FieldError {
 	if k.Const != nil && b != *k.Const {
-		return []*FieldError{schemaErr(path, fmt.Sprintf("must be %v", *k.Const))}
+		return []*FieldError{codeErr(path, fmt.Sprintf("must be %v", *k.Const), "const", map[string]string{"const": fmt.Sprintf("%v", *k.Const)})}
 	}
 	return nil
 }
 
+// uuidRE matches a canonical UUID v4 string (case-insensitive).
+var uuidRE = regexp.MustCompile(`(?i)^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`)
+
+// hostnameRE matches an RFC 1123 hostname label sequence.
+var hostnameRE = regexp.MustCompile(`(?i)^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?$`)
+
 func checkString(path, s string, k *Schema_Filed_String) []*FieldError {
 	var out []*FieldError
-	add := func(m string) { out = append(out, schemaErr(path, m)) }
+	addc := func(m, code string, params map[string]string) {
+		out = append(out, codeErr(path, m, code, params))
+	}
 	n := uint64(utf8.RuneCountInString(s))
 
 	if k.Const != nil && s != *k.Const {
-		add(fmt.Sprintf("must equal %q", *k.Const))
+		addc(fmt.Sprintf("must equal %q", *k.Const), "const", map[string]string{"const": *k.Const})
 	}
 	if k.Len != nil && n != *k.Len {
-		add(fmt.Sprintf("must be exactly %d characters", *k.Len))
+		addc(fmt.Sprintf("must be exactly %d characters", *k.Len), "len", map[string]string{"len": fmt.Sprintf("%d", *k.Len)})
 	}
 	if k.MinLen != nil && n < *k.MinLen {
-		add(fmt.Sprintf("must be at least %d characters", *k.MinLen))
+		addc(fmt.Sprintf("must be at least %d characters", *k.MinLen), "min_len", map[string]string{"min": fmt.Sprintf("%d", *k.MinLen)})
 	}
 	if k.MaxLen != nil && n > *k.MaxLen {
-		add(fmt.Sprintf("must be at most %d characters", *k.MaxLen))
+		addc(fmt.Sprintf("must be at most %d characters", *k.MaxLen), "max_len", map[string]string{"max": fmt.Sprintf("%d", *k.MaxLen)})
 	}
 	if k.Pattern != nil {
 		if re, err := regexp.Compile(*k.Pattern); err == nil && !re.MatchString(s) {
-			add("must match pattern " + *k.Pattern)
+			addc("must match pattern "+*k.Pattern, "pattern", map[string]string{"pattern": *k.Pattern})
 		}
 	}
 	if len(k.In) > 0 && !contains(k.In, s) {
-		add(fmt.Sprintf("must be one of %v", k.In))
+		addc(fmt.Sprintf("must be one of %v", k.In), "in", nil)
 	}
 	if len(k.NotIn) > 0 && contains(k.NotIn, s) {
-		add(fmt.Sprintf("must not be one of %v", k.NotIn))
+		addc(fmt.Sprintf("must not be one of %v", k.NotIn), "not_in", nil)
+	}
+	if k.Format != nil {
+		if ferrs := checkStringFormat(path, s, *k.Format); len(ferrs) > 0 {
+			out = append(out, ferrs...)
+		}
 	}
 	return out
+}
+
+func checkStringFormat(path, s string, fmt_ Schema_Filed_String_StringFormat) []*FieldError {
+	bad := func(fmtName string) []*FieldError {
+		return []*FieldError{codeErr(path, "must be a valid "+fmtName, "format", map[string]string{"format": fmtName})}
+	}
+	switch fmt_ {
+	case Schema_Filed_String_STRING_FORMAT_EMAIL:
+		if _, err := mail.ParseAddress(s); err != nil {
+			return bad("email")
+		}
+	case Schema_Filed_String_STRING_FORMAT_URL:
+		if _, err := url.ParseRequestURI(s); err != nil {
+			return bad("url")
+		}
+	case Schema_Filed_String_STRING_FORMAT_UUID:
+		if !uuidRE.MatchString(s) {
+			return bad("uuid")
+		}
+	case Schema_Filed_String_STRING_FORMAT_IPV4:
+		addr, err := netip.ParseAddr(s)
+		if err != nil || !addr.Is4() {
+			return bad("ipv4")
+		}
+	case Schema_Filed_String_STRING_FORMAT_IPV6:
+		addr, err := netip.ParseAddr(s)
+		if err != nil || !addr.Is6() || addr.Is4In6() {
+			return bad("ipv6")
+		}
+	case Schema_Filed_String_STRING_FORMAT_IP:
+		if _, err := netip.ParseAddr(s); err != nil {
+			return bad("ip")
+		}
+	case Schema_Filed_String_STRING_FORMAT_HOSTNAME:
+		if !hostnameRE.MatchString(s) {
+			return bad("hostname")
+		}
+	case Schema_Filed_String_STRING_FORMAT_DATE:
+		if _, err := time.Parse("2006-01-02", s); err != nil {
+			return bad("date")
+		}
+	case Schema_Filed_String_STRING_FORMAT_TIME:
+		if _, err := time.Parse("15:04:05", s); err != nil {
+			return bad("time")
+		}
+	case Schema_Filed_String_STRING_FORMAT_DATETIME:
+		if _, err := time.Parse(time.RFC3339, s); err != nil {
+			return bad("datetime")
+		}
+	}
+	return nil
 }
 
 func checkEnum(path string, val any, k *Schema_Filed_Enum) []*FieldError {
@@ -458,21 +562,23 @@ func checkEnum(path string, val any, k *Schema_Filed_Enum) []*FieldError {
 	}
 	iv := int32(n)
 	var out []*FieldError
-	add := func(m string) { out = append(out, schemaErr(path, m)) }
+	addc := func(m, code string, params map[string]string) {
+		out = append(out, codeErr(path, m, code, params))
+	}
 
 	if n != math.Trunc(n) {
-		add("must be an integer enum value")
+		addc("must be an integer enum value", "integer", nil)
 	}
 	if k.GetDefinedOnly() {
 		if _, ok := k.GetValues()[iv]; !ok {
-			add("must be a defined enum value")
+			addc("must be a defined enum value", "enum_defined", nil)
 		}
 	}
 	if len(k.In) > 0 && !contains(k.In, iv) {
-		add(fmt.Sprintf("must be one of %v", k.In))
+		addc(fmt.Sprintf("must be one of %v", k.In), "enum_in", nil)
 	}
 	if len(k.NotIn) > 0 && contains(k.NotIn, iv) {
-		add(fmt.Sprintf("must not be one of %v", k.NotIn))
+		addc(fmt.Sprintf("must not be one of %v", k.NotIn), "enum_not_in", nil)
 	}
 	return out
 }
@@ -480,21 +586,23 @@ func checkEnum(path string, val any, k *Schema_Filed_Enum) []*FieldError {
 func checkDuration(path, s string, k *Schema_Filed_Duration) []*FieldError {
 	d, err := time.ParseDuration(s)
 	if err != nil {
-		return []*FieldError{schemaErr(path, "invalid duration: "+err.Error())}
+		return []*FieldError{codeErr(path, "invalid duration: "+err.Error(), "duration", nil)}
 	}
 	var out []*FieldError
-	add := func(m string) { out = append(out, schemaErr(path, m)) }
+	addc := func(m, code string, params map[string]string) {
+		out = append(out, codeErr(path, m, code, params))
+	}
 	if k.Gt != nil && !(d > k.Gt.AsDuration()) {
-		add(fmt.Sprintf("must be > %s", k.Gt.AsDuration()))
+		addc(fmt.Sprintf("must be > %s", k.Gt.AsDuration()), "gt", map[string]string{"gt": k.Gt.AsDuration().String()})
 	}
 	if k.Gte != nil && !(d >= k.Gte.AsDuration()) {
-		add(fmt.Sprintf("must be >= %s", k.Gte.AsDuration()))
+		addc(fmt.Sprintf("must be >= %s", k.Gte.AsDuration()), "gte", map[string]string{"gte": k.Gte.AsDuration().String()})
 	}
 	if k.Lt != nil && !(d < k.Lt.AsDuration()) {
-		add(fmt.Sprintf("must be < %s", k.Lt.AsDuration()))
+		addc(fmt.Sprintf("must be < %s", k.Lt.AsDuration()), "lt", map[string]string{"lt": k.Lt.AsDuration().String()})
 	}
 	if k.Lte != nil && !(d <= k.Lte.AsDuration()) {
-		add(fmt.Sprintf("must be <= %s", k.Lte.AsDuration()))
+		addc(fmt.Sprintf("must be <= %s", k.Lte.AsDuration()), "lte", map[string]string{"lte": k.Lte.AsDuration().String()})
 	}
 	return out
 }
@@ -502,21 +610,23 @@ func checkDuration(path, s string, k *Schema_Filed_Duration) []*FieldError {
 func checkTimestamp(path, s string, k *Schema_Filed_Timestamp) []*FieldError {
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
-		return []*FieldError{schemaErr(path, "invalid timestamp (want RFC3339): "+err.Error())}
+		return []*FieldError{codeErr(path, "invalid timestamp (want RFC3339): "+err.Error(), "timestamp", nil)}
 	}
 	var out []*FieldError
-	add := func(m string) { out = append(out, schemaErr(path, m)) }
+	addc := func(m, code string, params map[string]string) {
+		out = append(out, codeErr(path, m, code, params))
+	}
 	if k.Gt != nil && !t.After(k.Gt.AsTime()) {
-		add(fmt.Sprintf("must be after %s", k.Gt.AsTime().Format(time.RFC3339)))
+		addc(fmt.Sprintf("must be after %s", k.Gt.AsTime().Format(time.RFC3339)), "gt", map[string]string{"gt": k.Gt.AsTime().Format(time.RFC3339)})
 	}
 	if k.Gte != nil && t.Before(k.Gte.AsTime()) {
-		add(fmt.Sprintf("must be at or after %s", k.Gte.AsTime().Format(time.RFC3339)))
+		addc(fmt.Sprintf("must be at or after %s", k.Gte.AsTime().Format(time.RFC3339)), "gte", map[string]string{"gte": k.Gte.AsTime().Format(time.RFC3339)})
 	}
 	if k.Lt != nil && !t.Before(k.Lt.AsTime()) {
-		add(fmt.Sprintf("must be before %s", k.Lt.AsTime().Format(time.RFC3339)))
+		addc(fmt.Sprintf("must be before %s", k.Lt.AsTime().Format(time.RFC3339)), "lt", map[string]string{"lt": k.Lt.AsTime().Format(time.RFC3339)})
 	}
 	if k.Lte != nil && t.After(k.Lte.AsTime()) {
-		add(fmt.Sprintf("must be at or before %s", k.Lte.AsTime().Format(time.RFC3339)))
+		addc(fmt.Sprintf("must be at or before %s", k.Lte.AsTime().Format(time.RFC3339)), "lte", map[string]string{"lte": k.Lte.AsTime().Format(time.RFC3339)})
 	}
 	return out
 }
@@ -621,6 +731,11 @@ func schemaErr(field, msg string) *FieldError {
 	return &FieldError{Field: field, Message: msg, Severity: Schema_Filed_ERROR}
 }
 
+// codeErr builds a structured FieldError with a stable machine code and optional i18n params.
+func codeErr(field, msg, code string, params map[string]string) *FieldError {
+	return &FieldError{Field: field, Message: msg, Severity: Schema_Filed_ERROR, Code: code, Params: params}
+}
+
 func ferr(field, msg string, sev Schema_Filed_Severity, ruleID *string) *FieldError {
 	if sev == Schema_Filed_SEVERITY_UNSPECIFIED {
 		sev = Schema_Filed_ERROR
@@ -629,7 +744,7 @@ func ferr(field, msg string, sev Schema_Filed_Severity, ruleID *string) *FieldEr
 }
 
 func typeErr(path, want string) []*FieldError {
-	return []*FieldError{schemaErr(path, "expected "+want)}
+	return []*FieldError{codeErr(path, "expected "+want, "type", map[string]string{"want": want})}
 }
 
 func ruleScope(r *Schema_Filed_Rule) string {

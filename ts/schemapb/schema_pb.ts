@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Duration, DurationJson, StructJson, Timestamp, TimestampJson } from "@bufbuild/protobuf/wkt";
+import type { Duration, DurationJson, StructJson, Timestamp, TimestampJson, Value, ValueJson } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_duration, file_google_protobuf_struct, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { JsonObject, Message } from "@bufbuild/protobuf";
 
@@ -12,7 +12,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file schemapb/schema.proto.
  */
 export const file_schemapb_schema: GenFile = /*@__PURE__*/
-  fileDesc("ChVzY2hlbWFwYi9zY2hlbWEucHJvdG8SCHNjaGVtYXBiIskhCgZTY2hlbWESJAoCaWQYASABKAsyGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eRIYCgtkZXNjcmlwdGlvbhgCIAEoCUgAiAEBEiYKBmZpZWxkcxgDIAMoCzIWLnNjaGVtYXBiLlNjaGVtYS5GaWxlZBIqCgVydWxlcxgEIAMoCzIbLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5SdWxlGpogCgVGaWxlZBIMCgRuYW1lGAEgASgJEhgKC2Rlc2NyaXB0aW9uGAIgASgJSAGIAQESEAoIbnVsbGFibGUYAyABKAgSEAoIcmVxdWlyZWQYBCABKAgSKgoFcnVsZXMYBSADKAsyGy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuUnVsZRIRCglpbW11dGFibGUYFCABKAgSEgoFZ3JvdXAYFSABKAlIAogBARIRCgR1bml0GBYgASgJSAOIAQESLQoFZmxvYXQYBiABKAsyHC5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRmxvYXRIABIvCgZkb3VibGUYByABKAsyHS5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRG91YmxlSAASLQoFaW50MzIYCCABKAsyHC5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuSW50MzJIABItCgVpbnQ2NBgJIAEoCzIcLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5JbnQ2NEgAEi8KBnVpbnQzMhgKIAEoCzIdLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5VSW50MzJIABIvCgZ1aW50NjQYCyABKAsyHS5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuVUludDY0SAASKwoEYm9vbBgMIAEoCzIbLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5Cb29sSAASLwoGc3RyaW5nGA0gASgLMh0uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLlN0cmluZ0gAEisKBGVudW0YDiABKAsyGy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRW51bUgAEjMKCGR1cmF0aW9uGA8gASgLMh8uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLkR1cmF0aW9uSAASNQoJdGltZXN0YW1wGBAgASgLMiAuc2NoZW1hcGIuU2NoZW1hLkZp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eF9sZW4YBSABKARIBIgBARIUCgdwYXR0ZXJuGAYgASgJSAWIAQESCgoCaW4YByADKAkSDgoGbm90X2luGAggAygJQgoKCF9kZWZhdWx0QggKBl9jb25zdEIGCgRfbGVuQgoKCF9taW5fbGVuQgoKCF9tYXhfbGVuQgoKCF9wYXR0ZXJuGsIBCgRFbnVtEhQKB2RlZmF1bHQYASABKAVIAIgBARI3CgZ2YWx1ZXMYAiADKAsyJy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRW51bS5WYWx1ZXNFbnRyeRIUCgxkZWZpbmVkX29ubHkYAyABKAgSCgoCaW4YBCADKAUSDgoGbm90X2luGAUgAygFGi0KC1ZhbHVlc0VudHJ5EgsKA2tleRgBIAEoBRINCgV2YWx1ZRgCIAEoCToCOAFCCgoIX2RlZmF1bHQalwIKCER1cmF0aW9uEi8KB2RlZmF1bHQYASABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25IAIgBARIqCgJndBgCIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkgBiAEBEisKA2d0ZRgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkgCiAEBEioKAmx0GAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uSAOIAQESKwoDbHRlGAUgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uSASIAQFCCgoIX2RlZmF1bHRCBQoDX2d0QgYKBF9ndGVCBQoDX2x0QgYKBF9sdGUanQIKCVRpbWVzdGFtcBIwCgdkZWZhdWx0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgAiAEBEisKAmd0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgBiAEBEiwKA2d0ZRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAogBARIrCgJsdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIA4gBARIsCgNsdGUYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSASIAQFCCgoIX2RlZmF1bHRCBQoDX2d0QgYKBF9ndGVCBQoDX2x0QgYKBF9sdGUaiQEKBExpc3QSJQoFaXRlbXMYASADKAsyFi5zY2hlbWFwYi5TY2hlbWEuRmlsZWQSFgoJbWluX2l0ZW1zGAIgASgESACIAQESFgoJbWF4X2l0ZW1zGAMgASgESAGIAQESDgoGdW5pcXVlGAQgASgIQgwKCl9taW5faXRlbXNCDAoKX21heF9pdGVtcxo6CgZPYmplY3QSJQoGc2NoZW1hGAEgASgLMhAuc2NoZW1hcGIuU2NoZW1hSACIAQFCCQoHX3NjaGVtYRpbCghDb21wdXRlZBIMCgRleHByGAEgASgJEjYKBnJlc3VsdBgCIAEoDjIhLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5SZXN1bHRUeXBlSACIAQFCCQoHX3Jlc3VsdBqCAQoEUnVsZRIMCgRleHByGAEgASgJEg8KB21lc3NhZ2UYAiABKAkSDwoCaWQYAyABKAlIAIgBARI2CghzZXZlcml0eRgEIAEoDjIfLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5TZXZlcml0eUgBiAEBQgUKA19pZEILCglfc2V2ZXJpdHkiuAEKClJlc3VsdFR5cGUSGwoXUkVTVUxUX1RZUEVfVU5TUEVDSUZJRUQQABIWChJSRVNVTFRfVFlQRV9ET1VCTEUQARIVChFSRVNVTFRfVFlQRV9JTlQ2NBACEhYKElJFU1VMVF9UWVBFX1VJTlQ2NBADEhQKEFJFU1VMVF9UWVBFX0JPT0wQBBIWChJSRVNVTFRfVFlQRV9TVFJJTkcQBRIYChRSRVNVTFRfVFlQRV9EVVJBVElPThAGIjwKCFNldmVyaXR5EhgKFFNFVkVSSVRZX1VOU1BFQ0lGSUVEEAASCQoFRVJST1IQARILCgdXQVJOSU5HEAJCBgoEa2luZEIOCgxfZGVzY3JpcHRpb25CCAoGX2dyb3VwQgcKBV91bml0Qg4KDF9kZXNjcmlwdGlvbiJCCg5TY2hlbWFJZGVudGl0eRIRCgluYW1lc3BhY2UYASABKAkSDAoEbmFtZRgCIAEoCRIPCgd2ZXJzaW9uGAMgASgJIoEBCgpGaWVsZEVycm9yEg0KBWZpZWxkGAEgASgJEg8KB21lc3NhZ2UYAiABKAkSFAoHcnVsZV9pZBgDIAEoCUgAiAEBEjEKCHNldmVyaXR5GAQgASgOMh8uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLlNldmVyaXR5QgoKCF9ydWxlX2lkImEKCVNjaGVtYVJlZhImCgJpZBgBIAEoCzIYLnNjaGVtYXBiLlNjaGVtYUlkZW50aXR5SAASIgoGc2NoZW1hGAIgASgLMhAuc2NoZW1hcGIuU2NoZW1hSABCCAoGc291cmNlIlYKBkZpbGxlZBIjCgZzY2hlbWEYASABKAsyEy5zY2hlbWFwYi5TY2hlbWFSZWYSJwoGdmFsdWVzGAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdCJSCgVCYWtlZBIgCgZzY2hlbWEYASABKAsyEC5zY2hlbWFwYi5TY2hlbWESJwoGdmFsdWVzGAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdEIpWidnaXRodWIuY29tL3N0cm9wcHktaW8vc2NoZW1hcGIvc2NoZW1hcGJiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_struct, file_google_protobuf_timestamp]);
+  fileDesc("ChVzY2hlbWFwYi9zY2hlbWEucHJvdG8SCHNjaGVtYXBiIqcmCgZTY2hlbWESJAoCaWQYASABKAsyGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eRIYCgtkZXNjcmlwdGlvbhgCIAEoCUgAiAEBEiYKBmZpZWxkcxgDIAMoCzIWLnNjaGVtYXBiLlNjaGVtYS5GaWxlZBIqCgVydWxlcxgEIAMoCzIbLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5SdWxlEg4KBnN0cmljdBgFIAEoCBIbCg5taW5fcHJvcGVydGllcxgGIAEoBEgBiAEBEhsKDm1heF9wcm9wZXJ0aWVzGAcgASgESAKIAQESDgoGY29lcmNlGAggASgIGvgjCgVGaWxlZBIMCgRuYW1lGAEgASgJEhgKC2Rlc2NyaXB0aW9uGAIgASgJSAGIAQESEAoIbnVsbGFibGUYAyABKAgSEAoIcmVxdWlyZWQYBCABKAgSKgoFcnVsZXMYBSADKAsyGy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuUnVsZRIRCglpbW11dGFibGUYFCABKAgSEgoFZ3JvdXAYFSABKAlIAogBARIRCgR1bml0GBYgASgJSAOIAQESEgoFdGl0bGUYFyABKAlIBIgBARISCgpkZXByZWNhdGVkGBggASgIEigKCGV4YW1wbGVzGBkgAygLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlEg4KBnNlY3JldBgaIAEoCBItCgVmbG9hdBgGIAEoCzIcLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5GbG9hdEgAEi8KBmRvdWJsZRgHIAEoCzIdLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5Eb3VibGVIABItCgVpbnQzMhgIIAEoCzIcLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5JbnQzMkgAEi0KBWludDY0GAkgASgLMhwuc2NoZW1hcGIuU2NoZW1hLkZpbGVkLkludDY0SAASLwoGdWludDMyGAogASgLMh0uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLlVJbnQzMkgAEi8KBnVpbnQ2NBgLIAEoCzIdLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5VSW50NjRIABIrCgRib29sGAwgASgLMhsuc2NoZW1hcGIuU2NoZW1hLkZpbGVkLkJvb2xI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ZUIOCgxfbXVsdGlwbGVfb2YaRgoEQm9vbBIUCgdkZWZhdWx0GAEgASgISACIAQESEgoFY29uc3QYAiABKAhIAYgBAUIKCghfZGVmYXVsdEIICgZfY29uc3Qa1gQKBlN0cmluZxIUCgdkZWZhdWx0GAEgASgJSACIAQESEgoFY29uc3QYAiABKAlIAYgBARIQCgNsZW4YAyABKARIAogBARIUCgdtaW5fbGVuGAQgASgESAOIAQESFAoHbWF4X2xlbhgFIAEoBEgEiAEBEhQKB3BhdHRlcm4YBiABKAlIBYgBARIKCgJpbhgHIAMoCRIOCgZub3RfaW4YCCADKAkSPwoGZm9ybWF0GAkgASgOMiouc2NoZW1hcGIuU2NoZW1hLkZpbGVkLlN0cmluZy5TdHJpbmdGb3JtYXRIBogBASKjAgoMU3RyaW5nRm9ybWF0Eh0KGVNUUklOR19GT1JNQVRfVU5TUEVDSUZJRUQQABIXChNTVFJJTkdfRk9STUFUX0VNQUlMEAESFQoRU1RSSU5HX0ZPUk1BVF9VUkwQAhIWChJTVFJJTkdfRk9STUFUX1VVSUQQAxIWChJTVFJJTkdfRk9STUFUX0lQVjQQBBIWChJTVFJJTkdfRk9STUFUX0lQVjYQBRIUChBTVFJJTkdfRk9STUFUX0lQEAYSGgoWU1RSSU5HX0ZPUk1BVF9IT1NUTkFNRRAHEhYKElNUUklOR19GT1JNQVRfREFURRAIEhYKElNUUklOR19GT1JNQVRfVElNRRAJEhoKFlNUUklOR19GT1JNQVRfREFURVRJTUUQCkIKCghfZGVmYXVsdEIICgZfY29uc3RCBgoEX2xlbkIKCghfbWluX2xlbkIKCghfbWF4X2xlbkIKCghfcGF0dGVybkIJCgdfZm9ybWF0GsIBCgRFbnVtEhQKB2RlZmF1bHQYASABKAVIAIgBARI3CgZ2YWx1ZXMYAiADKAsyJy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRW51bS5WYWx1ZXNFbnRyeRIUCgxkZWZpbmVkX29ubHkYAyABKAgSCgoCaW4YBCADKAUSDgoGbm90X2luGAUgAygFGi0KC1ZhbHVlc0VudHJ5EgsKA2tleRgBIAEoBRINCgV2YWx1ZRgCIAEoCToCOAFCCgoIX2RlZmF1bHQalwIKCER1cmF0aW9uEi8KB2RlZmF1bHQYASABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25IAIgBARIqCgJndBgCIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkgBiAEBEisKA2d0ZRgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkgCiAEBEioKAmx0GAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uSAOIAQESKwoDbHRlGAUgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uSASIAQFCCgoIX2RlZmF1bHRCBQoDX2d0QgYKBF9ndGVCBQoDX2x0QgYKBF9sdGUanQIKCVRpbWVzdGFtcBIwCgdkZWZhdWx0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgAiAEBEisKAmd0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgBiAEBEiwKA2d0ZRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAogBARIrCgJsdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIA4gBARIsCgNsdGUYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSASIAQFCCgoIX2RlZmF1bHRCBQoDX2d0QgYKBF9ndGVCBQoDX2x0QgYKBF9sdGUaiQEKBExpc3QSJQoFaXRlbXMYASADKAsyFi5zY2hlbWFwYi5TY2hlbWEuRmlsZWQSFgoJbWluX2l0ZW1zGAIgASgESACIAQESFgoJbWF4X2l0ZW1zGAMgASgESAGIAQESDgoGdW5pcXVlGAQgASgIQgwKCl9taW5faXRlbXNCDAoKX21heF9pdGVtcxo6CgZPYmplY3QSJQoGc2NoZW1hGAEgASgLMhAuc2NoZW1hcGIuU2NoZW1hSACIAQFCCQoHX3NjaGVtYRpbCghDb21wdXRlZBIMCgRleHByGAEgASgJEjYKBnJlc3VsdBgCIAEoDjIhLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5SZXN1bHRUeXBlSACIAQFCCQoHX3Jlc3VsdBqCAQoEUnVsZRIMCgRleHByGAEgASgJEg8KB21lc3NhZ2UYAiABKAkSDwoCaWQYAyABKAlIAIgBARI2CghzZXZlcml0eRgEIAEoDjIfLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5TZXZlcml0eUgBiAEBQgUKA19pZEILCglfc2V2ZXJpdHkiuAEKClJlc3VsdFR5cGUSGwoXUkVTVUxUX1RZUEVfVU5TUEVDSUZJRUQQABIWChJSRVNVTFRfVFlQRV9ET1VCTEUQARIVChFSRVNVTFRfVFlQRV9JTlQ2NBACEhYKElJFU1VMVF9UWVBFX1VJTlQ2NBADEhQKEFJFU1VMVF9UWVBFX0JPT0wQBBIWChJSRVNVTFRfVFlQRV9TVFJJTkcQBRIYChRSRVNVTFRfVFlQRV9EVVJBVElPThAGIjwKCFNldmVyaXR5EhgKFFNFVkVSSVRZX1VOU1BFQ0lGSUVEEAASCQoFRVJST1IQARILCgdXQVJOSU5HEAJCBgoEa2luZEIOCgxfZGVzY3JpcHRpb25CCAoGX2dyb3VwQgcKBV91bml0QggKBl90aXRsZUIOCgxfZGVzY3JpcHRpb25CEQoPX21pbl9wcm9wZXJ0aWVzQhEKD19tYXhfcHJvcGVydGllcyJCCg5TY2hlbWFJZGVudGl0eRIRCgluYW1lc3BhY2UYASABKAkSDAoEbmFtZRgCIAEoCRIPCgd2ZXJzaW9uGAMgASgJIvABCgpGaWVsZEVycm9yEg0KBWZpZWxkGAEgASgJEg8KB21lc3NhZ2UYAiABKAkSFAoHcnVsZV9pZBgDIAEoCUgAiAEBEjEKCHNldmVyaXR5GAQgASgOMh8uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLlNldmVyaXR5EgwKBGNvZGUYBSABKAkSMAoGcGFyYW1zGAYgAygLMiAuc2NoZW1hcGIuRmllbGRFcnJvci5QYXJhbXNFbnRyeRotCgtQYXJhbXNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBQgoKCF9ydWxlX2lkImEKCVNjaGVtYVJlZhImCgJpZBgBIAEoCzIYLnNjaGVtYXBiLlNjaGVtYUlkZW50aXR5SAASIgoGc2NoZW1hGAIgASgLMhAuc2NoZW1hcGIuU2NoZW1hSABCCAoGc291cmNlIlYKBkZpbGxlZBIjCgZzY2hlbWEYASABKAsyEy5zY2hlbWFwYi5TY2hlbWFSZWYSJwoGdmFsdWVzGAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdCJSCgVCYWtlZBIgCgZzY2hlbWEYASABKAsyEC5zY2hlbWFwYi5TY2hlbWESJwoGdmFsdWVzGAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdEIpWidnaXRodWIuY29tL3N0cm9wcHktaW8vc2NoZW1hcGIvc2NoZW1hcGJiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_struct, file_google_protobuf_timestamp]);
 
 /**
  *
@@ -66,6 +66,42 @@ export type Schema = Message<"schemapb.Schema"> & {
    * @generated from field: repeated schemapb.Schema.Filed.Rule rules = 4;
    */
   rules: Schema_Filed_Rule[];
+
+  /**
+   *
+   * If true, any key in the values map that is not a declared field name
+   * is an error (code "unknown_field").
+   *
+   * @generated from field: bool strict = 5;
+   */
+  strict: boolean;
+
+  /**
+   * Minimum number of properties that must be present in the values map. 
+   *
+   * @generated from field: optional uint64 min_properties = 6;
+   */
+  minProperties?: bigint;
+
+  /**
+   * Maximum number of properties allowed in the values map. 
+   *
+   * @generated from field: optional uint64 max_properties = 7;
+   */
+  maxProperties?: bigint;
+
+  /**
+   *
+   * If true, scalar string inputs are coerced to the field's kind before
+   * validation (numeric kinds parse the string as a number; bool parses
+   * "true"/"false"; enum parses an integer string). Only applied when the
+   * current value is a string but the field's kind expects a different type
+   * and parsing succeeds; unparseable strings are left as-is so the type
+   * error is reported normally.
+   *
+   * @generated from field: bool coerce = 8;
+   */
+  coerce: boolean;
 };
 
 /**
@@ -120,6 +156,42 @@ export type SchemaJson = {
    * @generated from field: repeated schemapb.Schema.Filed.Rule rules = 4;
    */
   rules?: Schema_Filed_RuleJson[];
+
+  /**
+   *
+   * If true, any key in the values map that is not a declared field name
+   * is an error (code "unknown_field").
+   *
+   * @generated from field: bool strict = 5;
+   */
+  strict?: boolean;
+
+  /**
+   * Minimum number of properties that must be present in the values map. 
+   *
+   * @generated from field: optional uint64 min_properties = 6;
+   */
+  minProperties?: string;
+
+  /**
+   * Maximum number of properties allowed in the values map. 
+   *
+   * @generated from field: optional uint64 max_properties = 7;
+   */
+  maxProperties?: string;
+
+  /**
+   *
+   * If true, scalar string inputs are coerced to the field's kind before
+   * validation (numeric kinds parse the string as a number; bool parses
+   * "true"/"false"; enum parses an integer string). Only applied when the
+   * current value is a string but the field's kind expects a different type
+   * and parsing succeeds; unparseable strings are left as-is so the type
+   * error is reported normally.
+   *
+   * @generated from field: bool coerce = 8;
+   */
+  coerce?: boolean;
 };
 
 export type SchemaValid = Schema;
@@ -198,6 +270,34 @@ export type Schema_Filed = Message<"schemapb.Schema.Filed"> & {
    * @generated from field: optional string unit = 22;
    */
   unit?: string;
+
+  /**
+   * Informative human title for the field. Purely informative — engine ignores it. 
+   *
+   * @generated from field: optional string title = 23;
+   */
+  title?: string;
+
+  /**
+   * If true, this field is deprecated; renderers may warn. Purely informative. 
+   *
+   * @generated from field: bool deprecated = 24;
+   */
+  deprecated: boolean;
+
+  /**
+   * Example values for documentation/rendering. Purely informative. 
+   *
+   * @generated from field: repeated google.protobuf.Value examples = 25;
+   */
+  examples: Value[];
+
+  /**
+   * If true, the value is sensitive (e.g. a password). Purely informative. 
+   *
+   * @generated from field: bool secret = 26;
+   */
+  secret: boolean;
 
   /**
    * The field kind; exactly one must be set. 
@@ -386,6 +486,34 @@ export type Schema_FiledJson = {
    * @generated from field: optional string unit = 22;
    */
   unit?: string;
+
+  /**
+   * Informative human title for the field. Purely informative — engine ignores it. 
+   *
+   * @generated from field: optional string title = 23;
+   */
+  title?: string;
+
+  /**
+   * If true, this field is deprecated; renderers may warn. Purely informative. 
+   *
+   * @generated from field: bool deprecated = 24;
+   */
+  deprecated?: boolean;
+
+  /**
+   * Example values for documentation/rendering. Purely informative. 
+   *
+   * @generated from field: repeated google.protobuf.Value examples = 25;
+   */
+  examples?: ValueJson[];
+
+  /**
+   * If true, the value is sensitive (e.g. a password). Purely informative. 
+   *
+   * @generated from field: bool secret = 26;
+   */
+  secret?: boolean;
 
   /**
    * Float field. 
@@ -1520,6 +1648,13 @@ export type Schema_Filed_String = Message<"schemapb.Schema.Filed.String"> & {
    * @generated from field: repeated string not_in = 8;
    */
   notIn: string[];
+
+  /**
+   * Semantic format the value must conform to. 
+   *
+   * @generated from field: optional schemapb.Schema.Filed.String.StringFormat format = 9;
+   */
+  format?: Schema_Filed_String_StringFormat;
 };
 
 /**
@@ -1584,6 +1719,13 @@ export type Schema_Filed_StringJson = {
    * @generated from field: repeated string not_in = 8;
    */
   notIn?: string[];
+
+  /**
+   * Semantic format the value must conform to. 
+   *
+   * @generated from field: optional schemapb.Schema.Filed.String.StringFormat format = 9;
+   */
+  format?: Schema_Filed_String_StringFormatJson;
 };
 
 export type Schema_Filed_StringValid = Schema_Filed_String;
@@ -1594,6 +1736,81 @@ export type Schema_Filed_StringValid = Schema_Filed_String;
  */
 export const Schema_Filed_StringSchema: GenMessage<Schema_Filed_String, {jsonType: Schema_Filed_StringJson, validType: Schema_Filed_StringValid}> = /*@__PURE__*/
   messageDesc(file_schemapb_schema, 0, 0, 7);
+
+/**
+ * StringFormat enumerates well-known semantic string formats. 
+ *
+ * @generated from enum schemapb.Schema.Filed.String.StringFormat
+ */
+export enum Schema_Filed_String_StringFormat {
+  /**
+   * @generated from enum value: STRING_FORMAT_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_EMAIL = 1;
+   */
+  EMAIL = 1,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_URL = 2;
+   */
+  URL = 2,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_UUID = 3;
+   */
+  UUID = 3,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_IPV4 = 4;
+   */
+  IPV4 = 4,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_IPV6 = 5;
+   */
+  IPV6 = 5,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_IP = 6;
+   */
+  IP = 6,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_HOSTNAME = 7;
+   */
+  HOSTNAME = 7,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_DATE = 8;
+   */
+  DATE = 8,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_TIME = 9;
+   */
+  TIME = 9,
+
+  /**
+   * @generated from enum value: STRING_FORMAT_DATETIME = 10;
+   */
+  DATETIME = 10,
+}
+
+/**
+ * StringFormat enumerates well-known semantic string formats. 
+ *
+ * @generated from enum schemapb.Schema.Filed.String.StringFormat
+ */
+export type Schema_Filed_String_StringFormatJson = "STRING_FORMAT_UNSPECIFIED" | "STRING_FORMAT_EMAIL" | "STRING_FORMAT_URL" | "STRING_FORMAT_UUID" | "STRING_FORMAT_IPV4" | "STRING_FORMAT_IPV6" | "STRING_FORMAT_IP" | "STRING_FORMAT_HOSTNAME" | "STRING_FORMAT_DATE" | "STRING_FORMAT_TIME" | "STRING_FORMAT_DATETIME";
+
+/**
+ * Describes the enum schemapb.Schema.Filed.String.StringFormat.
+ */
+export const Schema_Filed_String_StringFormatSchema: GenEnum<Schema_Filed_String_StringFormat, Schema_Filed_String_StringFormatJson> = /*@__PURE__*/
+  enumDesc(file_schemapb_schema, 0, 0, 7, 0);
 
 /**
  *
@@ -2378,6 +2595,20 @@ export type FieldError = Message<"schemapb.FieldError"> & {
    * @generated from field: schemapb.Schema.Filed.Severity severity = 4;
    */
   severity: Schema_Filed_Severity;
+
+  /**
+   * Stable machine code identifying the kind of failure. 
+   *
+   * @generated from field: string code = 5;
+   */
+  code: string;
+
+  /**
+   * Template parameters for client-side i18n of the error message. 
+   *
+   * @generated from field: map<string, string> params = 6;
+   */
+  params: { [key: string]: string };
 };
 
 /**
@@ -2415,6 +2646,20 @@ export type FieldErrorJson = {
    * @generated from field: schemapb.Schema.Filed.Severity severity = 4;
    */
   severity?: Schema_Filed_SeverityJson;
+
+  /**
+   * Stable machine code identifying the kind of failure. 
+   *
+   * @generated from field: string code = 5;
+   */
+  code?: string;
+
+  /**
+   * Template parameters for client-side i18n of the error message. 
+   *
+   * @generated from field: map<string, string> params = 6;
+   */
+  params?: { [key: string]: string };
 };
 
 export type FieldErrorValid = FieldError;

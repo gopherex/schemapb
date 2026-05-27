@@ -199,6 +199,23 @@ message Schema {
             repeated string in = 7;
             /* Value must not be any of these. */
             repeated string not_in = 8;
+            /* Semantic format the value must conform to. */
+            optional StringFormat format = 9;
+
+            /* StringFormat enumerates well-known semantic string formats. */
+            enum StringFormat {
+                STRING_FORMAT_UNSPECIFIED = 0;
+                STRING_FORMAT_EMAIL       = 1;
+                STRING_FORMAT_URL         = 2;
+                STRING_FORMAT_UUID        = 3;
+                STRING_FORMAT_IPV4        = 4;
+                STRING_FORMAT_IPV6        = 5;
+                STRING_FORMAT_IP          = 6;
+                STRING_FORMAT_HOSTNAME    = 7;
+                STRING_FORMAT_DATE        = 8;
+                STRING_FORMAT_TIME        = 9;
+                STRING_FORMAT_DATETIME    = 10;
+            }
         }
         /*
          * Enum field kind: an integer value with human labels.
@@ -361,6 +378,14 @@ message Schema {
          * the engine ignores it; it is for renderers/serializers.
          */
         optional string unit = 22;
+        /* Informative human title for the field. Purely informative — engine ignores it. */
+        optional string title = 23;
+        /* If true, this field is deprecated; renderers may warn. Purely informative. */
+        bool deprecated = 24;
+        /* Example values for documentation/rendering. Purely informative. */
+        repeated google.protobuf.Value examples = 25;
+        /* If true, the value is sensitive (e.g. a password). Purely informative. */
+        bool secret = 26;
         /* The field kind; exactly one must be set. */
         oneof kind {
             /* Float field. */
@@ -402,6 +427,24 @@ message Schema {
     repeated Filed fields = 3;
     /* Form-wide invariant rules (`root` only, no `this`). */
     repeated Filed.Rule rules = 4;
+    /*
+     * If true, any key in the values map that is not a declared field name
+     * is an error (code "unknown_field").
+     */
+    bool strict = 5;
+    /* Minimum number of properties that must be present in the values map. */
+    optional uint64 min_properties = 6;
+    /* Maximum number of properties allowed in the values map. */
+    optional uint64 max_properties = 7;
+    /*
+     * If true, scalar string inputs are coerced to the field's kind before
+     * validation (numeric kinds parse the string as a number; bool parses
+     * "true"/"false"; enum parses an integer string). Only applied when the
+     * current value is a string but the field's kind expects a different type
+     * and parsing succeeds; unparseable strings are left as-is so the type
+     * error is reported normally.
+     */
+    bool coerce = 8;
 }
 
 /*
@@ -430,6 +473,10 @@ message FieldError {
     optional string rule_id = 3;
     /* Severity of the failure. */
     Schema.Filed.Severity severity = 4;
+    /* Stable machine code identifying the kind of failure. */
+    string code = 5;
+    /* Template parameters for client-side i18n of the error message. */
+    map<string, string> params = 6;
 }
 
 /*
