@@ -81,10 +81,12 @@ func merge(_ js.Value, args []js.Value) any {
 }
 
 type fieldError struct {
-	Field    string `json:"field"`
-	Message  string `json:"message"`
-	RuleID   string `json:"ruleId,omitempty"`
-	Severity string `json:"severity"`
+	Field    string            `json:"field"`
+	Message  string            `json:"message"`
+	RuleID   string            `json:"ruleId,omitempty"`
+	Severity string            `json:"severity"`
+	Code     string            `json:"code,omitempty"`
+	Params   map[string]string `json:"params,omitempty"`
 }
 
 func errs(in []*schemapb.FieldError) []fieldError {
@@ -95,6 +97,8 @@ func errs(in []*schemapb.FieldError) []fieldError {
 			Message:  e.GetMessage(),
 			RuleID:   e.GetRuleId(),
 			Severity: e.GetSeverity().String(),
+			Code:     e.GetCode(),
+			Params:   e.GetParams(),
 		})
 	}
 	return out

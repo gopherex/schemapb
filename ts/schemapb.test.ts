@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
-import { create, fromJson } from "@bufbuild/protobuf";
+import { create, fromJson, toJson } from "@bufbuild/protobuf";
 import "./wasm_exec.js"; // sets globalThis.Go
 import {
   Schemapb,
@@ -8,6 +8,7 @@ import {
   BakedSchema,
   Schema_Filed_ResultType as RT,
   Schema_Filed_Severity as Sev,
+  Schema_Filed_String_StringFormat as SF,
   type Schema,
 } from "./index.ts";
 
@@ -247,5 +248,342 @@ describe("schema errors", () => {
       ],
     });
     expect(() => sp.compute(bad, {})).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// String format validation
+// ---------------------------------------------------------------------------
+
+describe("string format", () => {
+  function fmtSchema(fmt: SF): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "t", name: "fmt", version: "v1" },
+      fields: [{ name: "val", kind: { case: "string", value: { format: fmt } } }],
+    });
+  }
+
+  it.each([
+    [SF.EMAIL, "user@example.com", true],
+    [SF.EMAIL, "not-an-email", false],
+    [SF.UUID, "550e8400-e29b-41d4-a716-446655440000", true],
+    [SF.UUID, "not-a-uuid", false],
+    [SF.URL, "https://example.com/path", true],
+    [SF.URL, "not a url", false],
+    [SF.IPV4, "192.168.1.1", true],
+    [SF.IPV4, "::1", false],
+    [SF.IPV6, "2001:db8::1", true],
+    [SF.IPV6, "1.2.3.4", false],
+    [SF.DATE, "2024-03-15", true],
+    [SF.DATE, "not-a-date", false],
+  ])("format %i: value=%s valid=%o", (fmt, value, valid) => {
+    const r = sp.validate(fmtSchema(fmt), { val: value });
+    expect(r.ok).toBe(valid);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// strict mode
+// ---------------------------------------------------------------------------
+
+describe("strict mode", () => {
+  function strictSchema(): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "t", name: "strict", version: "v1" },
+      strict: true,
+      fields: [{ name: "name", kind: { case: "string", value: {} } }],
+    });
+  }
+
+  it("accepts a known key", () => {
+    expect(sp.validate(strictSchema(), { name: "alice" }).ok).toBe(true);
+  });
+
+  it("rejects an unknown key", () => {
+    const r = sp.validate(strictSchema(), { name: "alice", extra: "field" });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.field === "extra")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// minProperties / maxProperties
+// ---------------------------------------------------------------------------
+
+describe("minProperties / maxProperties", () => {
+  function propSchema(): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "t", name: "props", version: "v1" },
+      minProperties: 2n,
+      maxProperties: 3n,
+      fields: [
+        { name: "a", kind: { case: "string", value: {} } },
+        { name: "b", kind: { case: "string", value: {} } },
+        { name: "c", kind: { case: "string", value: {} } },
+      ],
+    });
+  }
+
+  it("accepts exactly minProperties", () => {
+    expect(sp.validate(propSchema(), { a: "x", b: "y" }).ok).toBe(true);
+  });
+
+  it("rejects fewer than minProperties", () => {
+    const r = sp.validate(propSchema(), { a: "x" });
+    expect(r.ok).toBe(false);
+  });
+
+  it("accepts exactly maxProperties", () => {
+    expect(sp.validate(propSchema(), { a: "x", b: "y", c: "z" }).ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// coerce
+// ---------------------------------------------------------------------------
+
+describe("coerce", () => {
+  function coerceSchema(): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "t", name: "coerce", version: "v1" },
+      coerce: true,
+      fields: [
+        { name: "n", kind: { case: "int32", value: { gte: 0, lte: 100 } } },
+        { name: "flag", kind: { case: "bool", value: {} } },
+        { name: "kind", kind: { case: "enum", value: { values: { 1: "a", 2: "b" }, definedOnly: true } } },
+      ],
+    });
+  }
+
+  it("coerces string '5' to int and passes constraints", () => {
+    expect(sp.validate(coerceSchema(), { n: "5", flag: "true", kind: "1" }).ok).toBe(true);
+  });
+
+  it("reports error when string is unparseable", () => {
+    const r = sp.validate(coerceSchema(), { n: "abc" });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.field === "n")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// normalize
+// ---------------------------------------------------------------------------
+
+describe("normalize", () => {
+  function normalizeSchema(): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "t", name: "norm", version: "v1" },
+      fields: [
+        {
+          name: "tag",
+          normalize: "lower(this)",
+          kind: { case: "string", value: { pattern: "^[a-z]+$" } },
+        },
+      ],
+    });
+  }
+
+  it("lowercases the value before the pattern check", () => {
+    // "Alice" -> lower -> "alice" -> matches ^[a-z]+$ -> valid
+    expect(sp.validate(normalizeSchema(), { tag: "Alice" }).ok).toBe(true);
+  });
+
+  it("already lowercase passes too", () => {
+    expect(sp.validate(normalizeSchema(), { tag: "bob" }).ok).toBe(true);
+  });
+
+  it("absent field is not forced present", () => {
+    expect(sp.validate(normalizeSchema(), {}).ok).toBe(true);
+  });
+
+  it("normalized value is reflected in computed output", () => {
+    const s = create(SchemaSchema, {
+      id: { namespace: "t", name: "norm2", version: "v1" },
+      fields: [
+        { name: "tag", normalize: "lower(this)", kind: { case: "string", value: {} } },
+        { name: "tag_up", kind: { case: "computed", value: { expr: "upper(root.tag)", result: RT.STRING } } },
+      ],
+    });
+    const r = sp.compute(s, { tag: "Hello" });
+    expect(r.errors).toHaveLength(0);
+    expect(r.values.tag).toBe("hello");
+    expect(r.values.tag_up).toBe("HELLO");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OneOf (discriminated union)
+// ---------------------------------------------------------------------------
+
+describe("OneOf discriminated union", () => {
+  function oneOfSchema(): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "t", name: "oneof", version: "v1" },
+      fields: [
+        {
+          name: "target",
+          required: true,
+          kind: {
+            case: "oneOf",
+            value: {
+              discriminator: "kind",
+              variants: {
+                disk: create(SchemaSchema, {
+                  fields: [{ name: "size", required: true, kind: { case: "int32", value: { gte: 1 } } }],
+                }),
+                net: create(SchemaSchema, {
+                  fields: [{ name: "cidr", required: true, kind: { case: "string", value: {} } }],
+                }),
+              },
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  it("accepts a valid disk variant", () => {
+    expect(sp.validate(oneOfSchema(), { target: { kind: "disk", size: 100 } }).ok).toBe(true);
+  });
+
+  it("accepts a valid net variant", () => {
+    expect(sp.validate(oneOfSchema(), { target: { kind: "net", cidr: "10.0.0.0/8" } }).ok).toBe(true);
+  });
+
+  it("rejects missing discriminator", () => {
+    const r = sp.validate(oneOfSchema(), { target: { size: 10 } });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.field === "target")).toBe(true);
+  });
+
+  it("rejects unknown variant", () => {
+    const r = sp.validate(oneOfSchema(), { target: { kind: "usb", size: 10 } });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.field === "target")).toBe(true);
+  });
+
+  it("reports missing required field inside chosen variant", () => {
+    // disk chosen but size absent
+    const r = sp.validate(oneOfSchema(), { target: { kind: "disk" } });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.field === "target.size")).toBe(true);
+  });
+
+  it("reports required field for wrong variant (net without cidr)", () => {
+    const r = sp.validate(oneOfSchema(), { target: { kind: "net" } });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.field === "target.cidr")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ref + defs (recursive tree schema)
+// ---------------------------------------------------------------------------
+
+describe("Ref + defs", () => {
+  // Recursive tree: each node has a label (required) and an optional children
+  // list, each element validated against the "node" def again.
+  function treeSchema(): Schema {
+    const nodeSchema = create(SchemaSchema, {
+      fields: [
+        { name: "label", required: true, kind: { case: "string", value: {} } },
+        {
+          name: "children",
+          kind: {
+            case: "list",
+            value: {
+              items: [{ name: "child", kind: { case: "ref", value: { name: "node" } } }],
+            },
+          },
+        },
+      ],
+    });
+    return create(SchemaSchema, {
+      id: { namespace: "t", name: "tree", version: "v1" },
+      defs: { node: nodeSchema },
+      fields: [{ name: "root", required: true, kind: { case: "ref", value: { name: "node" } } }],
+    });
+  }
+
+  it("validates a two-level tree", () => {
+    const data = {
+      root: {
+        label: "root",
+        children: [{ label: "child", children: [{ label: "leaf" }] }],
+      },
+    };
+    expect(sp.validate(treeSchema(), data).ok).toBe(true);
+  });
+
+  it("reports a deep missing label with a path containing 'label'", () => {
+    const data = {
+      root: {
+        label: "root",
+        children: [{ label: "child", children: [{}] }], // grandchild missing label
+      },
+    };
+    const r = sp.validate(treeSchema(), data);
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => (e.field ?? "").includes("label"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Field metadata round-trip through toJson
+// ---------------------------------------------------------------------------
+
+describe("field metadata round-trip", () => {
+  it("preserves title, secret, deprecated in toJson output", () => {
+    const s = create(SchemaSchema, {
+      id: { namespace: "t", name: "meta", version: "v1" },
+      fields: [
+        {
+          name: "email",
+          title: "Email address",
+          deprecated: true,
+          secret: true,
+          kind: { case: "string", value: { format: SF.EMAIL } },
+        },
+      ],
+    });
+    const j = toJson(SchemaSchema, s) as Record<string, unknown>;
+    const fields = j.fields as Array<Record<string, unknown>>;
+    expect(fields[0].title).toBe("Email address");
+    expect(fields[0].deprecated).toBe(true);
+    expect(fields[0].secret).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FieldError.code
+// ---------------------------------------------------------------------------
+
+describe("FieldError.code", () => {
+  const codeSchema = create(SchemaSchema, {
+    id: { namespace: "t", name: "codes", version: "v1" },
+    fields: [
+      { name: "name", required: true, kind: { case: "string", value: {} } },
+      { name: "age", kind: { case: "int32", value: { gte: 0 } } },
+      { name: "email", kind: { case: "string", value: { format: SF.EMAIL } } },
+    ],
+  });
+
+  it("carries code='required' for a missing required field", () => {
+    const r = sp.validate(codeSchema, {});
+    const e = r.errors.find((x) => x.field === "name");
+    expect(e?.code).toBe("required");
+  });
+
+  it("carries code='type' for a wrong-type value", () => {
+    const r = sp.validate(codeSchema, { name: "x", age: "notanumber" });
+    const e = r.errors.find((x) => x.field === "age");
+    expect(e?.code).toBe("type");
+  });
+
+  it("carries code='format' for a bad format value", () => {
+    const r = sp.validate(codeSchema, { name: "x", email: "notanemail" });
+    const e = r.errors.find((x) => x.field === "email");
+    expect(e?.code).toBe("format");
   });
 });
