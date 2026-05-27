@@ -435,6 +435,19 @@ message Schema {
             Computed computed = 19;
             /* Discriminated union field. */
             OneOf one_of = 28;
+            /* Reference to a named definition in the root schema's defs. */
+            Ref ref = 29;
+        }
+
+        /*
+         * Ref field kind: the value must be an object validated against the
+         * named definition in the root schema's defs map. Enables recursive
+         * schemas — a def may contain a Ref back to itself; recursion
+         * terminates because it follows the (finite) data.
+         */
+        message Ref {
+            /* Name of the def in the root schema's defs map. */
+            string name = 1;
         }
     }
     /* Stable identity of this schema. Required: the validator rejects a schema
@@ -464,6 +477,12 @@ message Schema {
      * error is reported normally.
      */
     bool coerce = 8;
+    /*
+     * Named reusable sub-schemas ($defs). Fields of kind Ref resolve their
+     * value against the named def found here. Meaningful only on the root
+     * schema; defs inside nested schemas are ignored by the engine.
+     */
+    map<string, Schema> defs = 9;
 }
 
 /*

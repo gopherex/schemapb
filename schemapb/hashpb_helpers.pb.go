@@ -652,6 +652,13 @@ func schemapb_Schema_Filed_OneOf_hashpb_sum(m *Schema_Filed_OneOf, hasher hash.H
 	}
 }
 
+func schemapb_Schema_Filed_Ref_hashpb_sum(m *Schema_Filed_Ref, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {
+	if _, ok := ignore["schemapb.Schema.Filed.Ref.name"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.GetName()))))
+		_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.GetName()), len(m.GetName())))
+	}
+}
+
 func schemapb_Schema_Filed_Rule_hashpb_sum(m *Schema_Filed_Rule, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {
 	if _, ok := ignore["schemapb.Schema.Filed.Rule.expr"]; !ok {
 		_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.GetExpr()))))
@@ -904,6 +911,10 @@ func schemapb_Schema_Filed_hashpb_sum(m *Schema_Filed, hasher hash.Hash, ignore 
 				if t.OneOf != nil {
 					schemapb_Schema_Filed_OneOf_hashpb_sum(t.OneOf, hasher, ignore, b)
 				}
+			case *Schema_Filed_Ref_:
+				if t.Ref != nil {
+					schemapb_Schema_Filed_Ref_hashpb_sum(t.Ref, hasher, ignore, b)
+				}
 			}
 		}
 	}
@@ -982,6 +993,33 @@ func schemapb_Schema_hashpb_sum(m *Schema, hasher hash.Hash, ignore map[string]s
 	}
 	if _, ok := ignore["schemapb.Schema.coerce"]; !ok {
 		_, _ = hasher.Write(protowire.AppendVarint(b[:0], protowire.EncodeBool(m.GetCoerce())))
+	}
+	if _, ok := ignore["schemapb.Schema.defs"]; !ok {
+		if len(m.Defs) > 0 {
+			if len(m.Defs) <= 32 {
+				keys := hashpb_stringKeyPool.Get().([]string)[:0]
+				for k := range m.Defs {
+					keys = append(keys, k)
+				}
+				slices.Sort(keys)
+				for _, k := range keys {
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(k))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(k), len(k)))
+					if m.Defs[k] != nil {
+						schemapb_Schema_hashpb_sum(m.Defs[k], hasher, ignore, b)
+					}
+				}
+				hashpb_stringKeyPool.Put(keys)
+			} else {
+				for _, k := range slices.Sorted(maps.Keys(m.Defs)) {
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(k))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(k), len(k)))
+					if m.Defs[k] != nil {
+						schemapb_Schema_hashpb_sum(m.Defs[k], hasher, ignore, b)
+					}
+				}
+			}
+		}
 	}
 }
 

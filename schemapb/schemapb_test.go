@@ -1217,3 +1217,104 @@ func TestFilledBakeIntoBaked(t *testing.T) {
 		t.Error("IntoBaked must not evaluate computed fields")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// $defs + Ref field kind
+// ---------------------------------------------------------------------------
+
+// treeSchema builds a recursive "tree" schema: each node has a label (string,
+// required) and an optional list of children, each of which is another node
+// (validated via a Ref back to the "node" def).
+func treeSchema(t *testing.T) *schemapb.Schema {
+	t.Helper()
+	s := schemapb.NewSchema("test", "tree", "v1").
+		Def("node",
+			schemapb.Str("label").Required(),
+			schemapb.List("children", schemapb.Ref("child", "node")),
+		).
+		Fields(
+			schemapb.Ref("root", "node").Required(),
+		).
+		MustBuild()
+	return s
+}
+
+func TestRef_ValidNestedTree(t *testing.T) {
+	s := treeSchema(t)
+	// A two-level tree: root -> one child -> one grandchild.
+	body := `{
+		"root": {
+			"label": "root",
+			"children": [
+				{
+					"label": "child",
+					"children": [
+						{"label": "leaf"}
+					]
+				}
+			]
+		}
+	}`
+	errs, err := s.ValidateJSON([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(errs) != 0 {
+		t.Errorf("expected valid tree, got errors: %v", msgs(errs))
+	}
+}
+
+func TestRef_DeepMissingLabel(t *testing.T) {
+	s := treeSchema(t)
+	// The grandchild is missing its required "label" field.
+	body := `{
+		"root": {
+			"label": "root",
+			"children": [
+				{
+					"label": "child",
+					"children": [
+						{}
+					]
+				}
+			]
+		}
+	}`
+	errs, err := s.ValidateJSON([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := msgs(errs)
+	// Expect an error somewhere under root.children[0].children[0].label
+	found := false
+	for k := range m {
+		if strings.Contains(k, "label") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected deep label required error, got: %v", m)
+	}
+}
+
+func TestRef_UnknownDefRejectedByIsValid(t *testing.T) {
+	raw := &schemapb.Schema{
+		Id:     &schemapb.SchemaIdentity{Name: "bad"},
+		Fields: []*schemapb.Schema_Filed{schemapb.Ref("x", "nonexistent").Done()},
+	}
+	errs := raw.IsValid()
+	if len(errs) == 0 {
+		t.Fatal("expected schema error for unknown ref")
+	}
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e.GetMessage(), "nonexistent") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected error mentioning 'nonexistent', got: %v", msgs(errs))
+	}
+}

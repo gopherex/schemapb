@@ -238,6 +238,14 @@ func (v *validator) runNormalize(schema *Schema, scope, root map[string]any) {
 				}
 			}
 		}
+		// Recurse into Ref values: normalize fields inside the referenced def.
+		if ref := f.GetRef(); ref != nil {
+			if def := v.schema.GetDefs()[ref.GetName()]; def != nil {
+				if m, ok := cur.(map[string]any); ok {
+					v.runNormalize(def, m, root)
+				}
+			}
+		}
 	}
 }
 
@@ -306,6 +314,15 @@ func (v *validator) seed(schema *Schema, scope map[string]any, prefix string, ta
 							v.seed(variant, m, path, tasks)
 						}
 					}
+				}
+			}
+		case f.GetRef() != nil:
+			// Recurse into the referenced def so defaults and Computed inside
+			// the def are applied to the present object value.
+			refName := f.GetRef().GetName()
+			if def := v.schema.GetDefs()[refName]; def != nil {
+				if child, ok := scope[name].(map[string]any); ok {
+					v.seed(def, child, path, tasks)
 				}
 			}
 		}

@@ -117,6 +117,13 @@ func (v *validator) compileSchema(s *Schema) error {
 			return err
 		}
 	}
+	// Compile expressions inside each named def (only meaningful at root, but
+	// we compile whatever schema we're given to be safe).
+	for _, def := range s.GetDefs() {
+		if err := v.compileSchema(def); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -345,6 +352,23 @@ func (v *validator) checkKind(f *Schema_Filed, val any, path string, root map[st
 			return typeErr(path, "object")
 		}
 		return v.checkOneOf(path, m, f.GetOneOf(), root)
+	case f.GetRef() != nil:
+		ref := f.GetRef()
+		name := ref.GetName()
+		def := v.schema.GetDefs()[name]
+		if def == nil {
+			return []*FieldError{codeErr(path, "unknown $ref: "+name, "ref", map[string]string{"ref": name})}
+		}
+		m, ok := val.(map[string]any)
+		if !ok {
+			return typeErr(path, "object")
+		}
+		var out []*FieldError
+		out = append(out, v.validateFields(def, m, root, path)...)
+		for _, r := range def.GetRules() {
+			out = append(out, v.evalRule(r, path, m, root)...)
+		}
+		return out
 	}
 	return nil
 }
@@ -688,12 +712,55 @@ func (s *Schema) IsValid() []*FieldError {
 	if s.GetId() == nil || s.GetId().GetName() == "" {
 		out = append(out, schemaErr("id", "schema identity is required: id.name must be set"))
 	}
+	// Validate each named def's fields.
+	for defName, def := range s.GetDefs() {
+		out = append(out, validateSchemaFields(def.GetFields(), "$defs."+defName)...)
+		for j, r := range def.GetRules() {
+			out = append(out, validateRuleDef(r, fmt.Sprintf("$defs.%s.rules[%d]", defName, j))...)
+		}
+		if _, err := buildComputeOrder(def.GetFields()); err != nil {
+			out = append(out, schemaErr("$defs."+defName, err.Error()))
+		}
+	}
 	out = append(out, validateSchemaFields(s.GetFields(), "")...)
 	for i, r := range s.GetRules() {
 		out = append(out, validateRuleDef(r, fmt.Sprintf("rules[%d]", i))...)
 	}
 	if _, err := buildComputeOrder(s.GetFields()); err != nil {
 		out = append(out, schemaErr("", err.Error()))
+	}
+	// Verify that every Ref name in the schema (including inside defs) refers
+	// to a known def.
+	out = append(out, collectRefErrors(s.GetFields(), s.GetDefs(), "")...)
+	for defName, def := range s.GetDefs() {
+		out = append(out, collectRefErrors(def.GetFields(), s.GetDefs(), "$defs."+defName)...)
+	}
+	return out
+}
+
+// collectRefErrors walks a field list recursively and reports any Ref that
+// names a def not present in rootDefs.
+func collectRefErrors(fields []*Schema_Filed, rootDefs map[string]*Schema, prefix string) []*FieldError {
+	var out []*FieldError
+	for _, f := range fields {
+		name := f.GetName()
+		path := join(prefix, name)
+		switch {
+		case f.GetRef() != nil:
+			refName := f.GetRef().GetName()
+			if _, ok := rootDefs[refName]; !ok {
+				out = append(out, schemaErr(path, fmt.Sprintf("ref %q is not defined in schema defs", refName)))
+			}
+		case f.GetList() != nil:
+			out = append(out, collectRefErrors(f.GetList().GetItems(), rootDefs, path+"[]")...)
+		case f.GetObject() != nil && f.GetObject().GetSchema() != nil:
+			out = append(out, collectRefErrors(f.GetObject().GetSchema().GetFields(), rootDefs, path)...)
+		case f.GetOneOf() != nil:
+			for vkey, variant := range f.GetOneOf().GetVariants() {
+				vpath := fmt.Sprintf("%s[variant=%s]", path, vkey)
+				out = append(out, collectRefErrors(variant.GetFields(), rootDefs, vpath)...)
+			}
+		}
 	}
 	return out
 }
@@ -714,6 +781,10 @@ func validateSchemaFields(fields []*Schema_Filed, prefix string) []*FieldError {
 
 		if f.GetKind() == nil {
 			out = append(out, schemaErr(path, "exactly one field kind must be set"))
+		}
+		// Ref kind: name must be non-empty (actual def existence checked in IsValid).
+		if r := f.GetRef(); r != nil && r.GetName() == "" {
+			out = append(out, schemaErr(path, "ref field requires a non-empty name"))
 		}
 		if e := f.GetEnum(); e != nil && e.GetDefinedOnly() && len(e.GetValues()) == 0 {
 			out = append(out, schemaErr(path, "enum with defined_only requires values"))

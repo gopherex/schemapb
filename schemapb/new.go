@@ -549,6 +549,36 @@ func (b *OneOfB) Variant(key string, fields ...FieldDef) *OneOfB {
 	return b
 }
 
+// Def registers a named sub-schema in the schema's defs map. Fields of kind
+// Ref resolve against these named defs. The def schema has no identity — it
+// is referenced by name only.
+func (b *SchemaB) Def(name string, fields ...FieldDef) *SchemaB {
+	if b.s.Defs == nil {
+		b.s.Defs = map[string]*Schema{}
+	}
+	sub := &Schema{}
+	for _, d := range fields {
+		sub.Fields = append(sub.Fields, d.Done())
+	}
+	b.s.Defs[name] = sub
+	return b
+}
+
+// RefB builds a Ref field that resolves its value against a named def in the
+// root schema's defs map.
+type RefB struct {
+	fieldBase[*RefB]
+}
+
+// Ref builds a field of kind Ref. name is the field name; defName is the key
+// in the root schema's defs map that the value must validate against.
+func Ref(name, defName string) *RefB {
+	b := &RefB{}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Ref_{Ref: &Schema_Filed_Ref{Name: defName}}
+	return b
+}
+
 // =============================================================================
 // FieldError builder (server-side validation failure)
 // =============================================================================
