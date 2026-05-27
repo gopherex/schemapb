@@ -381,6 +381,17 @@ type Schema_Filed struct {
 	Required bool `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
 	// Cross-field CEL validation rules (`this` is bound to this field).
 	Rules []*Schema_Filed_Rule `protobuf:"bytes,5,rep,name=rules,proto3" json:"rules,omitempty"`
+	// If true, the value is system-fixed: it equals `default` and cannot be
+	// changed. The validator forces it to `default` and rejects any
+	// different submitted value; renderers show it disabled. A "system
+	// value" is therefore immutable + default.
+	Immutable bool `protobuf:"varint,20,opt,name=immutable,proto3" json:"immutable,omitempty"`
+	// Informative section label for grouping fields (e.g. "WAL"). Purely
+	// informative — the validation/compute engine ignores it.
+	Group *string `protobuf:"bytes,21,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	// Informative unit of the value, e.g. "MB" or "ms". Purely informative —
+	// the engine ignores it; it is for renderers/serializers.
+	Unit *string `protobuf:"bytes,22,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
 	// The field kind; exactly one must be set.
 	// Types that are valid to be assigned to Kind:
 	//
@@ -466,6 +477,27 @@ func (x *Schema_Filed) GetRules() []*Schema_Filed_Rule {
 		return x.Rules
 	}
 	return nil
+}
+
+func (x *Schema_Filed) GetImmutable() bool {
+	if x != nil {
+		return x.Immutable
+	}
+	return false
+}
+
+func (x *Schema_Filed) GetGroup() string {
+	if x != nil && x.Group != nil {
+		return *x.Group
+	}
+	return ""
+}
+
+func (x *Schema_Filed) GetUnit() string {
+	if x != nil && x.Unit != nil {
+		return *x.Unit
+	}
+	return ""
 }
 
 func (x *Schema_Filed) GetKind() isSchema_Filed_Kind {
@@ -2095,18 +2127,21 @@ var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98'\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfd'\n" +
 	"\x06Schema\x12(\n" +
 	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
 	"\x06fields\x18\x03 \x03(\v2\x16.schemapb.Schema.FiledR\x06fields\x121\n" +
-	"\x05rules\x18\x04 \x03(\v2\x1b.schemapb.Schema.Filed.RuleR\x05rules\x1a\xc9%\n" +
+	"\x05rules\x18\x04 \x03(\v2\x1b.schemapb.Schema.Filed.RuleR\x05rules\x1a\xae&\n" +
 	"\x05Filed\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
 	"\bnullable\x18\x03 \x01(\bR\bnullable\x12\x1a\n" +
 	"\brequired\x18\x04 \x01(\bR\brequired\x121\n" +
-	"\x05rules\x18\x05 \x03(\v2\x1b.schemapb.Schema.Filed.RuleR\x05rules\x124\n" +
+	"\x05rules\x18\x05 \x03(\v2\x1b.schemapb.Schema.Filed.RuleR\x05rules\x12\x1c\n" +
+	"\timmutable\x18\x14 \x01(\bR\timmutable\x12\x19\n" +
+	"\x05group\x18\x15 \x01(\tH\x02R\x05group\x88\x01\x01\x12\x17\n" +
+	"\x04unit\x18\x16 \x01(\tH\x03R\x04unit\x88\x01\x01\x124\n" +
 	"\x05float\x18\x06 \x01(\v2\x1c.schemapb.Schema.Filed.FloatH\x00R\x05float\x127\n" +
 	"\x06double\x18\a \x01(\v2\x1d.schemapb.Schema.Filed.DoubleH\x00R\x06double\x124\n" +
 	"\x05int32\x18\b \x01(\v2\x1c.schemapb.Schema.Filed.Int32H\x00R\x05int32\x124\n" +
@@ -2333,7 +2368,9 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x05ERROR\x10\x01\x12\v\n" +
 	"\aWARNING\x10\x02B\x06\n" +
 	"\x04kindB\x0e\n" +
-	"\f_descriptionB\x0e\n" +
+	"\f_descriptionB\b\n" +
+	"\x06_groupB\a\n" +
+	"\x05_unitB\x0e\n" +
 	"\f_description\"\\\n" +
 	"\x0eSchemaIdentity\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +

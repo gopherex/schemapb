@@ -629,3 +629,36 @@ func TestComputeNested(t *testing.T) {
 		t.Errorf("nested computed total = %v, want 30", box["total"])
 	}
 }
+
+func TestImmutable(t *testing.T) {
+	// system value: immutable + default. group/unit are informative only.
+	s := schemapb.NewSchema(id(), schemapb.Fields(
+		schemapb.Field("block_size", schemapb.Int32(schemapb.Int32Default(8192)),
+			schemapb.FieldImmutable(), schemapb.FieldGroup("system"), schemapb.FieldUnit("B")),
+		schemapb.Field("work_mem", schemapb.Int32(schemapb.Int32Default(4)), schemapb.FieldUnit("MB")),
+	))
+	v := mustValidator(t, s)
+
+	// Compute forces the immutable field to its default even if an input is sent.
+	out, _ := v.Compute(map[string]any{"block_size": float64(16384)})
+	if out["block_size"] != float64(8192) {
+		t.Errorf("immutable not forced: %v", out["block_size"])
+	}
+	if out["work_mem"] != float64(4) { // default seeded
+		t.Errorf("work_mem default: %v", out["work_mem"])
+	}
+
+	// Validate rejects an attempt to change the immutable field.
+	if g := validateJSON(t, v, `{"block_size":16384}`); g["block_size"] != "immutable: cannot be changed" {
+		t.Errorf("want immutable error, got %v", g)
+	}
+	// Absent (or equal) immutable field is fine.
+	if g := validateJSON(t, v, `{}`); len(g) != 0 {
+		t.Errorf("want valid, got %v", g)
+	}
+
+	// group/unit are carried, engine ignores them.
+	if s.GetFields()[0].GetGroup() != "system" || s.GetFields()[0].GetUnit() != "B" {
+		t.Errorf("group/unit not set")
+	}
+}

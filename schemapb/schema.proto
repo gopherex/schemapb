@@ -343,6 +343,23 @@ message Schema {
         bool required = 4;
         /* Cross-field CEL validation rules (`this` is bound to this field). */
         repeated Rule rules = 5;
+        /*
+         * If true, the value is system-fixed: it equals `default` and cannot be
+         * changed. The validator forces it to `default` and rejects any
+         * different submitted value; renderers show it disabled. A "system
+         * value" is therefore immutable + default.
+         */
+        bool immutable = 20;
+        /*
+         * Informative section label for grouping fields (e.g. "WAL"). Purely
+         * informative — the validation/compute engine ignores it.
+         */
+        optional string group = 21;
+        /*
+         * Informative unit of the value, e.g. "MB" or "ms". Purely informative —
+         * the engine ignores it; it is for renderers/serializers.
+         */
+        optional string unit = 22;
         /* The field kind; exactly one must be set. */
         oneof kind {
             /* Float field. */

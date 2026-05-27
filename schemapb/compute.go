@@ -69,7 +69,13 @@ func (v *Validator) seed(fields []*Schema_Filed, scope map[string]any, prefix st
 		name := f.GetName()
 		path := join(prefix, name)
 
-		if _, ok := scope[name]; !ok {
+		// immutable fields are forced to their default (system-fixed); other
+		// fields take the default only when unset.
+		if f.GetImmutable() {
+			if dv, ok := defaultValue(f); ok {
+				scope[name] = dv
+			}
+		} else if _, ok := scope[name]; !ok {
 			if dv, ok := defaultValue(f); ok {
 				scope[name] = dv
 			}

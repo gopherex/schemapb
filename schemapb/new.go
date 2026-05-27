@@ -107,6 +107,22 @@ func FieldRules(rules ...*Schema_Filed_Rule) FieldOption {
 	return func(f *Schema_Filed) { f.Rules = rules }
 }
 
+// FieldImmutable marks the field as system-fixed: it is forced to its default
+// and any different submitted value is rejected (renderers show it disabled).
+func FieldImmutable() FieldOption {
+	return func(f *Schema_Filed) { f.Immutable = true }
+}
+
+// FieldGroup sets the informative section label (the engine ignores it).
+func FieldGroup(group string) FieldOption {
+	return func(f *Schema_Filed) { f.Group = &group }
+}
+
+// FieldUnit sets the informative value unit, e.g. "MB" (the engine ignores it).
+func FieldUnit(unit string) FieldOption {
+	return func(f *Schema_Filed) { f.Unit = &unit }
+}
+
 // =============================================================================
 // Kind builders — each returns a Kind setter accepted by Field.
 // =============================================================================

@@ -154,12 +154,51 @@ func (v *Validator) addProgram(code string) error {
 // =============================================================================
 
 func (v *Validator) validate(form map[string]any) []*FieldError {
-	// Resolve first: fill defaults and evaluate Computed fields, so structured
-	// rules and CEL/expr rules validate the fully resolved form.
-	out := v.resolve(form)
+	// Reject attempts to change immutable fields, checked on the raw input
+	// before resolve forces them back to their defaults.
+	out := v.checkImmutable(v.schema.GetFields(), form, "")
+	// Resolve: fill defaults and evaluate Computed fields, so structured and
+	// CEL/expr rules validate the fully resolved form.
+	out = append(out, v.resolve(form)...)
 	out = append(out, v.validateFields(v.schema.GetFields(), form, form, "")...)
 	for _, r := range v.schema.GetRules() {
 		out = append(out, v.evalRule(r, ruleScope(r), nil, form)...)
+	}
+	return out
+}
+
+// checkImmutable reports a submitted value that differs from an immutable
+// field's default (a system-fixed value cannot be changed). It walks present
+// objects and object-typed list elements. Only enforced when a default exists.
+func (v *Validator) checkImmutable(fields []*Schema_Filed, scope map[string]any, prefix string) []*FieldError {
+	var out []*FieldError
+	for _, f := range fields {
+		name := f.GetName()
+		path := join(prefix, name)
+		if f.GetImmutable() {
+			if cur, ok := scope[name]; ok {
+				if dv, has := defaultValue(f); has && cur != dv {
+					out = append(out, schemaErr(path, "immutable: cannot be changed"))
+				}
+			}
+			continue
+		}
+		if o := f.GetObject(); o != nil && o.GetSchema() != nil {
+			if child, ok := scope[name].(map[string]any); ok {
+				out = append(out, v.checkImmutable(o.GetSchema().GetFields(), child, path)...)
+			}
+		}
+		if l := f.GetList(); l != nil && len(l.GetItems()) >= 1 {
+			if o := l.GetItems()[0].GetObject(); o != nil && o.GetSchema() != nil {
+				if arr, ok := scope[name].([]any); ok {
+					for i, el := range arr {
+						if m, ok := el.(map[string]any); ok {
+							out = append(out, v.checkImmutable(o.GetSchema().GetFields(), m, fmt.Sprintf("%s[%d]", path, i))...)
+						}
+					}
+				}
+			}
+		}
 	}
 	return out
 }
