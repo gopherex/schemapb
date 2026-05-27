@@ -1,10 +1,19 @@
 
+# Run each recipe in a single bash shell (the release target needs multi-line
+# shell + bashisms like <<< ; default make runs each line in its own /bin/sh).
+SHELL := /bin/bash
+.ONESHELL:
+
+# Highest major allowed without semantic-import-versioning (/vN in module path).
+MAX_MAJOR := 1
+
 .PHONY: proto
 proto:
 	easyp generate
 
 .PHONY: wasm
 wasm:
+	set -e
 	GOOS=js GOARCH=wasm go build -o ts/schemapb.wasm ./wasm
 	cp -f "$$(go env GOROOT)/lib/wasm/wasm_exec.js" ts/wasm_exec.js
 	chmod u+w ts/wasm_exec.js
@@ -15,7 +24,8 @@ test:
 
 
 # Interactive release: recreate the latest tag on HEAD, or bump major/minor/patch.
-# Pushing the vX.Y.Z tag triggers .github/workflows/release.yml.
+# Pushing the vX.Y.Z tag triggers .github/workflows/publish-npm.yml.
+.PHONY: release
 release:
 	@cd "$$(git rev-parse --show-toplevel)"
 	if [ -n "$$(git status --porcelain)" ]; then
