@@ -70,7 +70,7 @@ const schema = create(SchemaSchema, {
 });
 
 sp.compute(schema, { disk_type: 1, disk_size: 100 });
-// { computed: { iops: 5000 }, errors: [] }
+// { values: { disk_type:1, disk_size:100, iops:5000, ... }, errors: [] }
 sp.validate(schema, { disk_type: 3, disk_size: 0 });
 // { ok: false, errors: [ { field: "disk_type", ... }, ... ] }
 ```

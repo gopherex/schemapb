@@ -22,8 +22,6 @@ import (
 type Validator struct {
 	schema   *Schema
 	programs map[string]*vm.Program
-	// computeOrder holds top-level Computed fields in dependency order.
-	computeOrder []*Schema_Filed
 }
 
 // SchemaError reports that a Schema descriptor is itself malformed. It carries
@@ -50,11 +48,6 @@ func NewValidator(s *Schema) (*Validator, error) {
 	if err := v.compileSchema(s); err != nil {
 		return nil, &SchemaError{Errors: []*FieldError{schemaErr("", "expr: "+err.Error())}}
 	}
-	order, err := buildComputeOrder(s.GetFields())
-	if err != nil {
-		return nil, &SchemaError{Errors: []*FieldError{schemaErr("", err.Error())}}
-	}
-	v.computeOrder = order
 	return v, nil
 }
 
@@ -161,9 +154,9 @@ func (v *Validator) addProgram(code string) error {
 // =============================================================================
 
 func (v *Validator) validate(form map[string]any) []*FieldError {
-	// Derived values first, injected into form so rules and other computed
-	// fields can read them via root.
-	out := v.compute(form)
+	// Resolve first: fill defaults and evaluate Computed fields, so structured
+	// rules and CEL/expr rules validate the fully resolved form.
+	out := v.resolve(form)
 	out = append(out, v.validateFields(v.schema.GetFields(), form, form, "")...)
 	for _, r := range v.schema.GetRules() {
 		out = append(out, v.evalRule(r, ruleScope(r), nil, form)...)

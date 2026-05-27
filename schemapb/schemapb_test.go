@@ -1,11 +1,14 @@
 package schemapb_test
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	schemapb "github.com/stroppy-io/schemapb/schemapb"
@@ -454,5 +457,175 @@ func TestDiskConditional(t *testing.T) {
 		if !hit {
 			t.Errorf("type %d size %d: want rule %s, got %v", c.typ, c.size, c.rule, msgs(errs))
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SchemaService server
+// ---------------------------------------------------------------------------
+
+func mustStruct(t *testing.T, m map[string]any) *structpb.Struct {
+	t.Helper()
+	st, err := structpb.NewStruct(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
+
+func refID(id *schemapb.SchemaIdentity) *schemapb.SchemaRef {
+	return &schemapb.SchemaRef{Source: &schemapb.SchemaRef_Id{Id: id}}
+}
+func refInline(s *schemapb.Schema) *schemapb.SchemaRef {
+	return &schemapb.SchemaRef{Source: &schemapb.SchemaRef_Schema{Schema: s}}
+}
+
+func TestServer_RegisterGetList(t *testing.T) {
+	srv := schemapb.NewServer(schemapb.DefaultConfig())
+	ctx := context.Background()
+
+	reg, err := srv.RegisterSchema(ctx, diskSchema())
+	if err != nil || !reg.GetValid() {
+		t.Fatalf("register: %v err=%v", reg, err)
+	}
+	got, err := srv.GetSchema(ctx, reg.GetId())
+	if err != nil || got.GetId().GetName() != "disk" {
+		t.Fatalf("get: %v err=%v", got, err)
+	}
+
+	other := schemapb.NewSchema(schemapb.Identity("infra", "net", "v1"), schemapb.Fields(schemapb.Field("x", schemapb.Bool())))
+	if _, err := srv.RegisterSchema(ctx, other); err != nil {
+		t.Fatal(err)
+	}
+
+	all, _ := srv.ListSchemas(ctx, &schemapb.Filter{})
+	if len(all.GetSchemas()) != 2 {
+		t.Errorf("list all = %d", len(all.GetSchemas()))
+	}
+	res, _ := srv.ListSchemas(ctx, &schemapb.Filter{NameContains: schemapb.Ptr("dis")})
+	if len(res.GetSchemas()) != 1 || res.GetSchemas()[0].GetId().GetName() != "disk" {
+		t.Errorf("filtered list: %v", res.GetSchemas())
+	}
+}
+
+func TestServer_RegisterInvalid(t *testing.T) {
+	srv := schemapb.NewServer(schemapb.DefaultConfig())
+	bad := schemapb.NewSchema(schemapb.Fields(schemapb.Field("x", schemapb.Bool()))) // no identity
+	resp, err := srv.RegisterSchema(context.Background(), bad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.GetValid() || len(resp.GetErrors()) == 0 {
+		t.Errorf("want invalid+errors, got %v", resp)
+	}
+}
+
+func TestServer_ValidateCompute(t *testing.T) {
+	srv := schemapb.NewServer(schemapb.DefaultConfig())
+	ctx := context.Background()
+	reg, _ := srv.RegisterSchema(ctx, diskSchema())
+
+	ok, _ := srv.Validate(ctx, &schemapb.ValidateRequest{
+		Schema: refID(reg.GetId()),
+		Values: mustStruct(t, map[string]any{"disk_type": 1, "disk_size": 100}),
+	})
+	if !ok.GetValid() {
+		t.Errorf("want valid, got %v", msgs(ok.GetErrors()))
+	}
+
+	bad, _ := srv.Validate(ctx, &schemapb.ValidateRequest{
+		Schema: refInline(diskSchema()),
+		Values: mustStruct(t, map[string]any{"disk_type": 3, "disk_size": 0}),
+	})
+	if bad.GetValid() {
+		t.Error("want invalid (inline)")
+	}
+
+	comp, err := srv.Compute(ctx, &schemapb.ComputeRequest{
+		Schema: refID(reg.GetId()),
+		Values: mustStruct(t, map[string]any{"disk_type": 1, "disk_size": 100}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if comp.GetValues().GetFields()["iops"].GetNumberValue() != 5000 {
+		t.Errorf("iops = %v", comp.GetValues().AsMap()["iops"])
+	}
+}
+
+func TestServer_Policies(t *testing.T) {
+	ctx := context.Background()
+	locked := schemapb.NewServer(schemapb.Config{}) // zero config: nothing allowed
+
+	if _, err := locked.RegisterSchema(ctx, diskSchema()); status.Code(err) != codes.PermissionDenied {
+		t.Errorf("register disabled: want PermissionDenied, got %v", err)
+	}
+	if _, err := locked.Validate(ctx, &schemapb.ValidateRequest{Schema: refInline(diskSchema()), Values: mustStruct(t, map[string]any{})}); status.Code(err) != codes.PermissionDenied {
+		t.Errorf("inline disabled: want PermissionDenied, got %v", err)
+	}
+	if _, err := locked.GetSchema(ctx, &schemapb.SchemaIdentity{Namespace: "no", Name: "thing", Version: "v1"}); status.Code(err) != codes.NotFound {
+		t.Errorf("get missing: want NotFound, got %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// resolve: defaults + full resolved state + nested computed
+// ---------------------------------------------------------------------------
+
+func TestComputeDefaultsAndFullState(t *testing.T) {
+	// disk_size defaults to 20, disk_type to 1; iops derived.
+	s := schemapb.NewSchema(id(),
+		schemapb.Fields(
+			schemapb.Field("disk_type", schemapb.Int32(schemapb.Int32Default(1))),
+			schemapb.Field("disk_size", schemapb.Int32(schemapb.Int32Default(20))),
+			schemapb.Field("iops", schemapb.Computed(
+				`root.disk_type == 1 ? root.disk_size * 50 : root.disk_size * 5`,
+				schemapb.ComputedResult(schemapb.ResultInt64))),
+		),
+	)
+	v := mustValidator(t, s)
+
+	// no input at all -> defaults seed inputs, derived computed; full state out
+	out, errs := v.Compute(map[string]any{})
+	if len(errs) != 0 {
+		t.Fatalf("compute({}): %v", msgs(errs))
+	}
+	if out["disk_type"] != float64(1) || out["disk_size"] != float64(20) {
+		t.Errorf("defaults not seeded: %v", out)
+	}
+	if out["iops"] != float64(1000) { // 20*50
+		t.Errorf("iops = %v, want 1000", out["iops"])
+	}
+
+	// partial input overrides default; output is the whole form
+	out2, _ := v.Compute(map[string]any{"disk_size": float64(100)})
+	if out2["disk_type"] != float64(1) || out2["disk_size"] != float64(100) || out2["iops"] != float64(5000) {
+		t.Errorf("full state = %v", out2)
+	}
+}
+
+func TestComputeNested(t *testing.T) {
+	// computed inside a nested object, reading top-level via root path
+	s := schemapb.NewSchema(id(),
+		schemapb.Fields(
+			schemapb.Field("base", schemapb.Int32()),
+			schemapb.Field("box", schemapb.Object(schemapb.NewSchema(schemapb.Fields(
+				schemapb.Field("factor", schemapb.Int32(schemapb.Int32Default(3))),
+				schemapb.Field("total", schemapb.Computed(
+					`root.base * root.box.factor`, schemapb.ComputedResult(schemapb.ResultInt64))),
+			)))),
+		),
+	)
+	v := mustValidator(t, s)
+	out, errs := v.Compute(map[string]any{"base": float64(10), "box": map[string]any{}})
+	if len(errs) != 0 {
+		t.Fatalf("nested compute: %v", msgs(errs))
+	}
+	box, _ := out["box"].(map[string]any)
+	if box["factor"] != float64(3) { // default seeded in nested object
+		t.Errorf("nested default: %v", box)
+	}
+	if box["total"] != float64(30) { // 10 * 3, computed in nested scope
+		t.Errorf("nested computed total = %v, want 30", box["total"])
 	}
 }

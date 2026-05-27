@@ -20,7 +20,9 @@ export interface ValidateResult {
 }
 
 export interface ComputeResult {
-  computed: Record<string, unknown>;
+  // Fully resolved form: provided inputs + values filled from schema defaults +
+  // evaluated Computed (derived) fields.
+  values: Record<string, unknown>;
   errors: FieldErrorJson[];
 }
 

@@ -9,7 +9,8 @@
 // as protojson, the form values as JSON) and returning a JSON string:
 //
 //	schemapbValidate(schemaJSON, valuesJSON) -> {"ok":bool,"errors":[...]}
-//	schemapbCompute(schemaJSON, valuesJSON)  -> {"computed":{...},"errors":[...]}
+//	schemapbCompute(schemaJSON, valuesJSON)  -> {"values":{...},"errors":[...]}
+//	   ("values" = the fully resolved form: inputs + defaults + derived)
 //
 // On a malformed schema or bad JSON, the result is {"error":"..."}.
 package main
@@ -66,11 +67,11 @@ func compute(_ js.Value, args []js.Value) any {
 	if schemaErr != "" {
 		return fail(schemaErr)
 	}
-	computed, fes, err := v.ComputeJSON(json.RawMessage(args[1].String()))
+	values, fes, err := v.ComputeJSON(json.RawMessage(args[1].String()))
 	if err != nil {
 		return fail(err.Error())
 	}
-	return result(map[string]any{"computed": computed, "errors": errs(fes)})
+	return result(map[string]any{"values": values, "errors": errs(fes)})
 }
 
 func newValidator(args []js.Value) (*schemapb.Validator, string) {

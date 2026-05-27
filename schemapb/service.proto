@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package schemapb;
+
+import "google/protobuf/struct.proto";
+import "schemapb/schema.proto";
+
+option go_package = "github.com/stroppy-io/schemapb/schemapb";
+
+/*
+ * SchemaService validates form values against a Schema and evaluates a Schema's
+ * derived (Computed) fields. It is generic: the logic is driven entirely by the
+ * Schema (structured rules + expr-lang expressions), so no per-schema server
+ * code is required. A schema may be supplied inline in the request or addressed
+ * by its identity from the server-side registry.
+ */
+service SchemaService {
+    /* Register (and validate) a schema, returning its identity. */
+    rpc RegisterSchema(Schema) returns (RegisterSchemaResponse);
+    /* Fetch a registered schema by identity (e.g. for a frontend to render). */
+    rpc GetSchema(SchemaIdentity) returns (Schema);
+    /* List registered schemas, optionally filtered. */
+    rpc ListSchemas(Filter) returns (ListSchemasResponse);
+    /* Check that a schema descriptor itself is well-formed. */
+    rpc ValidateSchema(Schema) returns (ValidateSchemaResponse);
+    /* Validate form values against a schema. */
+    rpc Validate(ValidateRequest) returns (ValidateResponse);
+    /* Evaluate the schema's Computed fields for the given values. */
+    rpc Compute(ComputeRequest) returns (ComputeResponse);
+}
+
+/*
+ * SchemaRef selects the schema an operation runs against: either inline, or by
+ * identity (resolved from the server registry).
+ */
+message SchemaRef {
+    oneof source {
+        /* Resolve a registered schema by identity. */
+        SchemaIdentity id = 1;
+        /* Use this schema directly, without registering it. */
+        Schema schema = 2;
+    }
+}
+
+/*
+ * Filter narrows ListSchemas. Unset fields are not constrained; all set fields
+ * must match (AND). An empty Filter lists everything.
+ */
+message Filter {
+    /* Exact namespace match. */
+    optional string namespace = 1;
+    /* Exact name match. */
+    optional string name = 2;
+    /* Exact version match. */
+    optional string version = 3;
+    /* Case-insensitive substring match against the name. */
+    optional string name_contains = 4;
+}
+
+/* SchemaSummary is the lightweight listing entry; fetch the full Schema with GetSchema. */
+message SchemaSummary {
+    /* Schema identity. */
+    SchemaIdentity id = 1;
+    /* Schema description, if any. */
+    optional string description = 2;
+}
+
+message RegisterSchemaResponse {
+    /* Identity the schema is stored under (its own id). */
+    SchemaIdentity id = 1;
+    /* True if the schema is well-formed and was stored. */
+    bool valid = 2;
+    /* Descriptor problems; non-empty means the schema was rejected. */
+    repeated FieldError errors = 3;
+}
+
+message ListSchemasResponse {
+    /* Matching schemas (summaries). */
+    repeated SchemaSummary schemas = 1;
+}
+
+message ValidateSchemaResponse {
+    /* True if the descriptor is well-formed. */
+    bool valid = 1;
+    /* Descriptor problems. */
+    repeated FieldError errors = 2;
+}
+
+message ValidateRequest {
+    /* Schema to validate against. */
+    SchemaRef schema = 1;
+    /* Form values to validate. */
+    google.protobuf.Struct values = 2;
+}
+message ValidateResponse {
+    /* True if there are no ERROR-severity failures. */
+    bool valid = 1;
+    /* Validation failures (errors and warnings). */
+    repeated FieldError errors = 2;
+}
+
+message ComputeRequest {
+    /* Schema whose Computed fields to evaluate. */
+    SchemaRef schema = 1;
+    /* Input values the expressions read. */
+    google.protobuf.Struct values = 2;
+}
+message ComputeResponse {
+    /*
+     * The fully resolved form: the provided inputs, plus values filled from the
+     * schema's defaults, plus the evaluated Computed (derived) fields.
+     */
+    google.protobuf.Struct values = 1;
+    /* Errors raised while evaluating expressions. */
+    repeated FieldError errors = 2;
+}

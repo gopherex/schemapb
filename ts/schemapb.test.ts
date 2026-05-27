@@ -106,9 +106,9 @@ describe("compute (derived values, dependency order)", () => {
   ])("type %i size %i -> iops/bw/score", (typ, size, iops, bw, score) => {
     const r = sp.compute(diskSchema(), { disk_type: typ, disk_size: size });
     expect(r.errors).toHaveLength(0);
-    expect(r.computed.iops).toBe(iops);
-    expect(r.computed.bandwidth_mbps).toBe(bw);
-    expect(r.computed.score).toBe(score); // depends on iops + bandwidth
+    expect(r.values.iops).toBe(iops);
+    expect(r.values.bandwidth_mbps).toBe(bw);
+    expect(r.values.score).toBe(score); // depends on iops + bandwidth
   });
 });
 
