@@ -1,0 +1,47 @@
+{
+  "name": "@stroppy-io/schemapb",
+  "version": "0.0.1",
+  "description": "schemapb — form-schema validator and derived-value (Computed) engine, running the same expr-lang engine as the Go server via WebAssembly.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stroppy-io/schemapb.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "schemapb.wasm",
+    "wasm_exec.js"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schemapb.wasm": "./schemapb.wasm",
+    "./wasm_exec.js": "./wasm_exec.js"
+  },
+  "scripts": {
+    "build:wasm": "cd .. && make wasm",
+    "build": "npm run build:wasm && tsup",
+    "pretest": "npm run build:wasm",
+    "test": "vitest run",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}

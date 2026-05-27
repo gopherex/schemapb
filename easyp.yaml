@@ -16,6 +16,13 @@ generate:
       out: .
       opts:
         paths: source_relative
+    - name: es
+      out: ts
+      opts:
+        target: ts
+        import_extension: ts
+        json_types: true
+        valid_types: legacy_required+protovalidate_required
 breaking:
   ignore: []
   against_git_ref: master-worker

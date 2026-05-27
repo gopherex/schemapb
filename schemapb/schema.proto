@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package cloud.v1.common;
+package schemapb;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
@@ -19,7 +19,9 @@ option go_package = "github.com/stroppy-io/schemapb/schemapb";
  *
  * Both layers run through one engine: structured rules are lowered to CEL at
  * load time, then evaluated by cel-go (server, authoritative) and cel-es
- * (client, live UX) from the same expression. Rendering is driven by Filed.UI.
+ * (client, live UX) from the same expression. Rendering is described by a
+ * separate Form (see ui.proto) that references fields by path; the Schema
+ * itself carries no UI.
  *
  * The PGV (validate.rules) options below validate the descriptor ITSELF (that a
  * Schema is well-formed: names set, expressions non-empty, a kind chosen), not
@@ -262,51 +264,44 @@ message Schema {
             /* Nested object schema. */
             optional Schema schema = 1;
         }
+        /*
+         * Computed field kind: a value derived from other values, not entered by
+         * the user. The server (and the client, for live UX) evaluates `expr`
+         * and writes the result under this field's name, so other expressions
+         * and validation rules can read it via `root`.
+         *
+         * Evaluation is dependency-ordered: a Computed field may reference inputs
+         * and other Computed fields. Cycles are rejected at schema-validation
+         * time. Referencing a value that is absent at evaluation time is an
+         * error (surfaced as a FieldError on this field's path).
+         *
+         * `expr` must be a pure, deterministic expression (no now()/rand) so the
+         * server and client agree.
+         */
+        message Computed {
+            /* Expression producing the value. Reads `root` (inputs + already
+             * computed values). Bound the same way as Rule expressions. */
+            string expr = 1;
+            /* Result type, used to marshal the value back into the form. The
+             * field kind it names (Float/Int32/.../Duration) selects the wire
+             * type; structured constraints on it are ignored for output but may
+             * still be used to document/round the result. Optional: if unset the
+             * server infers the type from the checked expression. */
+            optional ResultType result = 2;
+        }
 
         /*
-         * UI carries render hints: how to draw the field. Numeric bounds and step
-         * are introspected from the per-kind structured rules (gte/lte/multiple_of).
+         * ResultType is the wire type a Computed expression yields.
          */
-        message UI {
-            /* Widget kinds the renderer can pick from. */
-            enum Widget {
-                /* Unset: renderer picks a default widget by field kind. */
-                WIDGET_UNSPECIFIED = 0;
-                /* Single-line text or number input, per kind. */
-                WIDGET_INPUT = 1;
-                /* Slider for bounded numbers. */
-                WIDGET_SLIDER = 2;
-                /* Dropdown select, for enum. */
-                WIDGET_SELECT = 3;
-                /* Radio group. */
-                WIDGET_RADIO = 4;
-                /* Toggle switch, for bool. */
-                WIDGET_SWITCH = 5;
-                /* Multi-line text area. */
-                WIDGET_TEXTAREA = 6;
-            }
-            /* Human label; falls back to Filed.name. */
-            optional string label = 1;
-            /* Help text; falls back to Filed.description. */
-            optional string help = 2;
-            /* Placeholder text for empty inputs. */
-            optional string placeholder = 3;
-            /* Explicit widget; if unset the renderer defaults by field kind. */
-            optional Widget widget = 4;
-            /* Display suffix; the value is stored in this unit. */
-            optional string unit = 5;
-            /* Input increment; if unset it is derived from multiple_of. */
-            optional double step = 6;
-            /* Section key used to group fields in the form. */
-            optional string group = 7;
-            /* Sort order of the field within the form. */
-            optional int32 order = 8;
-            /* If true, hide the field behind an "advanced" toggle. */
-            optional bool advanced = 9;
-            /* CEL bool; the field is rendered only when this is true. */
-            optional string visible_if = 10;
-            /* CEL bool; the field is enabled only when this is true. */
-            optional string enabled_if = 11;
+        enum ResultType {
+            /* Unset: infer from the expression. */
+            RESULT_TYPE_UNSPECIFIED = 0;
+            RESULT_TYPE_DOUBLE = 1;
+            RESULT_TYPE_INT64 = 2;
+            RESULT_TYPE_UINT64 = 3;
+            RESULT_TYPE_BOOL = 4;
+            RESULT_TYPE_STRING = 5;
+            RESULT_TYPE_DURATION = 6;
         }
 
         /*
@@ -346,46 +341,62 @@ message Schema {
         bool nullable = 3;
         /* If true, the value must be present. */
         bool required = 4;
-        /* Render hints for this field. */
-        UI ui = 5;
         /* Cross-field CEL validation rules (`this` is bound to this field). */
-        repeated Rule rules = 6;
+        repeated Rule rules = 5;
         /* The field kind; exactly one must be set. */
         oneof kind {
             /* Float field. */
-            Float float = 100;
+            Float float = 6;
             /* Double field. */
-            Double double = 101;
+            Double double = 7;
             /* Int32 field. */
-            Int32 int32 = 102;
+            Int32 int32 = 8;
             /* Int64 field. */
-            Int64 int64 = 103;
+            Int64 int64 = 9;
             /* UInt32 field. */
-            UInt32 uint32 = 104;
+            UInt32 uint32 = 10;
             /* UInt64 field. */
-            UInt64 uint64 = 105;
+            UInt64 uint64 = 11;
             /* Bool field. */
-            Bool bool = 106;
+            Bool bool = 12;
             /* String field. */
-            String string = 107;
+            String string = 13;
             /* Enum field. */
-            Enum enum = 108;
+            Enum enum = 14;
             /* Duration field. */
-            Duration duration = 109;
+            Duration duration = 15;
             /* Timestamp field. */
-            Timestamp timestamp = 110;
+            Timestamp timestamp = 16;
             /* List field. */
-            List list = 111;
+            List list = 17;
             /* Nested object field. */
-            Object object = 112;
+            Object object = 18;
+            /* Computed (derived) field. */
+            Computed computed = 19;
         }
     }
-    /* Optional schema name. */
-    optional string name = 1;
+    /* Stable identity of this schema. Required: the validator rejects a schema
+     * whose id is unset or whose name is empty. */
+    SchemaIdentity id = 1;
+    /* Human description of the schema. */
+    optional string description = 2;
     /* The fields that make up the form. */
-    repeated Filed fields = 2;
+    repeated Filed fields = 3;
     /* Form-wide invariant rules (`root` only, no `this`). */
-    repeated Filed.Rule rules = 3;
+    repeated Filed.Rule rules = 4;
+}
+
+/*
+ * SchemaIdentity is the stable, system-assigned identity of a Schema. A Schema
+ * is addressed by this identity rather than a free-form name.
+ */
+message SchemaIdentity {
+    /* Grouping namespace, e.g. a product or team. Optional. */
+    string namespace = 1;
+    /* Schema name, unique within its namespace. Required. */
+    string name = 2;
+    /* Schema version, e.g. "v1" or a semver string. Optional. */
+    string version = 3;
 }
 
 /*

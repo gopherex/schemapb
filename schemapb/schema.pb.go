@@ -23,6 +23,69 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ResultType is the wire type a Computed expression yields.
+type Schema_Filed_ResultType int32
+
+const (
+	// Unset: infer from the expression.
+	Schema_Filed_RESULT_TYPE_UNSPECIFIED Schema_Filed_ResultType = 0
+	Schema_Filed_RESULT_TYPE_DOUBLE      Schema_Filed_ResultType = 1
+	Schema_Filed_RESULT_TYPE_INT64       Schema_Filed_ResultType = 2
+	Schema_Filed_RESULT_TYPE_UINT64      Schema_Filed_ResultType = 3
+	Schema_Filed_RESULT_TYPE_BOOL        Schema_Filed_ResultType = 4
+	Schema_Filed_RESULT_TYPE_STRING      Schema_Filed_ResultType = 5
+	Schema_Filed_RESULT_TYPE_DURATION    Schema_Filed_ResultType = 6
+)
+
+// Enum value maps for Schema_Filed_ResultType.
+var (
+	Schema_Filed_ResultType_name = map[int32]string{
+		0: "RESULT_TYPE_UNSPECIFIED",
+		1: "RESULT_TYPE_DOUBLE",
+		2: "RESULT_TYPE_INT64",
+		3: "RESULT_TYPE_UINT64",
+		4: "RESULT_TYPE_BOOL",
+		5: "RESULT_TYPE_STRING",
+		6: "RESULT_TYPE_DURATION",
+	}
+	Schema_Filed_ResultType_value = map[string]int32{
+		"RESULT_TYPE_UNSPECIFIED": 0,
+		"RESULT_TYPE_DOUBLE":      1,
+		"RESULT_TYPE_INT64":       2,
+		"RESULT_TYPE_UINT64":      3,
+		"RESULT_TYPE_BOOL":        4,
+		"RESULT_TYPE_STRING":      5,
+		"RESULT_TYPE_DURATION":    6,
+	}
+)
+
+func (x Schema_Filed_ResultType) Enum() *Schema_Filed_ResultType {
+	p := new(Schema_Filed_ResultType)
+	*p = x
+	return p
+}
+
+func (x Schema_Filed_ResultType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Schema_Filed_ResultType) Descriptor() protoreflect.EnumDescriptor {
+	return file_schemapb_schema_proto_enumTypes[0].Descriptor()
+}
+
+func (Schema_Filed_ResultType) Type() protoreflect.EnumType {
+	return &file_schemapb_schema_proto_enumTypes[0]
+}
+
+func (x Schema_Filed_ResultType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Schema_Filed_ResultType.Descriptor instead.
+func (Schema_Filed_ResultType) EnumDescriptor() ([]byte, []int) {
+	return file_schemapb_schema_proto_rawDescGZIP(), []int{0, 0, 0}
+}
+
 // Severity of a failed rule.
 type Schema_Filed_Severity int32
 
@@ -60,11 +123,11 @@ func (x Schema_Filed_Severity) String() string {
 }
 
 func (Schema_Filed_Severity) Descriptor() protoreflect.EnumDescriptor {
-	return file_schemapb_schema_proto_enumTypes[0].Descriptor()
+	return file_schemapb_schema_proto_enumTypes[1].Descriptor()
 }
 
 func (Schema_Filed_Severity) Type() protoreflect.EnumType {
-	return &file_schemapb_schema_proto_enumTypes[0]
+	return &file_schemapb_schema_proto_enumTypes[1]
 }
 
 func (x Schema_Filed_Severity) Number() protoreflect.EnumNumber {
@@ -73,76 +136,7 @@ func (x Schema_Filed_Severity) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Schema_Filed_Severity.Descriptor instead.
 func (Schema_Filed_Severity) EnumDescriptor() ([]byte, []int) {
-	return file_schemapb_schema_proto_rawDescGZIP(), []int{0, 0, 0}
-}
-
-// Widget kinds the renderer can pick from.
-type Schema_Filed_UI_Widget int32
-
-const (
-	// Unset: renderer picks a default widget by field kind.
-	Schema_Filed_UI_WIDGET_UNSPECIFIED Schema_Filed_UI_Widget = 0
-	// Single-line text or number input, per kind.
-	Schema_Filed_UI_WIDGET_INPUT Schema_Filed_UI_Widget = 1
-	// Slider for bounded numbers.
-	Schema_Filed_UI_WIDGET_SLIDER Schema_Filed_UI_Widget = 2
-	// Dropdown select, for enum.
-	Schema_Filed_UI_WIDGET_SELECT Schema_Filed_UI_Widget = 3
-	// Radio group.
-	Schema_Filed_UI_WIDGET_RADIO Schema_Filed_UI_Widget = 4
-	// Toggle switch, for bool.
-	Schema_Filed_UI_WIDGET_SWITCH Schema_Filed_UI_Widget = 5
-	// Multi-line text area.
-	Schema_Filed_UI_WIDGET_TEXTAREA Schema_Filed_UI_Widget = 6
-)
-
-// Enum value maps for Schema_Filed_UI_Widget.
-var (
-	Schema_Filed_UI_Widget_name = map[int32]string{
-		0: "WIDGET_UNSPECIFIED",
-		1: "WIDGET_INPUT",
-		2: "WIDGET_SLIDER",
-		3: "WIDGET_SELECT",
-		4: "WIDGET_RADIO",
-		5: "WIDGET_SWITCH",
-		6: "WIDGET_TEXTAREA",
-	}
-	Schema_Filed_UI_Widget_value = map[string]int32{
-		"WIDGET_UNSPECIFIED": 0,
-		"WIDGET_INPUT":       1,
-		"WIDGET_SLIDER":      2,
-		"WIDGET_SELECT":      3,
-		"WIDGET_RADIO":       4,
-		"WIDGET_SWITCH":      5,
-		"WIDGET_TEXTAREA":    6,
-	}
-)
-
-func (x Schema_Filed_UI_Widget) Enum() *Schema_Filed_UI_Widget {
-	p := new(Schema_Filed_UI_Widget)
-	*p = x
-	return p
-}
-
-func (x Schema_Filed_UI_Widget) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Schema_Filed_UI_Widget) Descriptor() protoreflect.EnumDescriptor {
-	return file_schemapb_schema_proto_enumTypes[1].Descriptor()
-}
-
-func (Schema_Filed_UI_Widget) Type() protoreflect.EnumType {
-	return &file_schemapb_schema_proto_enumTypes[1]
-}
-
-func (x Schema_Filed_UI_Widget) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Schema_Filed_UI_Widget.Descriptor instead.
-func (Schema_Filed_UI_Widget) EnumDescriptor() ([]byte, []int) {
-	return file_schemapb_schema_proto_rawDescGZIP(), []int{0, 0, 13, 0}
+	return file_schemapb_schema_proto_rawDescGZIP(), []int{0, 0, 1}
 }
 
 // Schema is a runtime, dynamic form descriptor. The server builds a Schema and
@@ -156,19 +150,24 @@ func (Schema_Filed_UI_Widget) EnumDescriptor() ([]byte, []int) {
 //
 // Both layers run through one engine: structured rules are lowered to CEL at
 // load time, then evaluated by cel-go (server, authoritative) and cel-es
-// (client, live UX) from the same expression. Rendering is driven by Filed.UI.
+// (client, live UX) from the same expression. Rendering is described by a
+// separate Form (see ui.proto) that references fields by path; the Schema
+// itself carries no UI.
 //
 // The PGV (validate.rules) options below validate the descriptor ITSELF (that a
 // Schema is well-formed: names set, expressions non-empty, a kind chosen), not
 // the runtime form values it describes.
 type Schema struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Optional schema name.
-	Name *string `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	// Stable identity of this schema. Required: the validator rejects a schema
+	// whose id is unset or whose name is empty.
+	Id *SchemaIdentity `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Human description of the schema.
+	Description *string `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	// The fields that make up the form.
-	Fields []*Schema_Filed `protobuf:"bytes,2,rep,name=fields,proto3" json:"fields,omitempty"`
+	Fields []*Schema_Filed `protobuf:"bytes,3,rep,name=fields,proto3" json:"fields,omitempty"`
 	// Form-wide invariant rules (`root` only, no `this`).
-	Rules         []*Schema_Filed_Rule `protobuf:"bytes,3,rep,name=rules,proto3" json:"rules,omitempty"`
+	Rules         []*Schema_Filed_Rule `protobuf:"bytes,4,rep,name=rules,proto3" json:"rules,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -203,9 +202,16 @@ func (*Schema) Descriptor() ([]byte, []int) {
 	return file_schemapb_schema_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Schema) GetName() string {
-	if x != nil && x.Name != nil {
-		return *x.Name
+func (x *Schema) GetId() *SchemaIdentity {
+	if x != nil {
+		return x.Id
+	}
+	return nil
+}
+
+func (x *Schema) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
 	return ""
 }
@@ -224,6 +230,71 @@ func (x *Schema) GetRules() []*Schema_Filed_Rule {
 	return nil
 }
 
+// SchemaIdentity is the stable, system-assigned identity of a Schema. A Schema
+// is addressed by this identity rather than a free-form name.
+type SchemaIdentity struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Grouping namespace, e.g. a product or team. Optional.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Schema name, unique within its namespace. Required.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Schema version, e.g. "v1" or a semver string. Optional.
+	Version       string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SchemaIdentity) Reset() {
+	*x = SchemaIdentity{}
+	mi := &file_schemapb_schema_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SchemaIdentity) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SchemaIdentity) ProtoMessage() {}
+
+func (x *SchemaIdentity) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_schema_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SchemaIdentity.ProtoReflect.Descriptor instead.
+func (*SchemaIdentity) Descriptor() ([]byte, []int) {
+	return file_schemapb_schema_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SchemaIdentity) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *SchemaIdentity) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SchemaIdentity) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
 // FieldError is a single validation failure returned by the server-side
 // validator (and reusable to render server errors on the client).
 type FieldError struct {
@@ -235,14 +306,14 @@ type FieldError struct {
 	// Id of the rule that failed, if any.
 	RuleId *string `protobuf:"bytes,3,opt,name=rule_id,json=ruleId,proto3,oneof" json:"rule_id,omitempty"`
 	// Severity of the failure.
-	Severity      Schema_Filed_Severity `protobuf:"varint,4,opt,name=severity,proto3,enum=cloud.v1.common.Schema_Filed_Severity" json:"severity,omitempty"`
+	Severity      Schema_Filed_Severity `protobuf:"varint,4,opt,name=severity,proto3,enum=schemapb.Schema_Filed_Severity" json:"severity,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FieldError) Reset() {
 	*x = FieldError{}
-	mi := &file_schemapb_schema_proto_msgTypes[1]
+	mi := &file_schemapb_schema_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -254,7 +325,7 @@ func (x *FieldError) String() string {
 func (*FieldError) ProtoMessage() {}
 
 func (x *FieldError) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[1]
+	mi := &file_schemapb_schema_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -267,7 +338,7 @@ func (x *FieldError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FieldError.ProtoReflect.Descriptor instead.
 func (*FieldError) Descriptor() ([]byte, []int) {
-	return file_schemapb_schema_proto_rawDescGZIP(), []int{1}
+	return file_schemapb_schema_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *FieldError) GetField() string {
@@ -308,10 +379,8 @@ type Schema_Filed struct {
 	Nullable bool `protobuf:"varint,3,opt,name=nullable,proto3" json:"nullable,omitempty"`
 	// If true, the value must be present.
 	Required bool `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
-	// Render hints for this field.
-	Ui *Schema_Filed_UI `protobuf:"bytes,5,opt,name=ui,proto3" json:"ui,omitempty"`
 	// Cross-field CEL validation rules (`this` is bound to this field).
-	Rules []*Schema_Filed_Rule `protobuf:"bytes,6,rep,name=rules,proto3" json:"rules,omitempty"`
+	Rules []*Schema_Filed_Rule `protobuf:"bytes,5,rep,name=rules,proto3" json:"rules,omitempty"`
 	// The field kind; exactly one must be set.
 	// Types that are valid to be assigned to Kind:
 	//
@@ -328,6 +397,7 @@ type Schema_Filed struct {
 	//	*Schema_Filed_Timestamp_
 	//	*Schema_Filed_List_
 	//	*Schema_Filed_Object_
+	//	*Schema_Filed_Computed_
 	Kind          isSchema_Filed_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -335,7 +405,7 @@ type Schema_Filed struct {
 
 func (x *Schema_Filed) Reset() {
 	*x = Schema_Filed{}
-	mi := &file_schemapb_schema_proto_msgTypes[2]
+	mi := &file_schemapb_schema_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -347,7 +417,7 @@ func (x *Schema_Filed) String() string {
 func (*Schema_Filed) ProtoMessage() {}
 
 func (x *Schema_Filed) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[2]
+	mi := &file_schemapb_schema_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -389,13 +459,6 @@ func (x *Schema_Filed) GetRequired() bool {
 		return x.Required
 	}
 	return false
-}
-
-func (x *Schema_Filed) GetUi() *Schema_Filed_UI {
-	if x != nil {
-		return x.Ui
-	}
-	return nil
 }
 
 func (x *Schema_Filed) GetRules() []*Schema_Filed_Rule {
@@ -529,73 +592,87 @@ func (x *Schema_Filed) GetObject() *Schema_Filed_Object {
 	return nil
 }
 
+func (x *Schema_Filed) GetComputed() *Schema_Filed_Computed {
+	if x != nil {
+		if x, ok := x.Kind.(*Schema_Filed_Computed_); ok {
+			return x.Computed
+		}
+	}
+	return nil
+}
+
 type isSchema_Filed_Kind interface {
 	isSchema_Filed_Kind()
 }
 
 type Schema_Filed_Float_ struct {
 	// Float field.
-	Float *Schema_Filed_Float `protobuf:"bytes,100,opt,name=float,proto3,oneof"`
+	Float *Schema_Filed_Float `protobuf:"bytes,6,opt,name=float,proto3,oneof"`
 }
 
 type Schema_Filed_Double_ struct {
 	// Double field.
-	Double *Schema_Filed_Double `protobuf:"bytes,101,opt,name=double,proto3,oneof"`
+	Double *Schema_Filed_Double `protobuf:"bytes,7,opt,name=double,proto3,oneof"`
 }
 
 type Schema_Filed_Int32_ struct {
 	// Int32 field.
-	Int32 *Schema_Filed_Int32 `protobuf:"bytes,102,opt,name=int32,proto3,oneof"`
+	Int32 *Schema_Filed_Int32 `protobuf:"bytes,8,opt,name=int32,proto3,oneof"`
 }
 
 type Schema_Filed_Int64_ struct {
 	// Int64 field.
-	Int64 *Schema_Filed_Int64 `protobuf:"bytes,103,opt,name=int64,proto3,oneof"`
+	Int64 *Schema_Filed_Int64 `protobuf:"bytes,9,opt,name=int64,proto3,oneof"`
 }
 
 type Schema_Filed_Uint32 struct {
 	// UInt32 field.
-	Uint32 *Schema_Filed_UInt32 `protobuf:"bytes,104,opt,name=uint32,proto3,oneof"`
+	Uint32 *Schema_Filed_UInt32 `protobuf:"bytes,10,opt,name=uint32,proto3,oneof"`
 }
 
 type Schema_Filed_Uint64 struct {
 	// UInt64 field.
-	Uint64 *Schema_Filed_UInt64 `protobuf:"bytes,105,opt,name=uint64,proto3,oneof"`
+	Uint64 *Schema_Filed_UInt64 `protobuf:"bytes,11,opt,name=uint64,proto3,oneof"`
 }
 
 type Schema_Filed_Bool_ struct {
 	// Bool field.
-	Bool *Schema_Filed_Bool `protobuf:"bytes,106,opt,name=bool,proto3,oneof"`
+	Bool *Schema_Filed_Bool `protobuf:"bytes,12,opt,name=bool,proto3,oneof"`
 }
 
 type Schema_Filed_String_ struct {
 	// String field.
-	String_ *Schema_Filed_String `protobuf:"bytes,107,opt,name=string,proto3,oneof"`
+	String_ *Schema_Filed_String `protobuf:"bytes,13,opt,name=string,proto3,oneof"`
 }
 
 type Schema_Filed_Enum_ struct {
 	// Enum field.
-	Enum *Schema_Filed_Enum `protobuf:"bytes,108,opt,name=enum,proto3,oneof"`
+	Enum *Schema_Filed_Enum `protobuf:"bytes,14,opt,name=enum,proto3,oneof"`
 }
 
 type Schema_Filed_Duration_ struct {
 	// Duration field.
-	Duration *Schema_Filed_Duration `protobuf:"bytes,109,opt,name=duration,proto3,oneof"`
+	Duration *Schema_Filed_Duration `protobuf:"bytes,15,opt,name=duration,proto3,oneof"`
 }
 
 type Schema_Filed_Timestamp_ struct {
 	// Timestamp field.
-	Timestamp *Schema_Filed_Timestamp `protobuf:"bytes,110,opt,name=timestamp,proto3,oneof"`
+	Timestamp *Schema_Filed_Timestamp `protobuf:"bytes,16,opt,name=timestamp,proto3,oneof"`
 }
 
 type Schema_Filed_List_ struct {
 	// List field.
-	List *Schema_Filed_List `protobuf:"bytes,111,opt,name=list,proto3,oneof"`
+	List *Schema_Filed_List `protobuf:"bytes,17,opt,name=list,proto3,oneof"`
 }
 
 type Schema_Filed_Object_ struct {
 	// Nested object field.
-	Object *Schema_Filed_Object `protobuf:"bytes,112,opt,name=object,proto3,oneof"`
+	Object *Schema_Filed_Object `protobuf:"bytes,18,opt,name=object,proto3,oneof"`
+}
+
+type Schema_Filed_Computed_ struct {
+	// Computed (derived) field.
+	Computed *Schema_Filed_Computed `protobuf:"bytes,19,opt,name=computed,proto3,oneof"`
 }
 
 func (*Schema_Filed_Float_) isSchema_Filed_Kind() {}
@@ -623,6 +700,8 @@ func (*Schema_Filed_Timestamp_) isSchema_Filed_Kind() {}
 func (*Schema_Filed_List_) isSchema_Filed_Kind() {}
 
 func (*Schema_Filed_Object_) isSchema_Filed_Kind() {}
+
+func (*Schema_Filed_Computed_) isSchema_Filed_Kind() {}
 
 // Float field kind and its single-field constraints.
 // gt = exclusive min (> 0), gte = inclusive min (>= 1).
@@ -653,7 +732,7 @@ type Schema_Filed_Float struct {
 
 func (x *Schema_Filed_Float) Reset() {
 	*x = Schema_Filed_Float{}
-	mi := &file_schemapb_schema_proto_msgTypes[3]
+	mi := &file_schemapb_schema_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -665,7 +744,7 @@ func (x *Schema_Filed_Float) String() string {
 func (*Schema_Filed_Float) ProtoMessage() {}
 
 func (x *Schema_Filed_Float) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[3]
+	mi := &file_schemapb_schema_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -771,7 +850,7 @@ type Schema_Filed_Double struct {
 
 func (x *Schema_Filed_Double) Reset() {
 	*x = Schema_Filed_Double{}
-	mi := &file_schemapb_schema_proto_msgTypes[4]
+	mi := &file_schemapb_schema_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -783,7 +862,7 @@ func (x *Schema_Filed_Double) String() string {
 func (*Schema_Filed_Double) ProtoMessage() {}
 
 func (x *Schema_Filed_Double) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[4]
+	mi := &file_schemapb_schema_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -889,7 +968,7 @@ type Schema_Filed_Int32 struct {
 
 func (x *Schema_Filed_Int32) Reset() {
 	*x = Schema_Filed_Int32{}
-	mi := &file_schemapb_schema_proto_msgTypes[5]
+	mi := &file_schemapb_schema_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -901,7 +980,7 @@ func (x *Schema_Filed_Int32) String() string {
 func (*Schema_Filed_Int32) ProtoMessage() {}
 
 func (x *Schema_Filed_Int32) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[5]
+	mi := &file_schemapb_schema_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1007,7 +1086,7 @@ type Schema_Filed_Int64 struct {
 
 func (x *Schema_Filed_Int64) Reset() {
 	*x = Schema_Filed_Int64{}
-	mi := &file_schemapb_schema_proto_msgTypes[6]
+	mi := &file_schemapb_schema_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1019,7 +1098,7 @@ func (x *Schema_Filed_Int64) String() string {
 func (*Schema_Filed_Int64) ProtoMessage() {}
 
 func (x *Schema_Filed_Int64) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[6]
+	mi := &file_schemapb_schema_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1125,7 +1204,7 @@ type Schema_Filed_UInt32 struct {
 
 func (x *Schema_Filed_UInt32) Reset() {
 	*x = Schema_Filed_UInt32{}
-	mi := &file_schemapb_schema_proto_msgTypes[7]
+	mi := &file_schemapb_schema_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1137,7 +1216,7 @@ func (x *Schema_Filed_UInt32) String() string {
 func (*Schema_Filed_UInt32) ProtoMessage() {}
 
 func (x *Schema_Filed_UInt32) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[7]
+	mi := &file_schemapb_schema_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1243,7 +1322,7 @@ type Schema_Filed_UInt64 struct {
 
 func (x *Schema_Filed_UInt64) Reset() {
 	*x = Schema_Filed_UInt64{}
-	mi := &file_schemapb_schema_proto_msgTypes[8]
+	mi := &file_schemapb_schema_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1255,7 +1334,7 @@ func (x *Schema_Filed_UInt64) String() string {
 func (*Schema_Filed_UInt64) ProtoMessage() {}
 
 func (x *Schema_Filed_UInt64) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[8]
+	mi := &file_schemapb_schema_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1347,7 +1426,7 @@ type Schema_Filed_Bool struct {
 
 func (x *Schema_Filed_Bool) Reset() {
 	*x = Schema_Filed_Bool{}
-	mi := &file_schemapb_schema_proto_msgTypes[9]
+	mi := &file_schemapb_schema_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1359,7 +1438,7 @@ func (x *Schema_Filed_Bool) String() string {
 func (*Schema_Filed_Bool) ProtoMessage() {}
 
 func (x *Schema_Filed_Bool) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[9]
+	mi := &file_schemapb_schema_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1414,7 +1493,7 @@ type Schema_Filed_String struct {
 
 func (x *Schema_Filed_String) Reset() {
 	*x = Schema_Filed_String{}
-	mi := &file_schemapb_schema_proto_msgTypes[10]
+	mi := &file_schemapb_schema_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1426,7 +1505,7 @@ func (x *Schema_Filed_String) String() string {
 func (*Schema_Filed_String) ProtoMessage() {}
 
 func (x *Schema_Filed_String) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[10]
+	mi := &file_schemapb_schema_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1517,7 +1596,7 @@ type Schema_Filed_Enum struct {
 
 func (x *Schema_Filed_Enum) Reset() {
 	*x = Schema_Filed_Enum{}
-	mi := &file_schemapb_schema_proto_msgTypes[11]
+	mi := &file_schemapb_schema_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1529,7 +1608,7 @@ func (x *Schema_Filed_Enum) String() string {
 func (*Schema_Filed_Enum) ProtoMessage() {}
 
 func (x *Schema_Filed_Enum) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[11]
+	mi := &file_schemapb_schema_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1599,7 +1678,7 @@ type Schema_Filed_Duration struct {
 
 func (x *Schema_Filed_Duration) Reset() {
 	*x = Schema_Filed_Duration{}
-	mi := &file_schemapb_schema_proto_msgTypes[12]
+	mi := &file_schemapb_schema_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1611,7 +1690,7 @@ func (x *Schema_Filed_Duration) String() string {
 func (*Schema_Filed_Duration) ProtoMessage() {}
 
 func (x *Schema_Filed_Duration) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[12]
+	mi := &file_schemapb_schema_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1681,7 +1760,7 @@ type Schema_Filed_Timestamp struct {
 
 func (x *Schema_Filed_Timestamp) Reset() {
 	*x = Schema_Filed_Timestamp{}
-	mi := &file_schemapb_schema_proto_msgTypes[13]
+	mi := &file_schemapb_schema_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1693,7 +1772,7 @@ func (x *Schema_Filed_Timestamp) String() string {
 func (*Schema_Filed_Timestamp) ProtoMessage() {}
 
 func (x *Schema_Filed_Timestamp) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[13]
+	mi := &file_schemapb_schema_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1761,7 +1840,7 @@ type Schema_Filed_List struct {
 
 func (x *Schema_Filed_List) Reset() {
 	*x = Schema_Filed_List{}
-	mi := &file_schemapb_schema_proto_msgTypes[14]
+	mi := &file_schemapb_schema_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1773,7 +1852,7 @@ func (x *Schema_Filed_List) String() string {
 func (*Schema_Filed_List) ProtoMessage() {}
 
 func (x *Schema_Filed_List) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[14]
+	mi := &file_schemapb_schema_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1828,7 +1907,7 @@ type Schema_Filed_Object struct {
 
 func (x *Schema_Filed_Object) Reset() {
 	*x = Schema_Filed_Object{}
-	mi := &file_schemapb_schema_proto_msgTypes[15]
+	mi := &file_schemapb_schema_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1840,7 +1919,7 @@ func (x *Schema_Filed_Object) String() string {
 func (*Schema_Filed_Object) ProtoMessage() {}
 
 func (x *Schema_Filed_Object) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[15]
+	mi := &file_schemapb_schema_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1863,51 +1942,48 @@ func (x *Schema_Filed_Object) GetSchema() *Schema {
 	return nil
 }
 
-// UI carries render hints: how to draw the field. Numeric bounds and step
-// are introspected from the per-kind structured rules (gte/lte/multiple_of).
-type Schema_Filed_UI struct {
+// Computed field kind: a value derived from other values, not entered by
+// the user. The server (and the client, for live UX) evaluates `expr`
+// and writes the result under this field's name, so other expressions
+// and validation rules can read it via `root`.
+//
+// Evaluation is dependency-ordered: a Computed field may reference inputs
+// and other Computed fields. Cycles are rejected at schema-validation
+// time. Referencing a value that is absent at evaluation time is an
+// error (surfaced as a FieldError on this field's path).
+//
+// `expr` must be a pure, deterministic expression (no now()/rand) so the
+// server and client agree.
+type Schema_Filed_Computed struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Human label; falls back to Filed.name.
-	Label *string `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
-	// Help text; falls back to Filed.description.
-	Help *string `protobuf:"bytes,2,opt,name=help,proto3,oneof" json:"help,omitempty"`
-	// Placeholder text for empty inputs.
-	Placeholder *string `protobuf:"bytes,3,opt,name=placeholder,proto3,oneof" json:"placeholder,omitempty"`
-	// Explicit widget; if unset the renderer defaults by field kind.
-	Widget *Schema_Filed_UI_Widget `protobuf:"varint,4,opt,name=widget,proto3,enum=cloud.v1.common.Schema_Filed_UI_Widget,oneof" json:"widget,omitempty"`
-	// Display suffix; the value is stored in this unit.
-	Unit *string `protobuf:"bytes,5,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
-	// Input increment; if unset it is derived from multiple_of.
-	Step *float64 `protobuf:"fixed64,6,opt,name=step,proto3,oneof" json:"step,omitempty"`
-	// Section key used to group fields in the form.
-	Group *string `protobuf:"bytes,7,opt,name=group,proto3,oneof" json:"group,omitempty"`
-	// Sort order of the field within the form.
-	Order *int32 `protobuf:"varint,8,opt,name=order,proto3,oneof" json:"order,omitempty"`
-	// If true, hide the field behind an "advanced" toggle.
-	Advanced *bool `protobuf:"varint,9,opt,name=advanced,proto3,oneof" json:"advanced,omitempty"`
-	// CEL bool; the field is rendered only when this is true.
-	VisibleIf *string `protobuf:"bytes,10,opt,name=visible_if,json=visibleIf,proto3,oneof" json:"visible_if,omitempty"`
-	// CEL bool; the field is enabled only when this is true.
-	EnabledIf     *string `protobuf:"bytes,11,opt,name=enabled_if,json=enabledIf,proto3,oneof" json:"enabled_if,omitempty"`
+	// Expression producing the value. Reads `root` (inputs + already
+	// computed values). Bound the same way as Rule expressions.
+	Expr string `protobuf:"bytes,1,opt,name=expr,proto3" json:"expr,omitempty"`
+	// Result type, used to marshal the value back into the form. The
+	// field kind it names (Float/Int32/.../Duration) selects the wire
+	// type; structured constraints on it are ignored for output but may
+	// still be used to document/round the result. Optional: if unset the
+	// server infers the type from the checked expression.
+	Result        *Schema_Filed_ResultType `protobuf:"varint,2,opt,name=result,proto3,enum=schemapb.Schema_Filed_ResultType,oneof" json:"result,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Schema_Filed_UI) Reset() {
-	*x = Schema_Filed_UI{}
-	mi := &file_schemapb_schema_proto_msgTypes[16]
+func (x *Schema_Filed_Computed) Reset() {
+	*x = Schema_Filed_Computed{}
+	mi := &file_schemapb_schema_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Schema_Filed_UI) String() string {
+func (x *Schema_Filed_Computed) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Schema_Filed_UI) ProtoMessage() {}
+func (*Schema_Filed_Computed) ProtoMessage() {}
 
-func (x *Schema_Filed_UI) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[16]
+func (x *Schema_Filed_Computed) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_schema_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1918,86 +1994,23 @@ func (x *Schema_Filed_UI) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Schema_Filed_UI.ProtoReflect.Descriptor instead.
-func (*Schema_Filed_UI) Descriptor() ([]byte, []int) {
+// Deprecated: Use Schema_Filed_Computed.ProtoReflect.Descriptor instead.
+func (*Schema_Filed_Computed) Descriptor() ([]byte, []int) {
 	return file_schemapb_schema_proto_rawDescGZIP(), []int{0, 0, 13}
 }
 
-func (x *Schema_Filed_UI) GetLabel() string {
-	if x != nil && x.Label != nil {
-		return *x.Label
+func (x *Schema_Filed_Computed) GetExpr() string {
+	if x != nil {
+		return x.Expr
 	}
 	return ""
 }
 
-func (x *Schema_Filed_UI) GetHelp() string {
-	if x != nil && x.Help != nil {
-		return *x.Help
+func (x *Schema_Filed_Computed) GetResult() Schema_Filed_ResultType {
+	if x != nil && x.Result != nil {
+		return *x.Result
 	}
-	return ""
-}
-
-func (x *Schema_Filed_UI) GetPlaceholder() string {
-	if x != nil && x.Placeholder != nil {
-		return *x.Placeholder
-	}
-	return ""
-}
-
-func (x *Schema_Filed_UI) GetWidget() Schema_Filed_UI_Widget {
-	if x != nil && x.Widget != nil {
-		return *x.Widget
-	}
-	return Schema_Filed_UI_WIDGET_UNSPECIFIED
-}
-
-func (x *Schema_Filed_UI) GetUnit() string {
-	if x != nil && x.Unit != nil {
-		return *x.Unit
-	}
-	return ""
-}
-
-func (x *Schema_Filed_UI) GetStep() float64 {
-	if x != nil && x.Step != nil {
-		return *x.Step
-	}
-	return 0
-}
-
-func (x *Schema_Filed_UI) GetGroup() string {
-	if x != nil && x.Group != nil {
-		return *x.Group
-	}
-	return ""
-}
-
-func (x *Schema_Filed_UI) GetOrder() int32 {
-	if x != nil && x.Order != nil {
-		return *x.Order
-	}
-	return 0
-}
-
-func (x *Schema_Filed_UI) GetAdvanced() bool {
-	if x != nil && x.Advanced != nil {
-		return *x.Advanced
-	}
-	return false
-}
-
-func (x *Schema_Filed_UI) GetVisibleIf() string {
-	if x != nil && x.VisibleIf != nil {
-		return *x.VisibleIf
-	}
-	return ""
-}
-
-func (x *Schema_Filed_UI) GetEnabledIf() string {
-	if x != nil && x.EnabledIf != nil {
-		return *x.EnabledIf
-	}
-	return ""
+	return Schema_Filed_RESULT_TYPE_UNSPECIFIED
 }
 
 // Rule is a CEL validation expression for cross-field / conditional checks.
@@ -2015,14 +2028,14 @@ type Schema_Filed_Rule struct {
 	// Stable rule id, for mapping errors back to rules.
 	Id *string `protobuf:"bytes,3,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	// Severity; defaults to ERROR.
-	Severity      *Schema_Filed_Severity `protobuf:"varint,4,opt,name=severity,proto3,enum=cloud.v1.common.Schema_Filed_Severity,oneof" json:"severity,omitempty"`
+	Severity      *Schema_Filed_Severity `protobuf:"varint,4,opt,name=severity,proto3,enum=schemapb.Schema_Filed_Severity,oneof" json:"severity,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Schema_Filed_Rule) Reset() {
 	*x = Schema_Filed_Rule{}
-	mi := &file_schemapb_schema_proto_msgTypes[17]
+	mi := &file_schemapb_schema_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2034,7 +2047,7 @@ func (x *Schema_Filed_Rule) String() string {
 func (*Schema_Filed_Rule) ProtoMessage() {}
 
 func (x *Schema_Filed_Rule) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[17]
+	mi := &file_schemapb_schema_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2082,31 +2095,33 @@ var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\x0fcloud.v1.common\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbf*\n" +
-	"\x06Schema\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x125\n" +
-	"\x06fields\x18\x02 \x03(\v2\x1d.cloud.v1.common.Schema.FiledR\x06fields\x128\n" +
-	"\x05rules\x18\x03 \x03(\v2\".cloud.v1.common.Schema.Filed.RuleR\x05rules\x1a\xa1)\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98'\n" +
+	"\x06Schema\x12(\n" +
+	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
+	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
+	"\x06fields\x18\x03 \x03(\v2\x16.schemapb.Schema.FiledR\x06fields\x121\n" +
+	"\x05rules\x18\x04 \x03(\v2\x1b.schemapb.Schema.Filed.RuleR\x05rules\x1a\xc9%\n" +
 	"\x05Filed\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
 	"\bnullable\x18\x03 \x01(\bR\bnullable\x12\x1a\n" +
-	"\brequired\x18\x04 \x01(\bR\brequired\x120\n" +
-	"\x02ui\x18\x05 \x01(\v2 .cloud.v1.common.Schema.Filed.UIR\x02ui\x128\n" +
-	"\x05rules\x18\x06 \x03(\v2\".cloud.v1.common.Schema.Filed.RuleR\x05rules\x12;\n" +
-	"\x05float\x18d \x01(\v2#.cloud.v1.common.Schema.Filed.FloatH\x00R\x05float\x12>\n" +
-	"\x06double\x18e \x01(\v2$.cloud.v1.common.Schema.Filed.DoubleH\x00R\x06double\x12;\n" +
-	"\x05int32\x18f \x01(\v2#.cloud.v1.common.Schema.Filed.Int32H\x00R\x05int32\x12;\n" +
-	"\x05int64\x18g \x01(\v2#.cloud.v1.common.Schema.Filed.Int64H\x00R\x05int64\x12>\n" +
-	"\x06uint32\x18h \x01(\v2$.cloud.v1.common.Schema.Filed.UInt32H\x00R\x06uint32\x12>\n" +
-	"\x06uint64\x18i \x01(\v2$.cloud.v1.common.Schema.Filed.UInt64H\x00R\x06uint64\x128\n" +
-	"\x04bool\x18j \x01(\v2\".cloud.v1.common.Schema.Filed.BoolH\x00R\x04bool\x12>\n" +
-	"\x06string\x18k \x01(\v2$.cloud.v1.common.Schema.Filed.StringH\x00R\x06string\x128\n" +
-	"\x04enum\x18l \x01(\v2\".cloud.v1.common.Schema.Filed.EnumH\x00R\x04enum\x12D\n" +
-	"\bduration\x18m \x01(\v2&.cloud.v1.common.Schema.Filed.DurationH\x00R\bduration\x12G\n" +
-	"\ttimestamp\x18n \x01(\v2'.cloud.v1.common.Schema.Filed.TimestampH\x00R\ttimestamp\x128\n" +
-	"\x04list\x18o \x01(\v2\".cloud.v1.common.Schema.Filed.ListH\x00R\x04list\x12>\n" +
-	"\x06object\x18p \x01(\v2$.cloud.v1.common.Schema.Filed.ObjectH\x00R\x06object\x1a\xaa\x02\n" +
+	"\brequired\x18\x04 \x01(\bR\brequired\x121\n" +
+	"\x05rules\x18\x05 \x03(\v2\x1b.schemapb.Schema.Filed.RuleR\x05rules\x124\n" +
+	"\x05float\x18\x06 \x01(\v2\x1c.schemapb.Schema.Filed.FloatH\x00R\x05float\x127\n" +
+	"\x06double\x18\a \x01(\v2\x1d.schemapb.Schema.Filed.DoubleH\x00R\x06double\x124\n" +
+	"\x05int32\x18\b \x01(\v2\x1c.schemapb.Schema.Filed.Int32H\x00R\x05int32\x124\n" +
+	"\x05int64\x18\t \x01(\v2\x1c.schemapb.Schema.Filed.Int64H\x00R\x05int64\x127\n" +
+	"\x06uint32\x18\n" +
+	" \x01(\v2\x1d.schemapb.Schema.Filed.UInt32H\x00R\x06uint32\x127\n" +
+	"\x06uint64\x18\v \x01(\v2\x1d.schemapb.Schema.Filed.UInt64H\x00R\x06uint64\x121\n" +
+	"\x04bool\x18\f \x01(\v2\x1b.schemapb.Schema.Filed.BoolH\x00R\x04bool\x127\n" +
+	"\x06string\x18\r \x01(\v2\x1d.schemapb.Schema.Filed.StringH\x00R\x06string\x121\n" +
+	"\x04enum\x18\x0e \x01(\v2\x1b.schemapb.Schema.Filed.EnumH\x00R\x04enum\x12=\n" +
+	"\bduration\x18\x0f \x01(\v2\x1f.schemapb.Schema.Filed.DurationH\x00R\bduration\x12@\n" +
+	"\ttimestamp\x18\x10 \x01(\v2 .schemapb.Schema.Filed.TimestampH\x00R\ttimestamp\x121\n" +
+	"\x04list\x18\x11 \x01(\v2\x1b.schemapb.Schema.Filed.ListH\x00R\x04list\x127\n" +
+	"\x06object\x18\x12 \x01(\v2\x1d.schemapb.Schema.Filed.ObjectH\x00R\x06object\x12=\n" +
+	"\bcomputed\x18\x13 \x01(\v2\x1f.schemapb.Schema.Filed.ComputedH\x00R\bcomputed\x1a\xaa\x02\n" +
 	"\x05Float\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\x02H\x00R\adefault\x88\x01\x01\x12\x19\n" +
 	"\x05const\x18\x02 \x01(\x02H\x01R\x05const\x88\x01\x01\x12\x13\n" +
@@ -2245,10 +2260,10 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
 	"\b_max_lenB\n" +
 	"\n" +
-	"\b_pattern\x1a\xfe\x01\n" +
+	"\b_pattern\x1a\xf7\x01\n" +
 	"\x04Enum\x12\x1d\n" +
-	"\adefault\x18\x01 \x01(\x05H\x00R\adefault\x88\x01\x01\x12F\n" +
-	"\x06values\x18\x02 \x03(\v2..cloud.v1.common.Schema.Filed.Enum.ValuesEntryR\x06values\x12!\n" +
+	"\adefault\x18\x01 \x01(\x05H\x00R\adefault\x88\x01\x01\x12?\n" +
+	"\x06values\x18\x02 \x03(\v2'.schemapb.Schema.Filed.Enum.ValuesEntryR\x06values\x12!\n" +
 	"\fdefined_only\x18\x03 \x01(\bR\vdefinedOnly\x12\x0e\n" +
 	"\x02in\x18\x04 \x03(\x05R\x02in\x12\x15\n" +
 	"\x06not_in\x18\x05 \x03(\x05R\x05notIn\x1a9\n" +
@@ -2280,74 +2295,56 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x03_gtB\x06\n" +
 	"\x04_gteB\x05\n" +
 	"\x03_ltB\x06\n" +
-	"\x04_lte\x1a\xb3\x01\n" +
-	"\x04List\x123\n" +
-	"\x05items\x18\x01 \x03(\v2\x1d.cloud.v1.common.Schema.FiledR\x05items\x12 \n" +
+	"\x04_lte\x1a\xac\x01\n" +
+	"\x04List\x12,\n" +
+	"\x05items\x18\x01 \x03(\v2\x16.schemapb.Schema.FiledR\x05items\x12 \n" +
 	"\tmin_items\x18\x02 \x01(\x04H\x00R\bminItems\x88\x01\x01\x12 \n" +
 	"\tmax_items\x18\x03 \x01(\x04H\x01R\bmaxItems\x88\x01\x01\x12\x16\n" +
 	"\x06unique\x18\x04 \x01(\bR\x06uniqueB\f\n" +
 	"\n" +
 	"_min_itemsB\f\n" +
 	"\n" +
-	"_max_items\x1aI\n" +
-	"\x06Object\x124\n" +
-	"\x06schema\x18\x01 \x01(\v2\x17.cloud.v1.common.SchemaH\x00R\x06schema\x88\x01\x01B\t\n" +
-	"\a_schema\x1a\x8a\x05\n" +
-	"\x02UI\x12\x19\n" +
-	"\x05label\x18\x01 \x01(\tH\x00R\x05label\x88\x01\x01\x12\x17\n" +
-	"\x04help\x18\x02 \x01(\tH\x01R\x04help\x88\x01\x01\x12%\n" +
-	"\vplaceholder\x18\x03 \x01(\tH\x02R\vplaceholder\x88\x01\x01\x12D\n" +
-	"\x06widget\x18\x04 \x01(\x0e2'.cloud.v1.common.Schema.Filed.UI.WidgetH\x03R\x06widget\x88\x01\x01\x12\x17\n" +
-	"\x04unit\x18\x05 \x01(\tH\x04R\x04unit\x88\x01\x01\x12\x17\n" +
-	"\x04step\x18\x06 \x01(\x01H\x05R\x04step\x88\x01\x01\x12\x19\n" +
-	"\x05group\x18\a \x01(\tH\x06R\x05group\x88\x01\x01\x12\x19\n" +
-	"\x05order\x18\b \x01(\x05H\aR\x05order\x88\x01\x01\x12\x1f\n" +
-	"\badvanced\x18\t \x01(\bH\bR\badvanced\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"visible_if\x18\n" +
-	" \x01(\tH\tR\tvisibleIf\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"enabled_if\x18\v \x01(\tH\n" +
-	"R\tenabledIf\x88\x01\x01\"\x92\x01\n" +
-	"\x06Widget\x12\x16\n" +
-	"\x12WIDGET_UNSPECIFIED\x10\x00\x12\x10\n" +
-	"\fWIDGET_INPUT\x10\x01\x12\x11\n" +
-	"\rWIDGET_SLIDER\x10\x02\x12\x11\n" +
-	"\rWIDGET_SELECT\x10\x03\x12\x10\n" +
-	"\fWIDGET_RADIO\x10\x04\x12\x11\n" +
-	"\rWIDGET_SWITCH\x10\x05\x12\x13\n" +
-	"\x0fWIDGET_TEXTAREA\x10\x06B\b\n" +
-	"\x06_labelB\a\n" +
-	"\x05_helpB\x0e\n" +
-	"\f_placeholderB\t\n" +
-	"\a_widgetB\a\n" +
-	"\x05_unitB\a\n" +
-	"\x05_stepB\b\n" +
-	"\x06_groupB\b\n" +
-	"\x06_orderB\v\n" +
-	"\t_advancedB\r\n" +
-	"\v_visible_ifB\r\n" +
-	"\v_enabled_if\x1a\xa6\x01\n" +
+	"_max_items\x1aB\n" +
+	"\x06Object\x12-\n" +
+	"\x06schema\x18\x01 \x01(\v2\x10.schemapb.SchemaH\x00R\x06schema\x88\x01\x01B\t\n" +
+	"\a_schema\x1ai\n" +
+	"\bComputed\x12\x12\n" +
+	"\x04expr\x18\x01 \x01(\tR\x04expr\x12>\n" +
+	"\x06result\x18\x02 \x01(\x0e2!.schemapb.Schema.Filed.ResultTypeH\x00R\x06result\x88\x01\x01B\t\n" +
+	"\a_result\x1a\x9f\x01\n" +
 	"\x04Rule\x12\x12\n" +
 	"\x04expr\x18\x01 \x01(\tR\x04expr\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x13\n" +
-	"\x02id\x18\x03 \x01(\tH\x00R\x02id\x88\x01\x01\x12G\n" +
-	"\bseverity\x18\x04 \x01(\x0e2&.cloud.v1.common.Schema.Filed.SeverityH\x01R\bseverity\x88\x01\x01B\x05\n" +
+	"\x02id\x18\x03 \x01(\tH\x00R\x02id\x88\x01\x01\x12@\n" +
+	"\bseverity\x18\x04 \x01(\x0e2\x1f.schemapb.Schema.Filed.SeverityH\x01R\bseverity\x88\x01\x01B\x05\n" +
 	"\x03_idB\v\n" +
-	"\t_severity\"<\n" +
+	"\t_severity\"\xb8\x01\n" +
+	"\n" +
+	"ResultType\x12\x1b\n" +
+	"\x17RESULT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12RESULT_TYPE_DOUBLE\x10\x01\x12\x15\n" +
+	"\x11RESULT_TYPE_INT64\x10\x02\x12\x16\n" +
+	"\x12RESULT_TYPE_UINT64\x10\x03\x12\x14\n" +
+	"\x10RESULT_TYPE_BOOL\x10\x04\x12\x16\n" +
+	"\x12RESULT_TYPE_STRING\x10\x05\x12\x18\n" +
+	"\x14RESULT_TYPE_DURATION\x10\x06\"<\n" +
 	"\bSeverity\x12\x18\n" +
 	"\x14SEVERITY_UNSPECIFIED\x10\x00\x12\t\n" +
 	"\x05ERROR\x10\x01\x12\v\n" +
 	"\aWARNING\x10\x02B\x06\n" +
 	"\x04kindB\x0e\n" +
-	"\f_descriptionB\a\n" +
-	"\x05_name\"\xaa\x01\n" +
+	"\f_descriptionB\x0e\n" +
+	"\f_description\"\\\n" +
+	"\x0eSchemaIdentity\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\"\xa3\x01\n" +
 	"\n" +
 	"FieldError\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1c\n" +
-	"\arule_id\x18\x03 \x01(\tH\x00R\x06ruleId\x88\x01\x01\x12B\n" +
-	"\bseverity\x18\x04 \x01(\x0e2&.cloud.v1.common.Schema.Filed.SeverityR\bseverityB\n" +
+	"\arule_id\x18\x03 \x01(\tH\x00R\x06ruleId\x88\x01\x01\x12;\n" +
+	"\bseverity\x18\x04 \x01(\x0e2\x1f.schemapb.Schema.Filed.SeverityR\bseverityB\n" +
 	"\n" +
 	"\b_rule_idB)Z'github.com/stroppy-io/schemapb/schemapbb\x06proto3"
 
@@ -2364,71 +2361,73 @@ func file_schemapb_schema_proto_rawDescGZIP() []byte {
 }
 
 var file_schemapb_schema_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_schemapb_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_schemapb_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_schemapb_schema_proto_goTypes = []any{
-	(Schema_Filed_Severity)(0),     // 0: cloud.v1.common.Schema.Filed.Severity
-	(Schema_Filed_UI_Widget)(0),    // 1: cloud.v1.common.Schema.Filed.UI.Widget
-	(*Schema)(nil),                 // 2: cloud.v1.common.Schema
-	(*FieldError)(nil),             // 3: cloud.v1.common.FieldError
-	(*Schema_Filed)(nil),           // 4: cloud.v1.common.Schema.Filed
-	(*Schema_Filed_Float)(nil),     // 5: cloud.v1.common.Schema.Filed.Float
-	(*Schema_Filed_Double)(nil),    // 6: cloud.v1.common.Schema.Filed.Double
-	(*Schema_Filed_Int32)(nil),     // 7: cloud.v1.common.Schema.Filed.Int32
-	(*Schema_Filed_Int64)(nil),     // 8: cloud.v1.common.Schema.Filed.Int64
-	(*Schema_Filed_UInt32)(nil),    // 9: cloud.v1.common.Schema.Filed.UInt32
-	(*Schema_Filed_UInt64)(nil),    // 10: cloud.v1.common.Schema.Filed.UInt64
-	(*Schema_Filed_Bool)(nil),      // 11: cloud.v1.common.Schema.Filed.Bool
-	(*Schema_Filed_String)(nil),    // 12: cloud.v1.common.Schema.Filed.String
-	(*Schema_Filed_Enum)(nil),      // 13: cloud.v1.common.Schema.Filed.Enum
-	(*Schema_Filed_Duration)(nil),  // 14: cloud.v1.common.Schema.Filed.Duration
-	(*Schema_Filed_Timestamp)(nil), // 15: cloud.v1.common.Schema.Filed.Timestamp
-	(*Schema_Filed_List)(nil),      // 16: cloud.v1.common.Schema.Filed.List
-	(*Schema_Filed_Object)(nil),    // 17: cloud.v1.common.Schema.Filed.Object
-	(*Schema_Filed_UI)(nil),        // 18: cloud.v1.common.Schema.Filed.UI
-	(*Schema_Filed_Rule)(nil),      // 19: cloud.v1.common.Schema.Filed.Rule
-	nil,                            // 20: cloud.v1.common.Schema.Filed.Enum.ValuesEntry
-	(*durationpb.Duration)(nil),    // 21: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),  // 22: google.protobuf.Timestamp
+	(Schema_Filed_ResultType)(0),   // 0: schemapb.Schema.Filed.ResultType
+	(Schema_Filed_Severity)(0),     // 1: schemapb.Schema.Filed.Severity
+	(*Schema)(nil),                 // 2: schemapb.Schema
+	(*SchemaIdentity)(nil),         // 3: schemapb.SchemaIdentity
+	(*FieldError)(nil),             // 4: schemapb.FieldError
+	(*Schema_Filed)(nil),           // 5: schemapb.Schema.Filed
+	(*Schema_Filed_Float)(nil),     // 6: schemapb.Schema.Filed.Float
+	(*Schema_Filed_Double)(nil),    // 7: schemapb.Schema.Filed.Double
+	(*Schema_Filed_Int32)(nil),     // 8: schemapb.Schema.Filed.Int32
+	(*Schema_Filed_Int64)(nil),     // 9: schemapb.Schema.Filed.Int64
+	(*Schema_Filed_UInt32)(nil),    // 10: schemapb.Schema.Filed.UInt32
+	(*Schema_Filed_UInt64)(nil),    // 11: schemapb.Schema.Filed.UInt64
+	(*Schema_Filed_Bool)(nil),      // 12: schemapb.Schema.Filed.Bool
+	(*Schema_Filed_String)(nil),    // 13: schemapb.Schema.Filed.String
+	(*Schema_Filed_Enum)(nil),      // 14: schemapb.Schema.Filed.Enum
+	(*Schema_Filed_Duration)(nil),  // 15: schemapb.Schema.Filed.Duration
+	(*Schema_Filed_Timestamp)(nil), // 16: schemapb.Schema.Filed.Timestamp
+	(*Schema_Filed_List)(nil),      // 17: schemapb.Schema.Filed.List
+	(*Schema_Filed_Object)(nil),    // 18: schemapb.Schema.Filed.Object
+	(*Schema_Filed_Computed)(nil),  // 19: schemapb.Schema.Filed.Computed
+	(*Schema_Filed_Rule)(nil),      // 20: schemapb.Schema.Filed.Rule
+	nil,                            // 21: schemapb.Schema.Filed.Enum.ValuesEntry
+	(*durationpb.Duration)(nil),    // 22: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),  // 23: google.protobuf.Timestamp
 }
 var file_schemapb_schema_proto_depIdxs = []int32{
-	4,  // 0: cloud.v1.common.Schema.fields:type_name -> cloud.v1.common.Schema.Filed
-	19, // 1: cloud.v1.common.Schema.rules:type_name -> cloud.v1.common.Schema.Filed.Rule
-	0,  // 2: cloud.v1.common.FieldError.severity:type_name -> cloud.v1.common.Schema.Filed.Severity
-	18, // 3: cloud.v1.common.Schema.Filed.ui:type_name -> cloud.v1.common.Schema.Filed.UI
-	19, // 4: cloud.v1.common.Schema.Filed.rules:type_name -> cloud.v1.common.Schema.Filed.Rule
-	5,  // 5: cloud.v1.common.Schema.Filed.float:type_name -> cloud.v1.common.Schema.Filed.Float
-	6,  // 6: cloud.v1.common.Schema.Filed.double:type_name -> cloud.v1.common.Schema.Filed.Double
-	7,  // 7: cloud.v1.common.Schema.Filed.int32:type_name -> cloud.v1.common.Schema.Filed.Int32
-	8,  // 8: cloud.v1.common.Schema.Filed.int64:type_name -> cloud.v1.common.Schema.Filed.Int64
-	9,  // 9: cloud.v1.common.Schema.Filed.uint32:type_name -> cloud.v1.common.Schema.Filed.UInt32
-	10, // 10: cloud.v1.common.Schema.Filed.uint64:type_name -> cloud.v1.common.Schema.Filed.UInt64
-	11, // 11: cloud.v1.common.Schema.Filed.bool:type_name -> cloud.v1.common.Schema.Filed.Bool
-	12, // 12: cloud.v1.common.Schema.Filed.string:type_name -> cloud.v1.common.Schema.Filed.String
-	13, // 13: cloud.v1.common.Schema.Filed.enum:type_name -> cloud.v1.common.Schema.Filed.Enum
-	14, // 14: cloud.v1.common.Schema.Filed.duration:type_name -> cloud.v1.common.Schema.Filed.Duration
-	15, // 15: cloud.v1.common.Schema.Filed.timestamp:type_name -> cloud.v1.common.Schema.Filed.Timestamp
-	16, // 16: cloud.v1.common.Schema.Filed.list:type_name -> cloud.v1.common.Schema.Filed.List
-	17, // 17: cloud.v1.common.Schema.Filed.object:type_name -> cloud.v1.common.Schema.Filed.Object
-	20, // 18: cloud.v1.common.Schema.Filed.Enum.values:type_name -> cloud.v1.common.Schema.Filed.Enum.ValuesEntry
-	21, // 19: cloud.v1.common.Schema.Filed.Duration.default:type_name -> google.protobuf.Duration
-	21, // 20: cloud.v1.common.Schema.Filed.Duration.gt:type_name -> google.protobuf.Duration
-	21, // 21: cloud.v1.common.Schema.Filed.Duration.gte:type_name -> google.protobuf.Duration
-	21, // 22: cloud.v1.common.Schema.Filed.Duration.lt:type_name -> google.protobuf.Duration
-	21, // 23: cloud.v1.common.Schema.Filed.Duration.lte:type_name -> google.protobuf.Duration
-	22, // 24: cloud.v1.common.Schema.Filed.Timestamp.default:type_name -> google.protobuf.Timestamp
-	22, // 25: cloud.v1.common.Schema.Filed.Timestamp.gt:type_name -> google.protobuf.Timestamp
-	22, // 26: cloud.v1.common.Schema.Filed.Timestamp.gte:type_name -> google.protobuf.Timestamp
-	22, // 27: cloud.v1.common.Schema.Filed.Timestamp.lt:type_name -> google.protobuf.Timestamp
-	22, // 28: cloud.v1.common.Schema.Filed.Timestamp.lte:type_name -> google.protobuf.Timestamp
-	4,  // 29: cloud.v1.common.Schema.Filed.List.items:type_name -> cloud.v1.common.Schema.Filed
-	2,  // 30: cloud.v1.common.Schema.Filed.Object.schema:type_name -> cloud.v1.common.Schema
-	1,  // 31: cloud.v1.common.Schema.Filed.UI.widget:type_name -> cloud.v1.common.Schema.Filed.UI.Widget
-	0,  // 32: cloud.v1.common.Schema.Filed.Rule.severity:type_name -> cloud.v1.common.Schema.Filed.Severity
-	33, // [33:33] is the sub-list for method output_type
-	33, // [33:33] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	3,  // 0: schemapb.Schema.id:type_name -> schemapb.SchemaIdentity
+	5,  // 1: schemapb.Schema.fields:type_name -> schemapb.Schema.Filed
+	20, // 2: schemapb.Schema.rules:type_name -> schemapb.Schema.Filed.Rule
+	1,  // 3: schemapb.FieldError.severity:type_name -> schemapb.Schema.Filed.Severity
+	20, // 4: schemapb.Schema.Filed.rules:type_name -> schemapb.Schema.Filed.Rule
+	6,  // 5: schemapb.Schema.Filed.float:type_name -> schemapb.Schema.Filed.Float
+	7,  // 6: schemapb.Schema.Filed.double:type_name -> schemapb.Schema.Filed.Double
+	8,  // 7: schemapb.Schema.Filed.int32:type_name -> schemapb.Schema.Filed.Int32
+	9,  // 8: schemapb.Schema.Filed.int64:type_name -> schemapb.Schema.Filed.Int64
+	10, // 9: schemapb.Schema.Filed.uint32:type_name -> schemapb.Schema.Filed.UInt32
+	11, // 10: schemapb.Schema.Filed.uint64:type_name -> schemapb.Schema.Filed.UInt64
+	12, // 11: schemapb.Schema.Filed.bool:type_name -> schemapb.Schema.Filed.Bool
+	13, // 12: schemapb.Schema.Filed.string:type_name -> schemapb.Schema.Filed.String
+	14, // 13: schemapb.Schema.Filed.enum:type_name -> schemapb.Schema.Filed.Enum
+	15, // 14: schemapb.Schema.Filed.duration:type_name -> schemapb.Schema.Filed.Duration
+	16, // 15: schemapb.Schema.Filed.timestamp:type_name -> schemapb.Schema.Filed.Timestamp
+	17, // 16: schemapb.Schema.Filed.list:type_name -> schemapb.Schema.Filed.List
+	18, // 17: schemapb.Schema.Filed.object:type_name -> schemapb.Schema.Filed.Object
+	19, // 18: schemapb.Schema.Filed.computed:type_name -> schemapb.Schema.Filed.Computed
+	21, // 19: schemapb.Schema.Filed.Enum.values:type_name -> schemapb.Schema.Filed.Enum.ValuesEntry
+	22, // 20: schemapb.Schema.Filed.Duration.default:type_name -> google.protobuf.Duration
+	22, // 21: schemapb.Schema.Filed.Duration.gt:type_name -> google.protobuf.Duration
+	22, // 22: schemapb.Schema.Filed.Duration.gte:type_name -> google.protobuf.Duration
+	22, // 23: schemapb.Schema.Filed.Duration.lt:type_name -> google.protobuf.Duration
+	22, // 24: schemapb.Schema.Filed.Duration.lte:type_name -> google.protobuf.Duration
+	23, // 25: schemapb.Schema.Filed.Timestamp.default:type_name -> google.protobuf.Timestamp
+	23, // 26: schemapb.Schema.Filed.Timestamp.gt:type_name -> google.protobuf.Timestamp
+	23, // 27: schemapb.Schema.Filed.Timestamp.gte:type_name -> google.protobuf.Timestamp
+	23, // 28: schemapb.Schema.Filed.Timestamp.lt:type_name -> google.protobuf.Timestamp
+	23, // 29: schemapb.Schema.Filed.Timestamp.lte:type_name -> google.protobuf.Timestamp
+	5,  // 30: schemapb.Schema.Filed.List.items:type_name -> schemapb.Schema.Filed
+	2,  // 31: schemapb.Schema.Filed.Object.schema:type_name -> schemapb.Schema
+	0,  // 32: schemapb.Schema.Filed.Computed.result:type_name -> schemapb.Schema.Filed.ResultType
+	1,  // 33: schemapb.Schema.Filed.Rule.severity:type_name -> schemapb.Schema.Filed.Severity
+	34, // [34:34] is the sub-list for method output_type
+	34, // [34:34] is the sub-list for method input_type
+	34, // [34:34] is the sub-list for extension type_name
+	34, // [34:34] is the sub-list for extension extendee
+	0,  // [0:34] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_schema_proto_init() }
@@ -2437,8 +2436,8 @@ func file_schemapb_schema_proto_init() {
 		return
 	}
 	file_schemapb_schema_proto_msgTypes[0].OneofWrappers = []any{}
-	file_schemapb_schema_proto_msgTypes[1].OneofWrappers = []any{}
-	file_schemapb_schema_proto_msgTypes[2].OneofWrappers = []any{
+	file_schemapb_schema_proto_msgTypes[2].OneofWrappers = []any{}
+	file_schemapb_schema_proto_msgTypes[3].OneofWrappers = []any{
 		(*Schema_Filed_Float_)(nil),
 		(*Schema_Filed_Double_)(nil),
 		(*Schema_Filed_Int32_)(nil),
@@ -2452,8 +2451,8 @@ func file_schemapb_schema_proto_init() {
 		(*Schema_Filed_Timestamp_)(nil),
 		(*Schema_Filed_List_)(nil),
 		(*Schema_Filed_Object_)(nil),
+		(*Schema_Filed_Computed_)(nil),
 	}
-	file_schemapb_schema_proto_msgTypes[3].OneofWrappers = []any{}
 	file_schemapb_schema_proto_msgTypes[4].OneofWrappers = []any{}
 	file_schemapb_schema_proto_msgTypes[5].OneofWrappers = []any{}
 	file_schemapb_schema_proto_msgTypes[6].OneofWrappers = []any{}
@@ -2468,13 +2467,14 @@ func file_schemapb_schema_proto_init() {
 	file_schemapb_schema_proto_msgTypes[15].OneofWrappers = []any{}
 	file_schemapb_schema_proto_msgTypes[16].OneofWrappers = []any{}
 	file_schemapb_schema_proto_msgTypes[17].OneofWrappers = []any{}
+	file_schemapb_schema_proto_msgTypes[18].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schemapb_schema_proto_rawDesc), len(file_schemapb_schema_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
