@@ -5,12 +5,14 @@
 //
 //	GOOS=js GOARCH=wasm go build -o ts/schemapb.wasm ./wasm  (see `make wasm`)
 //
-// It registers two global functions, each taking two JSON strings (the schema
-// as protojson, the form values as JSON) and returning a JSON string:
+// It registers these global functions (JSON strings in, JSON string out):
 //
 //	schemapbValidate(schemaJSON, valuesJSON) -> {"ok":bool,"errors":[...]}
 //	schemapbCompute(schemaJSON, valuesJSON)  -> {"values":{...},"errors":[...]}
-//	   ("values" = the fully resolved form: inputs + defaults + derived)
+//	schemapbBake(schemaJSON, valuesJSON)     -> {"baked":{schema,values},"errors":[...]}
+//	schemapbMerge(bakedJSON, overridesJSON, replaceLists) -> {"baked":{...},"errors":[...]}
+//	   ("values" = the fully resolved form; "baked" = the sealed Baked, omitted
+//	    when errors block sealing)
 //
 // On a malformed schema or bad JSON, the result is {"error":"..."}.
 package main
@@ -20,6 +22,7 @@ import (
 	"syscall/js"
 
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/stroppy-io/schemapb/schemapb"
 )
@@ -27,7 +30,54 @@ import (
 func main() {
 	js.Global().Set("schemapbValidate", js.FuncOf(validate))
 	js.Global().Set("schemapbCompute", js.FuncOf(compute))
+	js.Global().Set("schemapbBake", js.FuncOf(bake))
+	js.Global().Set("schemapbMerge", js.FuncOf(merge))
 	select {} // keep the Go runtime alive for the registered callbacks
+}
+
+// bakeResult renders a Baked + errors. baked is omitted when nil.
+func bakeResult(baked *schemapb.Baked, fes []*schemapb.FieldError) string {
+	out := map[string]any{"errors": errs(fes)}
+	if baked != nil {
+		b, err := protojson.Marshal(baked)
+		if err != nil {
+			return fail("marshal baked: " + err.Error())
+		}
+		out["baked"] = json.RawMessage(b)
+	}
+	return result(out)
+}
+
+func bake(_ js.Value, args []js.Value) any {
+	s, schemaErr := parseSchema(args)
+	if schemaErr != "" {
+		return fail(schemaErr)
+	}
+	values := map[string]any{}
+	if err := json.Unmarshal([]byte(args[1].String()), &values); err != nil && args[1].String() != "" {
+		return fail("parse values: " + err.Error())
+	}
+	baked, fes := s.Bake(values)
+	return bakeResult(baked, fes)
+}
+
+func merge(_ js.Value, args []js.Value) any {
+	if len(args) < 2 {
+		return fail("expected (bakedJSON, overridesJSON, replaceLists?)")
+	}
+	var b schemapb.Baked
+	if err := protojson.Unmarshal([]byte(args[0].String()), &b); err != nil {
+		return fail("parse baked: " + err.Error())
+	}
+	overrides := &structpb.Struct{}
+	if s := args[1].String(); s != "" && s != "null" {
+		if err := protojson.Unmarshal([]byte(s), overrides); err != nil {
+			return fail("parse overrides: " + err.Error())
+		}
+	}
+	replace := len(args) > 2 && args[2].Bool()
+	baked, fes := b.Merge(overrides, replace)
+	return bakeResult(baked, fes)
 }
 
 type fieldError struct {
@@ -51,11 +101,11 @@ func errs(in []*schemapb.FieldError) []fieldError {
 }
 
 func validate(_ js.Value, args []js.Value) any {
-	v, schemaErr := newValidator(args)
+	s, schemaErr := parseSchema(args)
 	if schemaErr != "" {
 		return fail(schemaErr)
 	}
-	fes, err := v.ValidateJSON(json.RawMessage(args[1].String()))
+	fes, err := s.ValidateJSON(json.RawMessage(args[1].String()))
 	if err != nil {
 		return fail(err.Error())
 	}
@@ -63,18 +113,18 @@ func validate(_ js.Value, args []js.Value) any {
 }
 
 func compute(_ js.Value, args []js.Value) any {
-	v, schemaErr := newValidator(args)
+	s, schemaErr := parseSchema(args)
 	if schemaErr != "" {
 		return fail(schemaErr)
 	}
-	values, fes, err := v.ComputeJSON(json.RawMessage(args[1].String()))
+	values, fes, err := s.ComputeJSON(json.RawMessage(args[1].String()))
 	if err != nil {
 		return fail(err.Error())
 	}
 	return result(map[string]any{"values": values, "errors": errs(fes)})
 }
 
-func newValidator(args []js.Value) (*schemapb.Validator, string) {
+func parseSchema(args []js.Value) (*schemapb.Schema, string) {
 	if len(args) < 2 {
 		return nil, "expected (schemaJSON, valuesJSON)"
 	}
@@ -82,11 +132,10 @@ func newValidator(args []js.Value) (*schemapb.Validator, string) {
 	if err := protojson.Unmarshal([]byte(args[0].String()), &s); err != nil {
 		return nil, "parse schema: " + err.Error()
 	}
-	v, err := schemapb.NewValidator(&s)
-	if err != nil {
-		return nil, err.Error()
+	if errs := s.IsValid(); len(errs) > 0 {
+		return nil, (&schemapb.SchemaError{Errors: errs}).Error()
 	}
-	return v, ""
+	return &s, ""
 }
 
 func result(v map[string]any) string {

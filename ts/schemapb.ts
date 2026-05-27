@@ -10,9 +10,16 @@
 //   cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" ts/wasm_exec.js
 
 import { toJson } from "@bufbuild/protobuf";
-import { SchemaSchema, type Schema, type FieldErrorJson } from "./schemapb/schema_pb.ts";
+import {
+  SchemaSchema,
+  BakedSchema,
+  type Schema,
+  type Baked,
+  type BakedJson,
+  type FieldErrorJson,
+} from "./schemapb/schema_pb.ts";
 
-export type { Schema, FieldErrorJson };
+export type { Schema, Baked, BakedJson, FieldErrorJson };
 
 export interface ValidateResult {
   ok: boolean;
@@ -23,6 +30,12 @@ export interface ComputeResult {
   // Fully resolved form: provided inputs + values filled from schema defaults +
   // evaluated Computed (derived) fields.
   values: Record<string, unknown>;
+  errors: FieldErrorJson[];
+}
+
+export interface BakeResult {
+  // The sealed Baked (schema + final values); absent when errors blocked sealing.
+  baked?: BakedJson;
   errors: FieldErrorJson[];
 }
 
@@ -38,6 +51,10 @@ declare global {
   var schemapbValidate: (schemaJSON: string, valuesJSON: string) => string;
   // eslint-disable-next-line no-var
   var schemapbCompute: (schemaJSON: string, valuesJSON: string) => string;
+  // eslint-disable-next-line no-var
+  var schemapbBake: (schemaJSON: string, valuesJSON: string) => string;
+  // eslint-disable-next-line no-var
+  var schemapbMerge: (bakedJSON: string, overridesJSON: string, replaceLists: boolean) => string;
 }
 
 export class Schemapb {
@@ -59,6 +76,20 @@ export class Schemapb {
   /** Evaluate the schema's derived (Computed) fields for `values`. */
   compute(schema: Schema, values: unknown): ComputeResult {
     return this.call(globalThis.schemapbCompute, schema, values) as ComputeResult;
+  }
+
+  /** Validate + resolve `values` and seal them with `schema` into a Baked. */
+  bake(schema: Schema, values: unknown): BakeResult {
+    return this.call(globalThis.schemapbBake, schema, values) as BakeResult;
+  }
+
+  /** Layer `overrides` onto a `baked` snapshot and re-seal. Lists append unless
+   *  `replaceLists` is set. */
+  merge(baked: Baked, overrides: unknown, replaceLists = false): BakeResult {
+    const bakedJSON = JSON.stringify(toJson(BakedSchema, baked));
+    const out = JSON.parse(globalThis.schemapbMerge(bakedJSON, JSON.stringify(overrides ?? {}), replaceLists));
+    if (out.error) throw new Error(out.error);
+    return out as BakeResult;
   }
 
   private call(

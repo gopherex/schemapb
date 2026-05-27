@@ -29,23 +29,22 @@ func msgs(errs []*schemapb.FieldError) map[string]string {
 
 func has(m map[string]string, field string) bool { _, ok := m[field]; return ok }
 
-func mustValidator(t *testing.T, s *schemapb.Schema) *schemapb.Validator {
+func mustValidator(t *testing.T, s *schemapb.Schema) *schemapb.Schema {
 	t.Helper()
-	v, err := schemapb.NewValidator(s)
-	if err != nil {
-		t.Fatalf("NewValidator: %v", err)
+	if errs := s.IsValid(); len(errs) != 0 {
+		t.Fatalf("invalid schema: %v", msgs(errs))
 	}
-	return v
+	return s
 }
 
 // build makes a validator for a test schema with the given fields.
-func build(t *testing.T, fields ...schemapb.FieldDef) *schemapb.Validator {
+func build(t *testing.T, fields ...schemapb.FieldDef) *schemapb.Schema {
 	t.Helper()
 	return mustValidator(t, schemapb.NewSchema("test", "s", "v1").Fields(fields...).MustBuild())
 }
 
 // validateJSON validates body and returns field->message.
-func validateJSON(t *testing.T, v *schemapb.Validator, body string) map[string]string {
+func validateJSON(t *testing.T, v *schemapb.Schema, body string) map[string]string {
 	t.Helper()
 	errs, err := v.ValidateJSON(json.RawMessage(body))
 	if err != nil {
@@ -109,7 +108,7 @@ func TestBuilders_AllKinds(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestValidateSchema_OK(t *testing.T) {
-	if errs := schemapb.ValidateSchema(diskSchema()); len(errs) != 0 {
+	if errs := diskSchema().IsValid(); len(errs) != 0 {
 		t.Fatalf("expected valid, got %v", msgs(errs))
 	}
 }
@@ -125,24 +124,16 @@ func TestValidateSchema_Malformed(t *testing.T) {
 			{Name: "lst", Kind: &schemapb.Schema_Filed_List_{List: &schemapb.Schema_Filed_List{}}}, // no items
 		},
 	}
-	errs := schemapb.ValidateSchema(bad)
+	errs := bad.IsValid()
 	if len(errs) == 0 {
 		t.Fatal("expected schema errors")
-	}
-	if _, err := schemapb.NewValidator(bad); err == nil {
-		t.Fatal("NewValidator accepted malformed schema")
-	} else if _, ok := err.(*schemapb.SchemaError); !ok {
-		t.Fatalf("expected *SchemaError, got %T", err)
 	}
 }
 
 func TestValidateSchema_RequiresID(t *testing.T) {
 	s := &schemapb.Schema{Fields: []*schemapb.Schema_Filed{schemapb.Bool("x").Done()}} // no id
-	if !has(msgs(schemapb.ValidateSchema(s)), "id") {
+	if !has(msgs(s.IsValid()), "id") {
 		t.Fatal("expected id-required error")
-	}
-	if _, err := schemapb.NewValidator(s); err == nil {
-		t.Fatal("NewValidator accepted schema without id")
 	}
 }
 
@@ -309,11 +300,12 @@ func TestValidateStruct_AndOneShot(t *testing.T) {
 		Fields(schemapb.Int32("age").Gte(0).Required()).
 		MustBuild()
 	st := mustStruct(t, map[string]any{"age": 30})
-	if errs, err := schemapb.ValidateStruct(s, st); err != nil || len(errs) != 0 {
-		t.Fatalf("one-shot struct: errs=%v err=%v", msgs(errs), err)
+	if errs := s.ValidateStruct(st); len(errs) != 0 {
+		t.Fatalf("struct: errs=%v", msgs(errs))
 	}
-	if errs, err := schemapb.ValidateJSON(s, json.RawMessage(`{}`)); err != nil || errs[0].GetField() != "age" {
-		t.Fatalf("one-shot json: errs=%v err=%v", msgs(errs), err)
+	errs, err := s.ValidateJSON(json.RawMessage(`{}`))
+	if err != nil || errs[0].GetField() != "age" {
+		t.Fatalf("json: errs=%v err=%v", msgs(errs), err)
 	}
 }
 
@@ -541,7 +533,7 @@ func TestServer_ValidateCompute(t *testing.T) {
 	ctx := context.Background()
 	reg, _ := srv.RegisterSchema(ctx, diskSchema())
 
-	ok, _ := srv.Validate(ctx, &schemapb.ValidateRequest{
+	ok, _ := srv.Validate(ctx, &schemapb.Filled{
 		Schema: refID(reg.GetId()),
 		Values: mustStruct(t, map[string]any{"disk_type": 1, "disk_size": 100}),
 	})
@@ -549,7 +541,7 @@ func TestServer_ValidateCompute(t *testing.T) {
 		t.Errorf("want valid, got %v", msgs(ok.GetErrors()))
 	}
 
-	bad, _ := srv.Validate(ctx, &schemapb.ValidateRequest{
+	bad, _ := srv.Validate(ctx, &schemapb.Filled{
 		Schema: refInline(diskSchema()),
 		Values: mustStruct(t, map[string]any{"disk_type": 3, "disk_size": 0}),
 	})
@@ -557,7 +549,7 @@ func TestServer_ValidateCompute(t *testing.T) {
 		t.Error("want invalid (inline)")
 	}
 
-	comp, err := srv.Compute(ctx, &schemapb.ComputeRequest{
+	comp, err := srv.Compute(ctx, &schemapb.Filled{
 		Schema: refID(reg.GetId()),
 		Values: mustStruct(t, map[string]any{"disk_type": 1, "disk_size": 100}),
 	})
@@ -576,7 +568,7 @@ func TestServer_Policies(t *testing.T) {
 	if _, err := locked.RegisterSchema(ctx, diskSchema()); status.Code(err) != codes.PermissionDenied {
 		t.Errorf("register disabled: want PermissionDenied, got %v", err)
 	}
-	if _, err := locked.Validate(ctx, &schemapb.ValidateRequest{Schema: refInline(diskSchema()), Values: mustStruct(t, map[string]any{})}); status.Code(err) != codes.PermissionDenied {
+	if _, err := locked.Validate(ctx, &schemapb.Filled{Schema: refInline(diskSchema()), Values: mustStruct(t, map[string]any{})}); status.Code(err) != codes.PermissionDenied {
 		t.Errorf("inline disabled: want PermissionDenied, got %v", err)
 	}
 	if _, err := locked.GetSchema(ctx, &schemapb.SchemaIdentity{Namespace: "no", Name: "thing", Version: "v1"}); status.Code(err) != codes.NotFound {
@@ -722,5 +714,101 @@ func confValue(f *schemapb.Schema_Filed, v any) string {
 		return x
 	default:
 		return ""
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Hash, Bake, Merge
+// ---------------------------------------------------------------------------
+
+func TestHash(t *testing.T) {
+	a := schemapb.NewSchema("x", "a", "v1").Fields(schemapb.Bool("b")).MustBuild()
+	a2 := schemapb.NewSchema("x", "a", "v1").Fields(schemapb.Bool("b")).MustBuild()
+	c := schemapb.NewSchema("x", "a", "v1").Fields(schemapb.Bool("c")).MustBuild()
+	if schemapb.Hash(a) != schemapb.Hash(a2) {
+		t.Error("equal schemas hash differently")
+	}
+	if schemapb.Hash(a) == schemapb.Hash(c) {
+		t.Error("different schemas hash equally")
+	}
+}
+
+func TestBakeMerge(t *testing.T) {
+	s := schemapb.NewSchema("infra", "disk", "v1").Fields(
+		schemapb.Int32("disk_type").Default(1),
+		schemapb.Int32("disk_size").Default(20).Gte(1),
+		schemapb.Int32("block_size").Default(8192).Immutable(),
+		schemapb.Computed("iops", "root.disk_size * 50").Result(schemapb.ResultInt64),
+	).MustBuild()
+
+	// Bake from nothing: defaults + computed sealed.
+	baked, errs := s.Bake(map[string]any{})
+	if len(errs) != 0 || baked == nil {
+		t.Fatalf("bake: %v", msgs(errs))
+	}
+	bv := baked.GetValues().AsMap()
+	if bv["disk_size"] != float64(20) || bv["iops"] != float64(1000) || bv["block_size"] != float64(8192) {
+		t.Errorf("baked values: %v", bv)
+	}
+	if !baked.Matches(s) {
+		t.Error("Matches returned false for the baking schema")
+	}
+
+	// Merge override: re-bake, iops recomputed, immutable kept.
+	merged, errs := baked.Merge(mustStruct(t, map[string]any{"disk_size": 100}), false)
+	if len(errs) != 0 || merged == nil {
+		t.Fatalf("merge: %v", msgs(errs))
+	}
+	mv := merged.GetValues().AsMap()
+	if mv["disk_size"] != float64(100) || mv["iops"] != float64(5000) || mv["block_size"] != float64(8192) {
+		t.Errorf("merged values: %v", mv)
+	}
+
+	// Merge that violates a constraint: no baked, errors returned.
+	bad := schemapb.NewSchema("t", "x", "v1").Fields(schemapb.Int32("n").Gte(0)).MustBuild()
+	b2, _ := bad.Bake(map[string]any{"n": float64(5)})
+	if got, e2 := b2.Merge(mustStruct(t, map[string]any{"n": -1}), false); got != nil || len(e2) == 0 {
+		t.Errorf("want merge rejected, got %v / %v", got, msgs(e2))
+	}
+}
+
+func TestFilledBakeIntoBaked(t *testing.T) {
+	s := schemapb.NewSchema("infra", "sizing", "v1").Fields(
+		schemapb.Int32("size").Gte(1).Default(20),
+		schemapb.Computed("iops", "root.size * 50").Result(schemapb.ResultInt64),
+	).MustBuild()
+	inline := func(vals map[string]any) *schemapb.Filled {
+		return &schemapb.Filled{
+			Schema: &schemapb.SchemaRef{Source: &schemapb.SchemaRef_Schema{Schema: s}},
+			Values: mustStruct(t, vals),
+		}
+	}
+
+	// Bake: validates + resolves (defaults + computed).
+	baked, errs, err := inline(map[string]any{}).Bake()
+	if err != nil || len(errs) != 0 || baked == nil {
+		t.Fatalf("bake: errs=%v err=%v", msgs(errs), err)
+	}
+	if bv := baked.GetValues().AsMap(); bv["size"] != float64(20) || bv["iops"] != float64(1000) {
+		t.Errorf("baked values: %v", bv)
+	}
+
+	// id-ref Filled cannot self-bake (needs the registry).
+	fid := &schemapb.Filled{Schema: &schemapb.SchemaRef{Source: &schemapb.SchemaRef_Id{Id: &schemapb.SchemaIdentity{Name: "x"}}}}
+	if _, _, err := fid.Bake(); err == nil {
+		t.Error("want error baking an id-ref Filled")
+	}
+
+	// IntoBaked: raw copy, NO resolve (iops not computed, default not applied).
+	raw, err := inline(map[string]any{"size": float64(7)}).IntoBaked()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rv := raw.GetValues().AsMap()
+	if rv["size"] != float64(7) {
+		t.Errorf("raw size = %v", rv["size"])
+	}
+	if _, ok := rv["iops"]; ok {
+		t.Error("IntoBaked must not evaluate computed fields")
 	}
 }

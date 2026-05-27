@@ -22,91 +22,54 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SchemaRef selects the schema an operation runs against: either inline, or by
-// identity (resolved from the server registry).
-type SchemaRef struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Source:
-	//
-	//	*SchemaRef_Id
-	//	*SchemaRef_Schema
-	Source        isSchemaRef_Source `protobuf_oneof:"source"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
+// How list (repeated) values merge in Merge.
+type ListMerge int32
 
-func (x *SchemaRef) Reset() {
-	*x = SchemaRef{}
-	mi := &file_schemapb_service_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
+const (
+	// Concatenate base + override lists (proto.Merge default).
+	ListMerge_LIST_MERGE_APPEND ListMerge = 0
+	// Override list replaces the base list wholesale.
+	ListMerge_LIST_MERGE_REPLACE ListMerge = 1
+)
 
-func (x *SchemaRef) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SchemaRef) ProtoMessage() {}
-
-func (x *SchemaRef) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+// Enum value maps for ListMerge.
+var (
+	ListMerge_name = map[int32]string{
+		0: "LIST_MERGE_APPEND",
+		1: "LIST_MERGE_REPLACE",
 	}
-	return mi.MessageOf(x)
+	ListMerge_value = map[string]int32{
+		"LIST_MERGE_APPEND":  0,
+		"LIST_MERGE_REPLACE": 1,
+	}
+)
+
+func (x ListMerge) Enum() *ListMerge {
+	p := new(ListMerge)
+	*p = x
+	return p
 }
 
-// Deprecated: Use SchemaRef.ProtoReflect.Descriptor instead.
-func (*SchemaRef) Descriptor() ([]byte, []int) {
+func (x ListMerge) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ListMerge) Descriptor() protoreflect.EnumDescriptor {
+	return file_schemapb_service_proto_enumTypes[0].Descriptor()
+}
+
+func (ListMerge) Type() protoreflect.EnumType {
+	return &file_schemapb_service_proto_enumTypes[0]
+}
+
+func (x ListMerge) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ListMerge.Descriptor instead.
+func (ListMerge) EnumDescriptor() ([]byte, []int) {
 	return file_schemapb_service_proto_rawDescGZIP(), []int{0}
 }
-
-func (x *SchemaRef) GetSource() isSchemaRef_Source {
-	if x != nil {
-		return x.Source
-	}
-	return nil
-}
-
-func (x *SchemaRef) GetId() *SchemaIdentity {
-	if x != nil {
-		if x, ok := x.Source.(*SchemaRef_Id); ok {
-			return x.Id
-		}
-	}
-	return nil
-}
-
-func (x *SchemaRef) GetSchema() *Schema {
-	if x != nil {
-		if x, ok := x.Source.(*SchemaRef_Schema); ok {
-			return x.Schema
-		}
-	}
-	return nil
-}
-
-type isSchemaRef_Source interface {
-	isSchemaRef_Source()
-}
-
-type SchemaRef_Id struct {
-	// Resolve a registered schema by identity.
-	Id *SchemaIdentity `protobuf:"bytes,1,opt,name=id,proto3,oneof"`
-}
-
-type SchemaRef_Schema struct {
-	// Use this schema directly, without registering it.
-	Schema *Schema `protobuf:"bytes,2,opt,name=schema,proto3,oneof"`
-}
-
-func (*SchemaRef_Id) isSchemaRef_Source() {}
-
-func (*SchemaRef_Schema) isSchemaRef_Source() {}
 
 // Filter narrows ListSchemas. Unset fields are not constrained; all set fields
 // must match (AND). An empty Filter lists everything.
@@ -126,7 +89,7 @@ type Filter struct {
 
 func (x *Filter) Reset() {
 	*x = Filter{}
-	mi := &file_schemapb_service_proto_msgTypes[1]
+	mi := &file_schemapb_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -138,7 +101,7 @@ func (x *Filter) String() string {
 func (*Filter) ProtoMessage() {}
 
 func (x *Filter) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[1]
+	mi := &file_schemapb_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -151,7 +114,7 @@ func (x *Filter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Filter.ProtoReflect.Descriptor instead.
 func (*Filter) Descriptor() ([]byte, []int) {
-	return file_schemapb_service_proto_rawDescGZIP(), []int{1}
+	return file_schemapb_service_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Filter) GetNamespace() string {
@@ -195,7 +158,7 @@ type SchemaSummary struct {
 
 func (x *SchemaSummary) Reset() {
 	*x = SchemaSummary{}
-	mi := &file_schemapb_service_proto_msgTypes[2]
+	mi := &file_schemapb_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -207,7 +170,7 @@ func (x *SchemaSummary) String() string {
 func (*SchemaSummary) ProtoMessage() {}
 
 func (x *SchemaSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[2]
+	mi := &file_schemapb_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -220,7 +183,7 @@ func (x *SchemaSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SchemaSummary.ProtoReflect.Descriptor instead.
 func (*SchemaSummary) Descriptor() ([]byte, []int) {
-	return file_schemapb_service_proto_rawDescGZIP(), []int{2}
+	return file_schemapb_service_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SchemaSummary) GetId() *SchemaIdentity {
@@ -251,7 +214,7 @@ type RegisterSchemaResponse struct {
 
 func (x *RegisterSchemaResponse) Reset() {
 	*x = RegisterSchemaResponse{}
-	mi := &file_schemapb_service_proto_msgTypes[3]
+	mi := &file_schemapb_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -263,7 +226,7 @@ func (x *RegisterSchemaResponse) String() string {
 func (*RegisterSchemaResponse) ProtoMessage() {}
 
 func (x *RegisterSchemaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[3]
+	mi := &file_schemapb_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -276,7 +239,7 @@ func (x *RegisterSchemaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterSchemaResponse.ProtoReflect.Descriptor instead.
 func (*RegisterSchemaResponse) Descriptor() ([]byte, []int) {
-	return file_schemapb_service_proto_rawDescGZIP(), []int{3}
+	return file_schemapb_service_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RegisterSchemaResponse) GetId() *SchemaIdentity {
@@ -310,7 +273,7 @@ type ListSchemasResponse struct {
 
 func (x *ListSchemasResponse) Reset() {
 	*x = ListSchemasResponse{}
-	mi := &file_schemapb_service_proto_msgTypes[4]
+	mi := &file_schemapb_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -322,7 +285,7 @@ func (x *ListSchemasResponse) String() string {
 func (*ListSchemasResponse) ProtoMessage() {}
 
 func (x *ListSchemasResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[4]
+	mi := &file_schemapb_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -335,7 +298,7 @@ func (x *ListSchemasResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSchemasResponse.ProtoReflect.Descriptor instead.
 func (*ListSchemasResponse) Descriptor() ([]byte, []int) {
-	return file_schemapb_service_proto_rawDescGZIP(), []int{4}
+	return file_schemapb_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListSchemasResponse) GetSchemas() []*SchemaSummary {
@@ -357,7 +320,7 @@ type ValidateSchemaResponse struct {
 
 func (x *ValidateSchemaResponse) Reset() {
 	*x = ValidateSchemaResponse{}
-	mi := &file_schemapb_service_proto_msgTypes[5]
+	mi := &file_schemapb_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -369,7 +332,7 @@ func (x *ValidateSchemaResponse) String() string {
 func (*ValidateSchemaResponse) ProtoMessage() {}
 
 func (x *ValidateSchemaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[5]
+	mi := &file_schemapb_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -382,7 +345,7 @@ func (x *ValidateSchemaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateSchemaResponse.ProtoReflect.Descriptor instead.
 func (*ValidateSchemaResponse) Descriptor() ([]byte, []int) {
-	return file_schemapb_service_proto_rawDescGZIP(), []int{5}
+	return file_schemapb_service_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ValidateSchemaResponse) GetValid() bool {
@@ -399,60 +362,6 @@ func (x *ValidateSchemaResponse) GetErrors() []*FieldError {
 	return nil
 }
 
-type ValidateRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Schema to validate against.
-	Schema *SchemaRef `protobuf:"bytes,1,opt,name=schema,proto3" json:"schema,omitempty"`
-	// Form values to validate.
-	Values        *structpb.Struct `protobuf:"bytes,2,opt,name=values,proto3" json:"values,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ValidateRequest) Reset() {
-	*x = ValidateRequest{}
-	mi := &file_schemapb_service_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ValidateRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ValidateRequest) ProtoMessage() {}
-
-func (x *ValidateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ValidateRequest.ProtoReflect.Descriptor instead.
-func (*ValidateRequest) Descriptor() ([]byte, []int) {
-	return file_schemapb_service_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *ValidateRequest) GetSchema() *SchemaRef {
-	if x != nil {
-		return x.Schema
-	}
-	return nil
-}
-
-func (x *ValidateRequest) GetValues() *structpb.Struct {
-	if x != nil {
-		return x.Values
-	}
-	return nil
-}
-
 type ValidateResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// True if there are no ERROR-severity failures.
@@ -465,7 +374,7 @@ type ValidateResponse struct {
 
 func (x *ValidateResponse) Reset() {
 	*x = ValidateResponse{}
-	mi := &file_schemapb_service_proto_msgTypes[7]
+	mi := &file_schemapb_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -477,7 +386,7 @@ func (x *ValidateResponse) String() string {
 func (*ValidateResponse) ProtoMessage() {}
 
 func (x *ValidateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[7]
+	mi := &file_schemapb_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -490,7 +399,7 @@ func (x *ValidateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateResponse.ProtoReflect.Descriptor instead.
 func (*ValidateResponse) Descriptor() ([]byte, []int) {
-	return file_schemapb_service_proto_rawDescGZIP(), []int{7}
+	return file_schemapb_service_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ValidateResponse) GetValid() bool {
@@ -507,31 +416,33 @@ func (x *ValidateResponse) GetErrors() []*FieldError {
 	return nil
 }
 
-type ComputeRequest struct {
+type MergeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Schema whose Computed fields to evaluate.
-	Schema *SchemaRef `protobuf:"bytes,1,opt,name=schema,proto3" json:"schema,omitempty"`
-	// Input values the expressions read.
-	Values        *structpb.Struct `protobuf:"bytes,2,opt,name=values,proto3" json:"values,omitempty"`
+	// The sealed base to layer onto (carries its own schema).
+	Base *Baked `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
+	// Partial values to merge over base.values.
+	Overrides *structpb.Struct `protobuf:"bytes,2,opt,name=overrides,proto3" json:"overrides,omitempty"`
+	// How list values combine.
+	Lists         ListMerge `protobuf:"varint,3,opt,name=lists,proto3,enum=schemapb.ListMerge" json:"lists,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ComputeRequest) Reset() {
-	*x = ComputeRequest{}
-	mi := &file_schemapb_service_proto_msgTypes[8]
+func (x *MergeRequest) Reset() {
+	*x = MergeRequest{}
+	mi := &file_schemapb_service_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ComputeRequest) String() string {
+func (x *MergeRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ComputeRequest) ProtoMessage() {}
+func (*MergeRequest) ProtoMessage() {}
 
-func (x *ComputeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[8]
+func (x *MergeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_service_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -542,21 +453,84 @@ func (x *ComputeRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ComputeRequest.ProtoReflect.Descriptor instead.
-func (*ComputeRequest) Descriptor() ([]byte, []int) {
-	return file_schemapb_service_proto_rawDescGZIP(), []int{8}
+// Deprecated: Use MergeRequest.ProtoReflect.Descriptor instead.
+func (*MergeRequest) Descriptor() ([]byte, []int) {
+	return file_schemapb_service_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *ComputeRequest) GetSchema() *SchemaRef {
+func (x *MergeRequest) GetBase() *Baked {
 	if x != nil {
-		return x.Schema
+		return x.Base
 	}
 	return nil
 }
 
-func (x *ComputeRequest) GetValues() *structpb.Struct {
+func (x *MergeRequest) GetOverrides() *structpb.Struct {
 	if x != nil {
-		return x.Values
+		return x.Overrides
+	}
+	return nil
+}
+
+func (x *MergeRequest) GetLists() ListMerge {
+	if x != nil {
+		return x.Lists
+	}
+	return ListMerge_LIST_MERGE_APPEND
+}
+
+// BakeResponse is the result of Bake or Merge: a sealed Baked, or the errors
+// that prevented sealing.
+type BakeResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Set only if validation passed.
+	Baked *Baked `protobuf:"bytes,1,opt,name=baked,proto3" json:"baked,omitempty"`
+	// Non-empty means the values were rejected; baked is unset.
+	Errors        []*FieldError `protobuf:"bytes,2,rep,name=errors,proto3" json:"errors,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BakeResponse) Reset() {
+	*x = BakeResponse{}
+	mi := &file_schemapb_service_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BakeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BakeResponse) ProtoMessage() {}
+
+func (x *BakeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_service_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BakeResponse.ProtoReflect.Descriptor instead.
+func (*BakeResponse) Descriptor() ([]byte, []int) {
+	return file_schemapb_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *BakeResponse) GetBaked() *Baked {
+	if x != nil {
+		return x.Baked
+	}
+	return nil
+}
+
+func (x *BakeResponse) GetErrors() []*FieldError {
+	if x != nil {
+		return x.Errors
 	}
 	return nil
 }
@@ -574,7 +548,7 @@ type ComputeResponse struct {
 
 func (x *ComputeResponse) Reset() {
 	*x = ComputeResponse{}
-	mi := &file_schemapb_service_proto_msgTypes[9]
+	mi := &file_schemapb_service_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -586,7 +560,7 @@ func (x *ComputeResponse) String() string {
 func (*ComputeResponse) ProtoMessage() {}
 
 func (x *ComputeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_service_proto_msgTypes[9]
+	mi := &file_schemapb_service_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -599,7 +573,7 @@ func (x *ComputeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ComputeResponse.ProtoReflect.Descriptor instead.
 func (*ComputeResponse) Descriptor() ([]byte, []int) {
-	return file_schemapb_service_proto_rawDescGZIP(), []int{9}
+	return file_schemapb_service_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ComputeResponse) GetValues() *structpb.Struct {
@@ -620,11 +594,7 @@ var File_schemapb_service_proto protoreflect.FileDescriptor
 
 const file_schemapb_service_proto_rawDesc = "" +
 	"\n" +
-	"\x16schemapb/service.proto\x12\bschemapb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x15schemapb/schema.proto\"m\n" +
-	"\tSchemaRef\x12*\n" +
-	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityH\x00R\x02id\x12*\n" +
-	"\x06schema\x18\x02 \x01(\v2\x10.schemapb.SchemaH\x00R\x06schemaB\b\n" +
-	"\x06source\"\xc2\x01\n" +
+	"\x16schemapb/service.proto\x12\bschemapb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x15schemapb/schema.proto\"\xc2\x01\n" +
 	"\x06Filter\x12!\n" +
 	"\tnamespace\x18\x01 \x01(\tH\x00R\tnamespace\x88\x01\x01\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x12\x1d\n" +
@@ -648,26 +618,32 @@ const file_schemapb_service_proto_rawDesc = "" +
 	"\aschemas\x18\x01 \x03(\v2\x17.schemapb.SchemaSummaryR\aschemas\"\\\n" +
 	"\x16ValidateSchemaResponse\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x12,\n" +
-	"\x06errors\x18\x02 \x03(\v2\x14.schemapb.FieldErrorR\x06errors\"o\n" +
-	"\x0fValidateRequest\x12+\n" +
-	"\x06schema\x18\x01 \x01(\v2\x13.schemapb.SchemaRefR\x06schema\x12/\n" +
-	"\x06values\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06values\"V\n" +
+	"\x06errors\x18\x02 \x03(\v2\x14.schemapb.FieldErrorR\x06errors\"V\n" +
 	"\x10ValidateResponse\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x12,\n" +
-	"\x06errors\x18\x02 \x03(\v2\x14.schemapb.FieldErrorR\x06errors\"n\n" +
-	"\x0eComputeRequest\x12+\n" +
-	"\x06schema\x18\x01 \x01(\v2\x13.schemapb.SchemaRefR\x06schema\x12/\n" +
-	"\x06values\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06values\"p\n" +
+	"\x06errors\x18\x02 \x03(\v2\x14.schemapb.FieldErrorR\x06errors\"\x95\x01\n" +
+	"\fMergeRequest\x12#\n" +
+	"\x04base\x18\x01 \x01(\v2\x0f.schemapb.BakedR\x04base\x125\n" +
+	"\toverrides\x18\x02 \x01(\v2\x17.google.protobuf.StructR\toverrides\x12)\n" +
+	"\x05lists\x18\x03 \x01(\x0e2\x13.schemapb.ListMergeR\x05lists\"c\n" +
+	"\fBakeResponse\x12%\n" +
+	"\x05baked\x18\x01 \x01(\v2\x0f.schemapb.BakedR\x05baked\x12,\n" +
+	"\x06errors\x18\x02 \x03(\v2\x14.schemapb.FieldErrorR\x06errors\"p\n" +
 	"\x0fComputeResponse\x12/\n" +
 	"\x06values\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06values\x12,\n" +
-	"\x06errors\x18\x02 \x03(\v2\x14.schemapb.FieldErrorR\x06errors2\x97\x03\n" +
+	"\x06errors\x18\x02 \x03(\v2\x14.schemapb.FieldErrorR\x06errors*:\n" +
+	"\tListMerge\x12\x15\n" +
+	"\x11LIST_MERGE_APPEND\x10\x00\x12\x16\n" +
+	"\x12LIST_MERGE_REPLACE\x10\x012\xf1\x03\n" +
 	"\rSchemaService\x12D\n" +
 	"\x0eRegisterSchema\x12\x10.schemapb.Schema\x1a .schemapb.RegisterSchemaResponse\x127\n" +
 	"\tGetSchema\x12\x18.schemapb.SchemaIdentity\x1a\x10.schemapb.Schema\x12>\n" +
 	"\vListSchemas\x12\x10.schemapb.Filter\x1a\x1d.schemapb.ListSchemasResponse\x12D\n" +
-	"\x0eValidateSchema\x12\x10.schemapb.Schema\x1a .schemapb.ValidateSchemaResponse\x12A\n" +
-	"\bValidate\x12\x19.schemapb.ValidateRequest\x1a\x1a.schemapb.ValidateResponse\x12>\n" +
-	"\aCompute\x12\x18.schemapb.ComputeRequest\x1a\x19.schemapb.ComputeResponseB)Z'github.com/stroppy-io/schemapb/schemapbb\x06proto3"
+	"\x0eValidateSchema\x12\x10.schemapb.Schema\x1a .schemapb.ValidateSchemaResponse\x128\n" +
+	"\bValidate\x12\x10.schemapb.Filled\x1a\x1a.schemapb.ValidateResponse\x126\n" +
+	"\aCompute\x12\x10.schemapb.Filled\x1a\x19.schemapb.ComputeResponse\x120\n" +
+	"\x04Bake\x12\x10.schemapb.Filled\x1a\x16.schemapb.BakeResponse\x127\n" +
+	"\x05Merge\x12\x16.schemapb.MergeRequest\x1a\x16.schemapb.BakeResponseB)Z'github.com/stroppy-io/schemapb/schemapbb\x06proto3"
 
 var (
 	file_schemapb_service_proto_rawDescOnce sync.Once
@@ -681,55 +657,61 @@ func file_schemapb_service_proto_rawDescGZIP() []byte {
 	return file_schemapb_service_proto_rawDescData
 }
 
-var file_schemapb_service_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_schemapb_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_schemapb_service_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_schemapb_service_proto_goTypes = []any{
-	(*SchemaRef)(nil),              // 0: schemapb.SchemaRef
+	(ListMerge)(0),                 // 0: schemapb.ListMerge
 	(*Filter)(nil),                 // 1: schemapb.Filter
 	(*SchemaSummary)(nil),          // 2: schemapb.SchemaSummary
 	(*RegisterSchemaResponse)(nil), // 3: schemapb.RegisterSchemaResponse
 	(*ListSchemasResponse)(nil),    // 4: schemapb.ListSchemasResponse
 	(*ValidateSchemaResponse)(nil), // 5: schemapb.ValidateSchemaResponse
-	(*ValidateRequest)(nil),        // 6: schemapb.ValidateRequest
-	(*ValidateResponse)(nil),       // 7: schemapb.ValidateResponse
-	(*ComputeRequest)(nil),         // 8: schemapb.ComputeRequest
+	(*ValidateResponse)(nil),       // 6: schemapb.ValidateResponse
+	(*MergeRequest)(nil),           // 7: schemapb.MergeRequest
+	(*BakeResponse)(nil),           // 8: schemapb.BakeResponse
 	(*ComputeResponse)(nil),        // 9: schemapb.ComputeResponse
 	(*SchemaIdentity)(nil),         // 10: schemapb.SchemaIdentity
-	(*Schema)(nil),                 // 11: schemapb.Schema
-	(*FieldError)(nil),             // 12: schemapb.FieldError
+	(*FieldError)(nil),             // 11: schemapb.FieldError
+	(*Baked)(nil),                  // 12: schemapb.Baked
 	(*structpb.Struct)(nil),        // 13: google.protobuf.Struct
+	(*Schema)(nil),                 // 14: schemapb.Schema
+	(*Filled)(nil),                 // 15: schemapb.Filled
 }
 var file_schemapb_service_proto_depIdxs = []int32{
-	10, // 0: schemapb.SchemaRef.id:type_name -> schemapb.SchemaIdentity
-	11, // 1: schemapb.SchemaRef.schema:type_name -> schemapb.Schema
-	10, // 2: schemapb.SchemaSummary.id:type_name -> schemapb.SchemaIdentity
-	10, // 3: schemapb.RegisterSchemaResponse.id:type_name -> schemapb.SchemaIdentity
-	12, // 4: schemapb.RegisterSchemaResponse.errors:type_name -> schemapb.FieldError
-	2,  // 5: schemapb.ListSchemasResponse.schemas:type_name -> schemapb.SchemaSummary
-	12, // 6: schemapb.ValidateSchemaResponse.errors:type_name -> schemapb.FieldError
-	0,  // 7: schemapb.ValidateRequest.schema:type_name -> schemapb.SchemaRef
-	13, // 8: schemapb.ValidateRequest.values:type_name -> google.protobuf.Struct
-	12, // 9: schemapb.ValidateResponse.errors:type_name -> schemapb.FieldError
-	0,  // 10: schemapb.ComputeRequest.schema:type_name -> schemapb.SchemaRef
-	13, // 11: schemapb.ComputeRequest.values:type_name -> google.protobuf.Struct
-	13, // 12: schemapb.ComputeResponse.values:type_name -> google.protobuf.Struct
-	12, // 13: schemapb.ComputeResponse.errors:type_name -> schemapb.FieldError
-	11, // 14: schemapb.SchemaService.RegisterSchema:input_type -> schemapb.Schema
-	10, // 15: schemapb.SchemaService.GetSchema:input_type -> schemapb.SchemaIdentity
-	1,  // 16: schemapb.SchemaService.ListSchemas:input_type -> schemapb.Filter
-	11, // 17: schemapb.SchemaService.ValidateSchema:input_type -> schemapb.Schema
-	6,  // 18: schemapb.SchemaService.Validate:input_type -> schemapb.ValidateRequest
-	8,  // 19: schemapb.SchemaService.Compute:input_type -> schemapb.ComputeRequest
-	3,  // 20: schemapb.SchemaService.RegisterSchema:output_type -> schemapb.RegisterSchemaResponse
-	11, // 21: schemapb.SchemaService.GetSchema:output_type -> schemapb.Schema
-	4,  // 22: schemapb.SchemaService.ListSchemas:output_type -> schemapb.ListSchemasResponse
-	5,  // 23: schemapb.SchemaService.ValidateSchema:output_type -> schemapb.ValidateSchemaResponse
-	7,  // 24: schemapb.SchemaService.Validate:output_type -> schemapb.ValidateResponse
-	9,  // 25: schemapb.SchemaService.Compute:output_type -> schemapb.ComputeResponse
-	20, // [20:26] is the sub-list for method output_type
-	14, // [14:20] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	10, // 0: schemapb.SchemaSummary.id:type_name -> schemapb.SchemaIdentity
+	10, // 1: schemapb.RegisterSchemaResponse.id:type_name -> schemapb.SchemaIdentity
+	11, // 2: schemapb.RegisterSchemaResponse.errors:type_name -> schemapb.FieldError
+	2,  // 3: schemapb.ListSchemasResponse.schemas:type_name -> schemapb.SchemaSummary
+	11, // 4: schemapb.ValidateSchemaResponse.errors:type_name -> schemapb.FieldError
+	11, // 5: schemapb.ValidateResponse.errors:type_name -> schemapb.FieldError
+	12, // 6: schemapb.MergeRequest.base:type_name -> schemapb.Baked
+	13, // 7: schemapb.MergeRequest.overrides:type_name -> google.protobuf.Struct
+	0,  // 8: schemapb.MergeRequest.lists:type_name -> schemapb.ListMerge
+	12, // 9: schemapb.BakeResponse.baked:type_name -> schemapb.Baked
+	11, // 10: schemapb.BakeResponse.errors:type_name -> schemapb.FieldError
+	13, // 11: schemapb.ComputeResponse.values:type_name -> google.protobuf.Struct
+	11, // 12: schemapb.ComputeResponse.errors:type_name -> schemapb.FieldError
+	14, // 13: schemapb.SchemaService.RegisterSchema:input_type -> schemapb.Schema
+	10, // 14: schemapb.SchemaService.GetSchema:input_type -> schemapb.SchemaIdentity
+	1,  // 15: schemapb.SchemaService.ListSchemas:input_type -> schemapb.Filter
+	14, // 16: schemapb.SchemaService.ValidateSchema:input_type -> schemapb.Schema
+	15, // 17: schemapb.SchemaService.Validate:input_type -> schemapb.Filled
+	15, // 18: schemapb.SchemaService.Compute:input_type -> schemapb.Filled
+	15, // 19: schemapb.SchemaService.Bake:input_type -> schemapb.Filled
+	7,  // 20: schemapb.SchemaService.Merge:input_type -> schemapb.MergeRequest
+	3,  // 21: schemapb.SchemaService.RegisterSchema:output_type -> schemapb.RegisterSchemaResponse
+	14, // 22: schemapb.SchemaService.GetSchema:output_type -> schemapb.Schema
+	4,  // 23: schemapb.SchemaService.ListSchemas:output_type -> schemapb.ListSchemasResponse
+	5,  // 24: schemapb.SchemaService.ValidateSchema:output_type -> schemapb.ValidateSchemaResponse
+	6,  // 25: schemapb.SchemaService.Validate:output_type -> schemapb.ValidateResponse
+	9,  // 26: schemapb.SchemaService.Compute:output_type -> schemapb.ComputeResponse
+	8,  // 27: schemapb.SchemaService.Bake:output_type -> schemapb.BakeResponse
+	8,  // 28: schemapb.SchemaService.Merge:output_type -> schemapb.BakeResponse
+	21, // [21:29] is the sub-list for method output_type
+	13, // [13:21] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_service_proto_init() }
@@ -738,24 +720,21 @@ func file_schemapb_service_proto_init() {
 		return
 	}
 	file_schemapb_schema_proto_init()
-	file_schemapb_service_proto_msgTypes[0].OneofWrappers = []any{
-		(*SchemaRef_Id)(nil),
-		(*SchemaRef_Schema)(nil),
-	}
+	file_schemapb_service_proto_msgTypes[0].OneofWrappers = []any{}
 	file_schemapb_service_proto_msgTypes[1].OneofWrappers = []any{}
-	file_schemapb_service_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schemapb_service_proto_rawDesc), len(file_schemapb_service_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   10,
+			NumEnums:      1,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_schemapb_service_proto_goTypes,
 		DependencyIndexes: file_schemapb_service_proto_depIdxs,
+		EnumInfos:         file_schemapb_service_proto_enumTypes,
 		MessageInfos:      file_schemapb_service_proto_msgTypes,
 	}.Build()
 	File_schemapb_service_proto = out.File

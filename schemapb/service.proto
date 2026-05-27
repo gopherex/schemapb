@@ -23,23 +23,14 @@ service SchemaService {
     rpc ListSchemas(Filter) returns (ListSchemasResponse);
     /* Check that a schema descriptor itself is well-formed. */
     rpc ValidateSchema(Schema) returns (ValidateSchemaResponse);
-    /* Validate form values against a schema. */
-    rpc Validate(ValidateRequest) returns (ValidateResponse);
-    /* Evaluate the schema's Computed fields for the given values. */
-    rpc Compute(ComputeRequest) returns (ComputeResponse);
-}
-
-/*
- * SchemaRef selects the schema an operation runs against: either inline, or by
- * identity (resolved from the server registry).
- */
-message SchemaRef {
-    oneof source {
-        /* Resolve a registered schema by identity. */
-        SchemaIdentity id = 1;
-        /* Use this schema directly, without registering it. */
-        Schema schema = 2;
-    }
+    /* Validate the values of a Filled form against its schema. */
+    rpc Validate(Filled) returns (ValidateResponse);
+    /* Evaluate the Computed fields of a Filled form. */
+    rpc Compute(Filled) returns (ComputeResponse);
+    /* Seal a Filled form into an immutable Baked (validate + resolve). */
+    rpc Bake(Filled) returns (BakeResponse);
+    /* Layer overrides onto a Baked and re-seal. */
+    rpc Merge(MergeRequest) returns (BakeResponse);
 }
 
 /*
@@ -86,12 +77,6 @@ message ValidateSchemaResponse {
     repeated FieldError errors = 2;
 }
 
-message ValidateRequest {
-    /* Schema to validate against. */
-    SchemaRef schema = 1;
-    /* Form values to validate. */
-    google.protobuf.Struct values = 2;
-}
 message ValidateResponse {
     /* True if there are no ERROR-severity failures. */
     bool valid = 1;
@@ -99,12 +84,32 @@ message ValidateResponse {
     repeated FieldError errors = 2;
 }
 
-message ComputeRequest {
-    /* Schema whose Computed fields to evaluate. */
-    SchemaRef schema = 1;
-    /* Input values the expressions read. */
-    google.protobuf.Struct values = 2;
+/* How list (repeated) values merge in Merge. */
+enum ListMerge {
+    /* Concatenate base + override lists (proto.Merge default). */
+    LIST_MERGE_APPEND = 0;
+    /* Override list replaces the base list wholesale. */
+    LIST_MERGE_REPLACE = 1;
 }
+
+message MergeRequest {
+    /* The sealed base to layer onto (carries its own schema). */
+    Baked base = 1;
+    /* Partial values to merge over base.values. */
+    google.protobuf.Struct overrides = 2;
+    /* How list values combine. */
+    ListMerge lists = 3;
+}
+
+/* BakeResponse is the result of Bake or Merge: a sealed Baked, or the errors
+ * that prevented sealing. */
+message BakeResponse {
+    /* Set only if validation passed. */
+    Baked baked = 1;
+    /* Non-empty means the values were rejected; baked is unset. */
+    repeated FieldError errors = 2;
+}
+
 message ComputeResponse {
     /*
      * The fully resolved form: the provided inputs, plus values filled from the

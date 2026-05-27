@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
-import { create } from "@bufbuild/protobuf";
+import { create, fromJson } from "@bufbuild/protobuf";
 import "./wasm_exec.js"; // sets globalThis.Go
 import {
   Schemapb,
   SchemaSchema,
+  BakedSchema,
   Schema_Filed_ResultType as RT,
   Schema_Filed_Severity as Sev,
   type Schema,
@@ -191,6 +192,43 @@ describe("rules", () => {
     const r = sp.validate(s, { w: 200 });
     const cap = r.errors.find((e) => e.ruleId === "cap");
     expect(cap?.severity).toBe("WARNING");
+  });
+});
+
+describe("bake / merge", () => {
+  function sizing(): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "infra", name: "sizing", version: "v1" },
+      fields: [
+        { name: "size", kind: { case: "int32", value: { gte: 1, default: 20 } } },
+        { name: "iops", kind: { case: "computed", value: { expr: "root.size * 50", result: RT.INT64 } } },
+      ],
+    });
+  }
+
+  it("bakes defaults + computed into a sealed Baked", () => {
+    const r = sp.bake(sizing(), {});
+    expect(r.errors).toHaveLength(0);
+    expect(r.baked).toBeDefined();
+    const v = r.baked!.values as Record<string, number>;
+    expect(v.size).toBe(20);
+    expect(v.iops).toBe(1000); // 20 * 50
+  });
+
+  it("merges overrides and re-bakes (computed recomputed)", () => {
+    const base = fromJson(BakedSchema, sp.bake(sizing(), {}).baked!);
+    const r = sp.merge(base, { size: 100 });
+    expect(r.errors).toHaveLength(0);
+    const v = r.baked!.values as Record<string, number>;
+    expect(v.size).toBe(100);
+    expect(v.iops).toBe(5000); // 100 * 50
+  });
+
+  it("reports errors instead of sealing when a merge violates a constraint", () => {
+    const base = fromJson(BakedSchema, sp.bake(sizing(), {}).baked!);
+    const r = sp.merge(base, { size: 0 }); // gte 1
+    expect(r.baked).toBeUndefined();
+    expect(r.errors.some((e) => e.field === "size")).toBe(true);
   });
 });
 

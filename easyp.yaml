@@ -20,6 +20,10 @@ generate:
       out: .
       opts:
         paths: source_relative
+    - name: go-hashpb
+      out: .
+      opts:
+        paths: source_relative
     - name: es
       out: ts
       opts:

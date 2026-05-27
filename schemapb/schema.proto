@@ -3,6 +3,7 @@ syntax = "proto3";
 package schemapb;
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/stroppy-io/schemapb/schemapb";
@@ -429,4 +430,43 @@ message FieldError {
     optional string rule_id = 3;
     /* Severity of the failure. */
     Schema.Filed.Severity severity = 4;
+}
+
+/*
+ * SchemaRef selects a schema: either inline, or by identity (resolved from a
+ * registry).
+ */
+message SchemaRef {
+    oneof source {
+        /* Resolve a registered schema by identity. */
+        SchemaIdentity id = 1;
+        /* Use this schema directly, without registering it. */
+        Schema schema = 2;
+    }
+}
+
+/*
+ * Filled is a runtime form: a reference to the schema plus the values entered
+ * for it. The schema says what is allowed/derived; the values are what to
+ * check/resolve. It is mutable input (the thing being edited/validated).
+ */
+message Filled {
+    /* Schema this form is filled against (baked-by-id or inline). */
+    SchemaRef schema = 1;
+    /* Form values the expressions read and the validator checks. */
+    google.protobuf.Struct values = 2;
+}
+
+/*
+ * Baked is a sealed result: the final values together with the schema they were
+ * validated and resolved against. It is a self-contained, immutable snapshot —
+ * "these exact values for this exact schema, not to be changed". Unlike Filled
+ * (which only references a schema and is mutable), Baked embeds the full schema
+ * and the frozen values, so it is portable and verifiable on its own.
+ */
+message Baked {
+    /* The schema these values were baked against (embedded, self-contained). */
+    Schema schema = 1;
+    /* The final, resolved values — frozen. */
+    google.protobuf.Struct values = 2;
 }

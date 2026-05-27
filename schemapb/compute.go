@@ -2,6 +2,7 @@ package schemapb
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -17,13 +18,13 @@ import (
 // returns the complete resolved form (inputs + defaults + derived). The
 // returned errors report expressions that failed (missing referenced value) or
 // a computed-field cycle. form is mutated in place and also returned.
-func (v *Validator) Compute(form map[string]any) (map[string]any, []*FieldError) {
+func (v *validator) Compute(form map[string]any) (map[string]any, []*FieldError) {
 	errs := v.resolve(form)
 	return form, errs
 }
 
 // ComputeStruct resolves a google.protobuf.Struct input (see Compute).
-func (v *Validator) ComputeStruct(s *structpb.Struct) (map[string]any, []*FieldError) {
+func (v *validator) ComputeStruct(s *structpb.Struct) (map[string]any, []*FieldError) {
 	m := map[string]any{}
 	if s != nil {
 		m = s.AsMap()
@@ -33,7 +34,7 @@ func (v *Validator) ComputeStruct(s *structpb.Struct) (map[string]any, []*FieldE
 
 // ComputeJSON resolves a raw JSON object (see Compute). It errors only if the
 // JSON cannot be parsed into an object.
-func (v *Validator) ComputeJSON(raw json.RawMessage) (map[string]any, []*FieldError, error) {
+func (v *validator) ComputeJSON(raw json.RawMessage) (map[string]any, []*FieldError, error) {
 	m := map[string]any{}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &m); err != nil {
@@ -44,9 +45,141 @@ func (v *Validator) ComputeJSON(raw json.RawMessage) (map[string]any, []*FieldEr
 	return out, errs, nil
 }
 
+// =============================================================================
+// Public Schema / Baked methods
+// =============================================================================
+
+// Compute resolves values against the schema: seeds defaults, evaluates Computed
+// fields, returns the full resolved form (mutates and returns values).
+func (s *Schema) Compute(values map[string]any) (map[string]any, []*FieldError) {
+	v, err := s.compiled()
+	if err != nil {
+		return values, []*FieldError{schemaErr("", "expr: "+err.Error())}
+	}
+	return v.Compute(values)
+}
+
+// ComputeStruct resolves a google.protobuf.Struct.
+func (s *Schema) ComputeStruct(st *structpb.Struct) (map[string]any, []*FieldError) {
+	m := map[string]any{}
+	if st != nil {
+		m = st.AsMap()
+	}
+	return s.Compute(m)
+}
+
+// ComputeJSON resolves a raw JSON object (error only on parse failure).
+func (s *Schema) ComputeJSON(raw json.RawMessage) (map[string]any, []*FieldError, error) {
+	m := map[string]any{}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &m); err != nil {
+			return nil, nil, fmt.Errorf("parse json: %w", err)
+		}
+	}
+	out, errs := s.Compute(m)
+	return out, errs, nil
+}
+
+// Bake validates and resolves values, then seals them with the schema into a
+// Baked snapshot. On a blocking (ERROR) failure baked is nil; warnings do not
+// block and are returned alongside the Baked.
+func (s *Schema) Bake(values map[string]any) (*Baked, []*FieldError) {
+	errs := s.Validate(values) // resolves values in place + checks
+	if hasBlockingError(errs) {
+		return nil, errs
+	}
+	st, err := structpb.NewStruct(values)
+	if err != nil {
+		return nil, append(errs, schemaErr("", "marshal values: "+err.Error()))
+	}
+	return &Baked{Schema: s, Values: st}, errs
+}
+
+// Merge layers overrides onto a baked form and re-seals against the same schema.
+// Nested objects merge recursively; lists append unless replaceLists is set;
+// immutable fields keep their baked values (a changed immutable is rejected).
+func (b *Baked) Merge(overrides *structpb.Struct, replaceLists bool) (*Baked, []*FieldError) {
+	base := map[string]any{}
+	if b.GetValues() != nil {
+		base = b.GetValues().AsMap()
+	}
+	ov := map[string]any{}
+	if overrides != nil {
+		ov = overrides.AsMap()
+	}
+	return b.GetSchema().Bake(mergeMaps(base, ov, replaceLists))
+}
+
+// Matches reports whether the baked schema is identical (by content hash) to s.
+func (b *Baked) Matches(s *Schema) bool {
+	return Hash(b.GetSchema()) == Hash(s)
+}
+
+// Bake validates and seals an inline Filled into a Baked. It works only for a
+// Filled carrying an inline schema; a Filled that references a schema by id must
+// be baked server-side, where the registry resolves the id.
+func (f *Filled) Bake() (*Baked, []*FieldError, error) {
+	s := f.GetSchema().GetSchema()
+	if s == nil {
+		return nil, nil, errors.New("Filled.Bake requires an inline schema (id refs resolve server-side)")
+	}
+	values := map[string]any{}
+	if f.GetValues() != nil {
+		values = f.GetValues().AsMap()
+	}
+	baked, errs := s.Bake(values)
+	return baked, errs, nil
+}
+
+// IntoBaked copies a Filled's inline schema and values into a Baked WITHOUT
+// validating or resolving them.
+//
+// WARNING — UNSAFE ESCAPE HATCH. A Baked is meant to be a validated, resolved,
+// sealed snapshot. IntoBaked skips ALL of that: no defaults applied, Computed
+// fields NOT evaluated, rules and immutable constraints NOT enforced. The
+// result can be semantically invalid and must not be treated as a real Baked.
+// Use Bake() unless you already hold a trusted, fully-resolved value set (e.g.
+// re-wrapping values that were baked elsewhere).
+func (f *Filled) IntoBaked() (*Baked, error) {
+	s := f.GetSchema().GetSchema()
+	if s == nil {
+		return nil, errors.New("Filled.IntoBaked requires an inline schema")
+	}
+	return &Baked{Schema: s, Values: f.GetValues()}, nil
+}
+
+// mergeMaps deep-merges src over dst (objects recurse; lists append unless
+// replaceLists; scalars overwrite). It returns a new map.
+func mergeMaps(dst, src map[string]any, replaceLists bool) map[string]any {
+	out := make(map[string]any, len(dst))
+	for k, v := range dst {
+		out[k] = v
+	}
+	for k, sv := range src {
+		if dv, ok := out[k]; ok {
+			if dm, ok1 := dv.(map[string]any); ok1 {
+				if sm, ok2 := sv.(map[string]any); ok2 {
+					out[k] = mergeMaps(dm, sm, replaceLists)
+					continue
+				}
+			}
+			if !replaceLists {
+				if dl, ok1 := dv.([]any); ok1 {
+					if sl, ok2 := sv.([]any); ok2 {
+						out[k] = append(append([]any{}, dl...), sl...)
+						continue
+					}
+				}
+			}
+		}
+		out[k] = sv
+	}
+	return out
+}
+
 // resolve seeds defaults and evaluates Computed fields across the whole schema
 // tree, mutating form into the fully resolved state.
-func (v *Validator) resolve(form map[string]any) []*FieldError {
+func (v *validator) resolve(form map[string]any) []*FieldError {
 	var tasks []computeTask
 	v.seed(v.schema.GetFields(), form, "", &tasks)
 	return v.runCompute(form, tasks)
@@ -64,7 +197,7 @@ type computeTask struct {
 // recursing into present objects and object-typed list elements. It never
 // materialises an absent object, so optional sub-forms stay absent (and don't
 // spuriously trip their children's "required" checks).
-func (v *Validator) seed(fields []*Schema_Filed, scope map[string]any, prefix string, tasks *[]computeTask) {
+func (v *validator) seed(fields []*Schema_Filed, scope map[string]any, prefix string, tasks *[]computeTask) {
 	for _, f := range fields {
 		name := f.GetName()
 		path := join(prefix, name)
@@ -105,7 +238,7 @@ func (v *Validator) seed(fields []*Schema_Filed, scope map[string]any, prefix st
 // runCompute evaluates tasks in dependency order (the root paths each
 // expression reads), writing each result into its scope. Cycles are reported
 // and their fields left unevaluated.
-func (v *Validator) runCompute(root map[string]any, tasks []computeTask) []*FieldError {
+func (v *validator) runCompute(root map[string]any, tasks []computeTask) []*FieldError {
 	if len(tasks) == 0 {
 		return nil
 	}

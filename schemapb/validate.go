@@ -1,11 +1,14 @@
 package schemapb
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"math"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -14,12 +17,10 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// Validator validates form values against a Schema and evaluates its derived
-// (Computed) fields. It compiles every expr-lang expression (Rule + Computed)
-// once at construction time and reuses the programs. Structured per-kind
-// constraints (gt/gte/in/pattern/multiple_of/...) are checked in Go; custom Rule
-// and Computed expressions are evaluated by expr-lang.
-type Validator struct {
+// validator holds a schema's compiled expr-lang programs (Rule + Computed). It
+// is built once per distinct schema and cached by the schema's content hash, so
+// the public API is methods on *Schema — no validator handle to pass around.
+type validator struct {
 	schema   *Schema
 	programs map[string]*vm.Program
 }
@@ -38,66 +39,71 @@ func (e *SchemaError) Error() string {
 	return "invalid schema: " + strings.Join(parts, "; ")
 }
 
-// NewValidator validates the descriptor (see ValidateSchema) and compiles its
-// expressions. It returns a *SchemaError if the schema is malformed.
-func NewValidator(s *Schema) (*Validator, error) {
-	if errs := ValidateSchema(s); len(errs) > 0 {
-		return nil, &SchemaError{Errors: errs}
+// Hash returns the SHA-256 of a message's content (via its generated HashPB).
+// Equal messages hash equal — use it to compare messages or key by content.
+func Hash(m interface {
+	HashPB(hash.Hash, map[string]struct{})
+}) [32]byte {
+	h := sha256.New()
+	m.HashPB(h, nil)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// compiledCache maps a schema content hash to its compiled programs.
+var compiledCache sync.Map // [32]byte -> *validator
+
+// compiled returns the schema's compiled programs, cached by content hash. It
+// errors only if an expression fails to compile.
+func (s *Schema) compiled() (*validator, error) {
+	key := Hash(s)
+	if v, ok := compiledCache.Load(key); ok {
+		return v.(*validator), nil
 	}
-	v := &Validator{schema: s, programs: map[string]*vm.Program{}}
+	v := &validator{schema: s, programs: map[string]*vm.Program{}}
 	if err := v.compileSchema(s); err != nil {
-		return nil, &SchemaError{Errors: []*FieldError{schemaErr("", "expr: "+err.Error())}}
+		return nil, err
 	}
+	compiledCache.Store(key, v)
 	return v, nil
 }
 
-// ValidateStruct validates a google.protobuf.Struct against the schema and
-// returns one FieldError per failure (empty if valid).
-func (v *Validator) ValidateStruct(s *structpb.Struct) []*FieldError {
-	var m map[string]any
-	if s != nil {
-		m = s.AsMap()
-	} else {
-		m = map[string]any{}
+// Validate checks form values against the schema: it seeds defaults, resolves
+// Computed fields, then runs structured and expr rules. Empty result = valid.
+func (s *Schema) Validate(values map[string]any) []*FieldError {
+	v, err := s.compiled()
+	if err != nil {
+		return []*FieldError{schemaErr("", "expr: "+err.Error())}
 	}
-	return v.validate(m)
+	return v.validate(values)
 }
 
-// ValidateJSON validates a raw JSON object against the schema. It returns an
-// error only if the JSON cannot be parsed into an object.
-func (v *Validator) ValidateJSON(raw json.RawMessage) ([]*FieldError, error) {
+// ValidateStruct validates a google.protobuf.Struct.
+func (s *Schema) ValidateStruct(st *structpb.Struct) []*FieldError {
+	m := map[string]any{}
+	if st != nil {
+		m = st.AsMap()
+	}
+	return s.Validate(m)
+}
+
+// ValidateJSON validates a raw JSON object (error only on parse failure).
+func (s *Schema) ValidateJSON(raw json.RawMessage) ([]*FieldError, error) {
 	m := map[string]any{}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &m); err != nil {
 			return nil, fmt.Errorf("parse json: %w", err)
 		}
 	}
-	return v.validate(m), nil
-}
-
-// ValidateStruct is a one-shot helper: it builds a Validator and validates s.
-func ValidateStruct(schema *Schema, s *structpb.Struct) ([]*FieldError, error) {
-	v, err := NewValidator(schema)
-	if err != nil {
-		return nil, err
-	}
-	return v.ValidateStruct(s), nil
-}
-
-// ValidateJSON is a one-shot helper: it builds a Validator and validates raw.
-func ValidateJSON(schema *Schema, raw json.RawMessage) ([]*FieldError, error) {
-	v, err := NewValidator(schema)
-	if err != nil {
-		return nil, err
-	}
-	return v.ValidateJSON(raw)
+	return s.Validate(m), nil
 }
 
 // =============================================================================
 // Expression compilation
 // =============================================================================
 
-func (v *Validator) compileSchema(s *Schema) error {
+func (v *validator) compileSchema(s *Schema) error {
 	for _, f := range s.GetFields() {
 		if err := v.compileField(f); err != nil {
 			return err
@@ -111,7 +117,7 @@ func (v *Validator) compileSchema(s *Schema) error {
 	return nil
 }
 
-func (v *Validator) compileField(f *Schema_Filed) error {
+func (v *validator) compileField(f *Schema_Filed) error {
 	for _, r := range f.GetRules() {
 		if err := v.addProgram(r.GetExpr()); err != nil {
 			return err
@@ -137,7 +143,7 @@ func (v *Validator) compileField(f *Schema_Filed) error {
 	return nil
 }
 
-func (v *Validator) addProgram(code string) error {
+func (v *validator) addProgram(code string) error {
 	if code == "" || v.programs[code] != nil {
 		return nil
 	}
@@ -153,7 +159,7 @@ func (v *Validator) addProgram(code string) error {
 // Value validation
 // =============================================================================
 
-func (v *Validator) validate(form map[string]any) []*FieldError {
+func (v *validator) validate(form map[string]any) []*FieldError {
 	// Reject attempts to change immutable fields, checked on the raw input
 	// before resolve forces them back to their defaults.
 	out := v.checkImmutable(v.schema.GetFields(), form, "")
@@ -170,7 +176,7 @@ func (v *Validator) validate(form map[string]any) []*FieldError {
 // checkImmutable reports a submitted value that differs from an immutable
 // field's default (a system-fixed value cannot be changed). It walks present
 // objects and object-typed list elements. Only enforced when a default exists.
-func (v *Validator) checkImmutable(fields []*Schema_Filed, scope map[string]any, prefix string) []*FieldError {
+func (v *validator) checkImmutable(fields []*Schema_Filed, scope map[string]any, prefix string) []*FieldError {
 	var out []*FieldError
 	for _, f := range fields {
 		name := f.GetName()
@@ -203,7 +209,7 @@ func (v *Validator) checkImmutable(fields []*Schema_Filed, scope map[string]any,
 	return out
 }
 
-func (v *Validator) validateFields(fields []*Schema_Filed, scope, root map[string]any, prefix string) []*FieldError {
+func (v *validator) validateFields(fields []*Schema_Filed, scope, root map[string]any, prefix string) []*FieldError {
 	var out []*FieldError
 	for _, f := range fields {
 		val, exists := scope[f.GetName()]
@@ -212,7 +218,7 @@ func (v *Validator) validateFields(fields []*Schema_Filed, scope, root map[strin
 	return out
 }
 
-func (v *Validator) validateOne(f *Schema_Filed, val any, exists bool, path string, root map[string]any) []*FieldError {
+func (v *validator) validateOne(f *Schema_Filed, val any, exists bool, path string, root map[string]any) []*FieldError {
 	if !exists {
 		if f.GetRequired() {
 			return []*FieldError{schemaErr(path, "required")}
@@ -237,7 +243,7 @@ func (v *Validator) validateOne(f *Schema_Filed, val any, exists bool, path stri
 	return out
 }
 
-func (v *Validator) checkKind(f *Schema_Filed, val any, path string, root map[string]any) []*FieldError {
+func (v *validator) checkKind(f *Schema_Filed, val any, path string, root map[string]any) []*FieldError {
 	switch {
 	case f.GetFloat() != nil:
 		return numericCheck(path, val, numFromFloat(f.GetFloat()))
@@ -297,7 +303,7 @@ func (v *Validator) checkKind(f *Schema_Filed, val any, path string, root map[st
 	return nil
 }
 
-func (v *Validator) checkObject(path string, m map[string]any, o *Schema_Filed_Object, root map[string]any) []*FieldError {
+func (v *validator) checkObject(path string, m map[string]any, o *Schema_Filed_Object, root map[string]any) []*FieldError {
 	s := o.GetSchema()
 	if s == nil {
 		return nil
@@ -309,7 +315,7 @@ func (v *Validator) checkObject(path string, m map[string]any, o *Schema_Filed_O
 	return out
 }
 
-func (v *Validator) checkList(path string, arr []any, l *Schema_Filed_List, root map[string]any) []*FieldError {
+func (v *validator) checkList(path string, arr []any, l *Schema_Filed_List, root map[string]any) []*FieldError {
 	var out []*FieldError
 	n := uint64(len(arr))
 	if l.MinItems != nil && n < *l.MinItems {
@@ -337,7 +343,7 @@ func (v *Validator) checkList(path string, arr []any, l *Schema_Filed_List, root
 	return out
 }
 
-func (v *Validator) evalRule(r *Schema_Filed_Rule, path string, this any, root map[string]any) []*FieldError {
+func (v *validator) evalRule(r *Schema_Filed_Rule, path string, this any, root map[string]any) []*FieldError {
 	prg, ok := v.programs[r.GetExpr()]
 	if !ok {
 		return nil
@@ -519,11 +525,11 @@ func checkTimestamp(path, s string, k *Schema_Filed_Timestamp) []*FieldError {
 // Self-schema validation
 // =============================================================================
 
-// ValidateSchema checks that the descriptor itself is well-formed: every field
-// is named (and unique within its level), exactly one kind is set, rule
-// expressions are non-empty and compile, patterns are valid, etc. It returns
-// one FieldError per problem (empty if the schema is valid).
-func ValidateSchema(s *Schema) []*FieldError {
+// IsValid checks that the descriptor itself is well-formed: every field is
+// named (and unique within its level), exactly one kind is set, rule
+// expressions are non-empty and compile, patterns are valid, no computed-field
+// cycles, etc. It returns one FieldError per problem (empty = valid).
+func (s *Schema) IsValid() []*FieldError {
 	if s == nil {
 		return []*FieldError{schemaErr("", "schema is nil")}
 	}

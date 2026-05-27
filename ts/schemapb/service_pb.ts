@@ -2,11 +2,11 @@
 // @generated from file schemapb/service.proto (package schemapb, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { StructJson } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_struct } from "@bufbuild/protobuf/wkt";
-import type { FieldError, FieldErrorJson, Schema, SchemaIdentity, SchemaIdentityJson, SchemaIdentitySchema, SchemaJson, SchemaSchema } from "./schema_pb.ts";
+import type { Baked, BakedJson, FieldError, FieldErrorJson, FilledSchema, SchemaIdentity, SchemaIdentityJson, SchemaIdentitySchema, SchemaSchema } from "./schema_pb.ts";
 import { file_schemapb_schema } from "./schema_pb.ts";
 import type { JsonObject, Message } from "@bufbuild/protobuf";
 
@@ -14,69 +14,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file schemapb/service.proto.
  */
 export const file_schemapb_service: GenFile = /*@__PURE__*/
-  fileDesc("ChZzY2hlbWFwYi9zZXJ2aWNlLnByb3RvEghzY2hlbWFwYiJhCglTY2hlbWFSZWYSJgoCaWQYASABKAsyGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eUgAEiIKBnNjaGVtYRgCIAEoCzIQLnNjaGVtYXBiLlNjaGVtYUgAQggKBnNvdXJjZSKaAQoGRmlsdGVyEhYKCW5hbWVzcGFjZRgBIAEoCUgAiAEBEhEKBG5hbWUYAiABKAlIAYgBARIUCgd2ZXJzaW9uGAMgASgJSAKIAQESGgoNbmFtZV9jb250YWlucxgEIAEoCUgDiAEBQgwKCl9uYW1lc3BhY2VCBwoFX25hbWVCCgoIX3ZlcnNpb25CEAoOX25hbWVfY29udGFpbnMiXwoNU2NoZW1hU3VtbWFyeRIkCgJpZBgBIAEoCzIYLnNjaGVtYXBiLlNjaGVtYUlkZW50aXR5EhgKC2Rlc2NyaXB0aW9uGAIgASgJSACIAQFCDgoMX2Rlc2NyaXB0aW9uInMKFlJlZ2lzdGVyU2NoZW1hUmVzcG9uc2USJAoCaWQYASABKAsyGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eRINCgV2YWxpZBgCIAEoCBIkCgZlcnJvcnMYAyADKAsyFC5zY2hlbWFwYi5GaWVsZEVycm9yIj8KE0xpc3RTY2hlbWFzUmVzcG9uc2USKAoHc2NoZW1hcxgBIAMoCzIXLnNjaGVtYXBiLlNjaGVtYVN1bW1hcnkiTQoWVmFsaWRhdGVTY2hlbWFSZXNwb25zZRINCgV2YWxpZBgBIAEoCBIkCgZlcnJvcnMYAiADKAsyFC5zY2hlbWFwYi5GaWVsZEVycm9yIl8KD1ZhbGlkYXRlUmVxdWVzdBIjCgZzY2hlbWEYASABKAsyEy5zY2hlbWFwYi5TY2hlbWFSZWYSJwoGdmFsdWVzGAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdCJHChBWYWxpZGF0ZVJlc3BvbnNlEg0KBXZhbGlkGAEgASgIEiQKBmVycm9ycxgCIAMoCzIULnNjaGVtYXBiLkZpZWxkRXJyb3IiXgoOQ29tcHV0ZVJlcXVlc3QSIwoGc2NoZW1hGAEgASgLMhMuc2NoZW1hcGIuU2NoZW1hUmVmEicKBnZhbHVlcxgCIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QiYAoPQ29tcHV0ZVJlc3BvbnNlEicKBnZhbHVlcxgBIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QSJAoGZXJyb3JzGAIgAygLMhQuc2NoZW1hcGIuRmllbGRFcnJvcjKXAwoNU2NoZW1hU2VydmljZRJECg5SZWdpc3RlclNjaGVtYRIQLnNjaGVtYXBiLlNjaGVtYRogLnNjaGVtYXBiLlJlZ2lzdGVyU2NoZW1hUmVzcG9uc2USNwoJR2V0U2NoZW1hEhguc2NoZW1hcGIuU2NoZW1hSWRlbnRpdHkaEC5zY2hlbWFwYi5TY2hlbWESPgoLTGlzdFNjaGVtYXMSEC5zY2hlbWFwYi5GaWx0ZXIaHS5zY2hlbWFwYi5MaXN0U2NoZW1hc1Jlc3BvbnNlEkQKDlZhbGlkYXRlU2NoZW1hEhAuc2NoZW1hcGIuU2NoZW1hGiAuc2NoZW1hcGIuVmFsaWRhdGVTY2hlbWFSZXNwb25zZRJBCghWYWxpZGF0ZRIZLnNjaGVtYXBiLlZhbGlkYXRlUmVxdWVzdBoaLnNjaGVtYXBiLlZhbGlkYXRlUmVzcG9uc2USPgoHQ29tcHV0ZRIYLnNjaGVtYXBiLkNvbXB1dGVSZXF1ZXN0Ghkuc2NoZW1hcGIuQ29tcHV0ZVJlc3BvbnNlQilaJ2dpdGh1Yi5jb20vc3Ryb3BweS1pby9zY2hlbWFwYi9zY2hlbWFwYmIGcHJvdG8z", [file_google_protobuf_struct, file_schemapb_schema]);
-
-/**
- *
- * SchemaRef selects the schema an operation runs against: either inline, or by
- * identity (resolved from the server registry).
- *
- * @generated from message schemapb.SchemaRef
- */
-export type SchemaRef = Message<"schemapb.SchemaRef"> & {
-  /**
-   * @generated from oneof schemapb.SchemaRef.source
-   */
-  source: {
-    /**
-     * Resolve a registered schema by identity. 
-     *
-     * @generated from field: schemapb.SchemaIdentity id = 1;
-     */
-    value: SchemaIdentity;
-    case: "id";
-  } | {
-    /**
-     * Use this schema directly, without registering it. 
-     *
-     * @generated from field: schemapb.Schema schema = 2;
-     */
-    value: Schema;
-    case: "schema";
-  } | { case: undefined; value?: undefined };
-};
-
-/**
- *
- * SchemaRef selects the schema an operation runs against: either inline, or by
- * identity (resolved from the server registry).
- *
- * @generated from message schemapb.SchemaRef
- */
-export type SchemaRefJson = {
-  /**
-   * Resolve a registered schema by identity. 
-   *
-   * @generated from field: schemapb.SchemaIdentity id = 1;
-   */
-  id?: SchemaIdentityJson;
-
-  /**
-   * Use this schema directly, without registering it. 
-   *
-   * @generated from field: schemapb.Schema schema = 2;
-   */
-  schema?: SchemaJson;
-};
-
-export type SchemaRefValid = SchemaRef;
-
-/**
- * Describes the message schemapb.SchemaRef.
- * Use `create(SchemaRefSchema)` to create a new message.
- */
-export const SchemaRefSchema: GenMessage<SchemaRef, {jsonType: SchemaRefJson, validType: SchemaRefValid}> = /*@__PURE__*/
-  messageDesc(file_schemapb_service, 0);
+  fileDesc("ChZzY2hlbWFwYi9zZXJ2aWNlLnByb3RvEghzY2hlbWFwYiKaAQoGRmlsdGVyEhYKCW5hbWVzcGFjZRgBIAEoCUgAiAEBEhEKBG5hbWUYAiABKAlIAYgBARIUCgd2ZXJzaW9uGAMgASgJSAKIAQESGgoNbmFtZV9jb250YWlucxgEIAEoCUgDiAEBQgwKCl9uYW1lc3BhY2VCBwoFX25hbWVCCgoIX3ZlcnNpb25CEAoOX25hbWVfY29udGFpbnMiXwoNU2NoZW1hU3VtbWFyeRIkCgJpZBgBIAEoCzIYLnNjaGVtYXBiLlNjaGVtYUlkZW50aXR5EhgKC2Rlc2NyaXB0aW9uGAIgASgJSACIAQFCDgoMX2Rlc2NyaXB0aW9uInMKFlJlZ2lzdGVyU2NoZW1hUmVzcG9uc2USJAoCaWQYASABKAsyGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eRINCgV2YWxpZBgCIAEoCBIkCgZlcnJvcnMYAyADKAsyFC5zY2hlbWFwYi5GaWVsZEVycm9yIj8KE0xpc3RTY2hlbWFzUmVzcG9uc2USKAoHc2NoZW1hcxgBIAMoCzIXLnNjaGVtYXBiLlNjaGVtYVN1bW1hcnkiTQoWVmFsaWRhdGVTY2hlbWFSZXNwb25zZRINCgV2YWxpZBgBIAEoCBIkCgZlcnJvcnMYAiADKAsyFC5zY2hlbWFwYi5GaWVsZEVycm9yIkcKEFZhbGlkYXRlUmVzcG9uc2USDQoFdmFsaWQYASABKAgSJAoGZXJyb3JzGAIgAygLMhQuc2NoZW1hcGIuRmllbGRFcnJvciJ9CgxNZXJnZVJlcXVlc3QSHQoEYmFzZRgBIAEoCzIPLnNjaGVtYXBiLkJha2VkEioKCW92ZXJyaWRlcxgCIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QSIgoFbGlzdHMYAyABKA4yEy5zY2hlbWFwYi5MaXN0TWVyZ2UiVAoMQmFrZVJlc3BvbnNlEh4KBWJha2VkGAEgASgLMg8uc2NoZW1hcGIuQmFrZWQSJAoGZXJyb3JzGAIgAygLMhQuc2NoZW1hcGIuRmllbGRFcnJvciJgCg9Db21wdXRlUmVzcG9uc2USJwoGdmFsdWVzGAEgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIkCgZlcnJvcnMYAiADKAsyFC5zY2hlbWFwYi5GaWVsZEVycm9yKjoKCUxpc3RNZXJnZRIVChFMSVNUX01FUkdFX0FQUEVORBAAEhYKEkxJU1RfTUVSR0VfUkVQTEFDRRABMvEDCg1TY2hlbWFTZXJ2aWNlEkQKDlJlZ2lzdGVyU2NoZW1hEhAuc2NoZW1hcGIuU2NoZW1hGiAuc2NoZW1hcGIuUmVnaXN0ZXJTY2hlbWFSZXNwb25zZRI3CglHZXRTY2hlbWESGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eRoQLnNjaGVtYXBiLlNjaGVtYRI+CgtMaXN0U2NoZW1hcxIQLnNjaGVtYXBiLkZpbHRlchodLnNjaGVtYXBiLkxpc3RTY2hlbWFzUmVzcG9uc2USRAoOVmFsaWRhdGVTY2hlbWESEC5zY2hlbWFwYi5TY2hlbWEaIC5zY2hlbWFwYi5WYWxpZGF0ZVNjaGVtYVJlc3BvbnNlEjgKCFZhbGlkYXRlEhAuc2NoZW1hcGIuRmlsbGVkGhouc2NoZW1hcGIuVmFsaWRhdGVSZXNwb25zZRI2CgdDb21wdXRlEhAuc2NoZW1hcGIuRmlsbGVkGhkuc2NoZW1hcGIuQ29tcHV0ZVJlc3BvbnNlEjAKBEJha2USEC5zY2hlbWFwYi5GaWxsZWQaFi5zY2hlbWFwYi5CYWtlUmVzcG9uc2USNwoFTWVyZ2USFi5zY2hlbWFwYi5NZXJnZVJlcXVlc3QaFi5zY2hlbWFwYi5CYWtlUmVzcG9uc2VCKVonZ2l0aHViLmNvbS9zdHJvcHB5LWlvL3NjaGVtYXBiL3NjaGVtYXBiYgZwcm90bzM", [file_google_protobuf_struct, file_schemapb_schema]);
 
 /**
  *
@@ -159,7 +97,7 @@ export type FilterValid = Filter;
  * Use `create(FilterSchema)` to create a new message.
  */
 export const FilterSchema: GenMessage<Filter, {jsonType: FilterJson, validType: FilterValid}> = /*@__PURE__*/
-  messageDesc(file_schemapb_service, 1);
+  messageDesc(file_schemapb_service, 0);
 
 /**
  * SchemaSummary is the lightweight listing entry; fetch the full Schema with GetSchema. 
@@ -210,7 +148,7 @@ export type SchemaSummaryValid = SchemaSummary;
  * Use `create(SchemaSummarySchema)` to create a new message.
  */
 export const SchemaSummarySchema: GenMessage<SchemaSummary, {jsonType: SchemaSummaryJson, validType: SchemaSummaryValid}> = /*@__PURE__*/
-  messageDesc(file_schemapb_service, 2);
+  messageDesc(file_schemapb_service, 1);
 
 /**
  * @generated from message schemapb.RegisterSchemaResponse
@@ -271,7 +209,7 @@ export type RegisterSchemaResponseValid = RegisterSchemaResponse;
  * Use `create(RegisterSchemaResponseSchema)` to create a new message.
  */
 export const RegisterSchemaResponseSchema: GenMessage<RegisterSchemaResponse, {jsonType: RegisterSchemaResponseJson, validType: RegisterSchemaResponseValid}> = /*@__PURE__*/
-  messageDesc(file_schemapb_service, 3);
+  messageDesc(file_schemapb_service, 2);
 
 /**
  * @generated from message schemapb.ListSchemasResponse
@@ -304,7 +242,7 @@ export type ListSchemasResponseValid = ListSchemasResponse;
  * Use `create(ListSchemasResponseSchema)` to create a new message.
  */
 export const ListSchemasResponseSchema: GenMessage<ListSchemasResponse, {jsonType: ListSchemasResponseJson, validType: ListSchemasResponseValid}> = /*@__PURE__*/
-  messageDesc(file_schemapb_service, 4);
+  messageDesc(file_schemapb_service, 3);
 
 /**
  * @generated from message schemapb.ValidateSchemaResponse
@@ -351,54 +289,7 @@ export type ValidateSchemaResponseValid = ValidateSchemaResponse;
  * Use `create(ValidateSchemaResponseSchema)` to create a new message.
  */
 export const ValidateSchemaResponseSchema: GenMessage<ValidateSchemaResponse, {jsonType: ValidateSchemaResponseJson, validType: ValidateSchemaResponseValid}> = /*@__PURE__*/
-  messageDesc(file_schemapb_service, 5);
-
-/**
- * @generated from message schemapb.ValidateRequest
- */
-export type ValidateRequest = Message<"schemapb.ValidateRequest"> & {
-  /**
-   * Schema to validate against. 
-   *
-   * @generated from field: schemapb.SchemaRef schema = 1;
-   */
-  schema?: SchemaRef;
-
-  /**
-   * Form values to validate. 
-   *
-   * @generated from field: google.protobuf.Struct values = 2;
-   */
-  values?: JsonObject;
-};
-
-/**
- * @generated from message schemapb.ValidateRequest
- */
-export type ValidateRequestJson = {
-  /**
-   * Schema to validate against. 
-   *
-   * @generated from field: schemapb.SchemaRef schema = 1;
-   */
-  schema?: SchemaRefJson;
-
-  /**
-   * Form values to validate. 
-   *
-   * @generated from field: google.protobuf.Struct values = 2;
-   */
-  values?: StructJson;
-};
-
-export type ValidateRequestValid = ValidateRequest;
-
-/**
- * Describes the message schemapb.ValidateRequest.
- * Use `create(ValidateRequestSchema)` to create a new message.
- */
-export const ValidateRequestSchema: GenMessage<ValidateRequest, {jsonType: ValidateRequestJson, validType: ValidateRequestValid}> = /*@__PURE__*/
-  messageDesc(file_schemapb_service, 6);
+  messageDesc(file_schemapb_service, 4);
 
 /**
  * @generated from message schemapb.ValidateResponse
@@ -445,54 +336,121 @@ export type ValidateResponseValid = ValidateResponse;
  * Use `create(ValidateResponseSchema)` to create a new message.
  */
 export const ValidateResponseSchema: GenMessage<ValidateResponse, {jsonType: ValidateResponseJson, validType: ValidateResponseValid}> = /*@__PURE__*/
+  messageDesc(file_schemapb_service, 5);
+
+/**
+ * @generated from message schemapb.MergeRequest
+ */
+export type MergeRequest = Message<"schemapb.MergeRequest"> & {
+  /**
+   * The sealed base to layer onto (carries its own schema). 
+   *
+   * @generated from field: schemapb.Baked base = 1;
+   */
+  base?: Baked;
+
+  /**
+   * Partial values to merge over base.values. 
+   *
+   * @generated from field: google.protobuf.Struct overrides = 2;
+   */
+  overrides?: JsonObject;
+
+  /**
+   * How list values combine. 
+   *
+   * @generated from field: schemapb.ListMerge lists = 3;
+   */
+  lists: ListMerge;
+};
+
+/**
+ * @generated from message schemapb.MergeRequest
+ */
+export type MergeRequestJson = {
+  /**
+   * The sealed base to layer onto (carries its own schema). 
+   *
+   * @generated from field: schemapb.Baked base = 1;
+   */
+  base?: BakedJson;
+
+  /**
+   * Partial values to merge over base.values. 
+   *
+   * @generated from field: google.protobuf.Struct overrides = 2;
+   */
+  overrides?: StructJson;
+
+  /**
+   * How list values combine. 
+   *
+   * @generated from field: schemapb.ListMerge lists = 3;
+   */
+  lists?: ListMergeJson;
+};
+
+export type MergeRequestValid = MergeRequest;
+
+/**
+ * Describes the message schemapb.MergeRequest.
+ * Use `create(MergeRequestSchema)` to create a new message.
+ */
+export const MergeRequestSchema: GenMessage<MergeRequest, {jsonType: MergeRequestJson, validType: MergeRequestValid}> = /*@__PURE__*/
+  messageDesc(file_schemapb_service, 6);
+
+/**
+ * BakeResponse is the result of Bake or Merge: a sealed Baked, or the errors
+ * that prevented sealing. 
+ *
+ * @generated from message schemapb.BakeResponse
+ */
+export type BakeResponse = Message<"schemapb.BakeResponse"> & {
+  /**
+   * Set only if validation passed. 
+   *
+   * @generated from field: schemapb.Baked baked = 1;
+   */
+  baked?: Baked;
+
+  /**
+   * Non-empty means the values were rejected; baked is unset. 
+   *
+   * @generated from field: repeated schemapb.FieldError errors = 2;
+   */
+  errors: FieldError[];
+};
+
+/**
+ * BakeResponse is the result of Bake or Merge: a sealed Baked, or the errors
+ * that prevented sealing. 
+ *
+ * @generated from message schemapb.BakeResponse
+ */
+export type BakeResponseJson = {
+  /**
+   * Set only if validation passed. 
+   *
+   * @generated from field: schemapb.Baked baked = 1;
+   */
+  baked?: BakedJson;
+
+  /**
+   * Non-empty means the values were rejected; baked is unset. 
+   *
+   * @generated from field: repeated schemapb.FieldError errors = 2;
+   */
+  errors?: FieldErrorJson[];
+};
+
+export type BakeResponseValid = BakeResponse;
+
+/**
+ * Describes the message schemapb.BakeResponse.
+ * Use `create(BakeResponseSchema)` to create a new message.
+ */
+export const BakeResponseSchema: GenMessage<BakeResponse, {jsonType: BakeResponseJson, validType: BakeResponseValid}> = /*@__PURE__*/
   messageDesc(file_schemapb_service, 7);
-
-/**
- * @generated from message schemapb.ComputeRequest
- */
-export type ComputeRequest = Message<"schemapb.ComputeRequest"> & {
-  /**
-   * Schema whose Computed fields to evaluate. 
-   *
-   * @generated from field: schemapb.SchemaRef schema = 1;
-   */
-  schema?: SchemaRef;
-
-  /**
-   * Input values the expressions read. 
-   *
-   * @generated from field: google.protobuf.Struct values = 2;
-   */
-  values?: JsonObject;
-};
-
-/**
- * @generated from message schemapb.ComputeRequest
- */
-export type ComputeRequestJson = {
-  /**
-   * Schema whose Computed fields to evaluate. 
-   *
-   * @generated from field: schemapb.SchemaRef schema = 1;
-   */
-  schema?: SchemaRefJson;
-
-  /**
-   * Input values the expressions read. 
-   *
-   * @generated from field: google.protobuf.Struct values = 2;
-   */
-  values?: StructJson;
-};
-
-export type ComputeRequestValid = ComputeRequest;
-
-/**
- * Describes the message schemapb.ComputeRequest.
- * Use `create(ComputeRequestSchema)` to create a new message.
- */
-export const ComputeRequestSchema: GenMessage<ComputeRequest, {jsonType: ComputeRequestJson, validType: ComputeRequestValid}> = /*@__PURE__*/
-  messageDesc(file_schemapb_service, 8);
 
 /**
  * @generated from message schemapb.ComputeResponse
@@ -543,7 +501,41 @@ export type ComputeResponseValid = ComputeResponse;
  * Use `create(ComputeResponseSchema)` to create a new message.
  */
 export const ComputeResponseSchema: GenMessage<ComputeResponse, {jsonType: ComputeResponseJson, validType: ComputeResponseValid}> = /*@__PURE__*/
-  messageDesc(file_schemapb_service, 9);
+  messageDesc(file_schemapb_service, 8);
+
+/**
+ * How list (repeated) values merge in Merge. 
+ *
+ * @generated from enum schemapb.ListMerge
+ */
+export enum ListMerge {
+  /**
+   * Concatenate base + override lists (proto.Merge default). 
+   *
+   * @generated from enum value: LIST_MERGE_APPEND = 0;
+   */
+  APPEND = 0,
+
+  /**
+   * Override list replaces the base list wholesale. 
+   *
+   * @generated from enum value: LIST_MERGE_REPLACE = 1;
+   */
+  REPLACE = 1,
+}
+
+/**
+ * How list (repeated) values merge in Merge. 
+ *
+ * @generated from enum schemapb.ListMerge
+ */
+export type ListMergeJson = "LIST_MERGE_APPEND" | "LIST_MERGE_REPLACE";
+
+/**
+ * Describes the enum schemapb.ListMerge.
+ */
+export const ListMergeSchema: GenEnum<ListMerge, ListMergeJson> = /*@__PURE__*/
+  enumDesc(file_schemapb_service, 0);
 
 /**
  *
@@ -597,24 +589,44 @@ export const SchemaService: GenService<{
     output: typeof ValidateSchemaResponseSchema;
   },
   /**
-   * Validate form values against a schema. 
+   * Validate the values of a Filled form against its schema. 
    *
    * @generated from rpc schemapb.SchemaService.Validate
    */
   validate: {
     methodKind: "unary";
-    input: typeof ValidateRequestSchema;
+    input: typeof FilledSchema;
     output: typeof ValidateResponseSchema;
   },
   /**
-   * Evaluate the schema's Computed fields for the given values. 
+   * Evaluate the Computed fields of a Filled form. 
    *
    * @generated from rpc schemapb.SchemaService.Compute
    */
   compute: {
     methodKind: "unary";
-    input: typeof ComputeRequestSchema;
+    input: typeof FilledSchema;
     output: typeof ComputeResponseSchema;
+  },
+  /**
+   * Seal a Filled form into an immutable Baked (validate + resolve). 
+   *
+   * @generated from rpc schemapb.SchemaService.Bake
+   */
+  bake: {
+    methodKind: "unary";
+    input: typeof FilledSchema;
+    output: typeof BakeResponseSchema;
+  },
+  /**
+   * Layer overrides onto a Baked and re-seal. 
+   *
+   * @generated from rpc schemapb.SchemaService.Merge
+   */
+  merge: {
+    methodKind: "unary";
+    input: typeof MergeRequestSchema;
+    output: typeof BakeResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_schemapb_service, 0);

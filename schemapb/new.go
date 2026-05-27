@@ -75,7 +75,7 @@ func (b *SchemaB) Rules(rules ...RuleDef) *SchemaB {
 // Build assembles and validates the schema; it returns a *SchemaError if the
 // descriptor is malformed.
 func (b *SchemaB) Build() (*Schema, error) {
-	if errs := ValidateSchema(b.s); len(errs) > 0 {
+	if errs := b.s.IsValid(); len(errs) > 0 {
 		return nil, &SchemaError{Errors: errs}
 	}
 	return b.s, nil

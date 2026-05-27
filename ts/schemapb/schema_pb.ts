@@ -4,15 +4,15 @@
 
 import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Duration, DurationJson, Timestamp, TimestampJson } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import type { Duration, DurationJson, StructJson, Timestamp, TimestampJson } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_duration, file_google_protobuf_struct, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { JsonObject, Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file schemapb/schema.proto.
  */
 export const file_schemapb_schema: GenFile = /*@__PURE__*/
-  fileDesc("ChVzY2hlbWFwYi9zY2hlbWEucHJvdG8SCHNjaGVtYXBiIskhCgZTY2hlbWESJAoCaWQYASABKAsyGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eRIYCgtkZXNjcmlwdGlvbhgCIAEoCUgAiAEBEiYKBmZpZWxkcxgDIAMoCzIWLnNjaGVtYXBiLlNjaGVtYS5GaWxlZBIqCgVydWxlcxgEIAMoCzIbLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5SdWxlGpogCgVGaWxlZBIMCgRuYW1lGAEgASgJEhgKC2Rlc2NyaXB0aW9uGAIgASgJSAGIAQESEAoIbnVsbGFibGUYAyABKAgSEAoIcmVxdWlyZWQYBCABKAgSKgoFcnVsZXMYBSADKAsyGy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuUnVsZRIRCglpbW11dGFibGUYFCABKAgSEgoFZ3JvdXAYFSABKAlIAogBARIRCgR1bml0GBYgASgJSAOIAQESLQoFZmxvYXQYBiABKAsyHC5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRmxvYXRIABIvCgZkb3VibGUYByABKAsyHS5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRG91YmxlSAASLQoFaW50MzIYCCABKAsyHC5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuSW50MzJIABItCgVpbnQ2NBgJIAEoCzIcLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5JbnQ2NEgAEi8KBnVpbnQzMhgKIAEoCzIdLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5VSW50MzJIABIvCgZ1aW50NjQYCyABKAsyHS5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuVUludDY0SAASKwoEYm9vbBgMIAEoCzIbLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5Cb29sSAASLwoGc3RyaW5nGA0gASgLMh0uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLlN0cmluZ0gAEisKBGVudW0YDiABKAsyGy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRW51bUgAEjMKCGR1cmF0aW9uGA8gASgLMh8uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLkR1cmF0aW9uSAASNQoJdGltZXN0YW1wGBAgASgLMiAuc2NoZW1hcGIuU2NoZW1hLkZp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eF9sZW4YBSABKARIBIgBARIUCgdwYXR0ZXJuGAYgASgJSAWIAQESCgoCaW4YByADKAkSDgoGbm90X2luGAggAygJQgoKCF9kZWZhdWx0QggKBl9jb25zdEIGCgRfbGVuQgoKCF9taW5fbGVuQgoKCF9tYXhfbGVuQgoKCF9wYXR0ZXJuGsIBCgRFbnVtEhQKB2RlZmF1bHQYASABKAVIAIgBARI3CgZ2YWx1ZXMYAiADKAsyJy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRW51bS5WYWx1ZXNFbnRyeRIUCgxkZWZpbmVkX29ubHkYAyABKAgSCgoCaW4YBCADKAUSDgoGbm90X2luGAUgAygFGi0KC1ZhbHVlc0VudHJ5EgsKA2tleRgBIAEoBRINCgV2YWx1ZRgCIAEoCToCOAFCCgoIX2RlZmF1bHQalwIKCER1cmF0aW9uEi8KB2RlZmF1bHQYASABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25IAIgBARIqCgJndBgCIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkgBiAEBEisKA2d0ZRgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkgCiAEBEioKAmx0GAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uSAOIAQESKwoDbHRlGAUgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uSASIAQFCCgoIX2RlZmF1bHRCBQoDX2d0QgYKBF9ndGVCBQoDX2x0QgYKBF9sdGUanQIKCVRpbWVzdGFtcBIwCgdkZWZhdWx0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgAiAEBEisKAmd0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgBiAEBEiwKA2d0ZRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAogBARIrCgJsdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIA4gBARIsCgNsdGUYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSASIAQFCCgoIX2RlZmF1bHRCBQoDX2d0QgYKBF9ndGVCBQoDX2x0QgYKBF9sdGUaiQEKBExpc3QSJQoFaXRlbXMYASADKAsyFi5zY2hlbWFwYi5TY2hlbWEuRmlsZWQSFgoJbWluX2l0ZW1zGAIgASgESACIAQESFgoJbWF4X2l0ZW1zGAMgASgESAGIAQESDgoGdW5pcXVlGAQgASgIQgwKCl9taW5faXRlbXNCDAoKX21heF9pdGVtcxo6CgZPYmplY3QSJQoGc2NoZW1hGAEgASgLMhAuc2NoZW1hcGIuU2NoZW1hSACIAQFCCQoHX3NjaGVtYRpbCghDb21wdXRlZBIMCgRleHByGAEgASgJEjYKBnJlc3VsdBgCIAEoDjIhLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5SZXN1bHRUeXBlSACIAQFCCQoHX3Jlc3VsdBqCAQoEUnVsZRIMCgRleHByGAEgASgJEg8KB21lc3NhZ2UYAiABKAkSDwoCaWQYAyABKAlIAIgBARI2CghzZXZlcml0eRgEIAEoDjIfLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5TZXZlcml0eUgBiAEBQgUKA19pZEILCglfc2V2ZXJpdHkiuAEKClJlc3VsdFR5cGUSGwoXUkVTVUxUX1RZUEVfVU5TUEVDSUZJRUQQABIWChJSRVNVTFRfVFlQRV9ET1VCTEUQARIVChFSRVNVTFRfVFlQRV9JTlQ2NBACEhYKElJFU1VMVF9UWVBFX1VJTlQ2NBADEhQKEFJFU1VMVF9UWVBFX0JPT0wQBBIWChJSRVNVTFRfVFlQRV9TVFJJTkcQBRIYChRSRVNVTFRfVFlQRV9EVVJBVElPThAGIjwKCFNldmVyaXR5EhgKFFNFVkVSSVRZX1VOU1BFQ0lGSUVEEAASCQoFRVJST1IQARILCgdXQVJOSU5HEAJCBgoEa2luZEIOCgxfZGVzY3JpcHRpb25CCAoGX2dyb3VwQgcKBV91bml0Qg4KDF9kZXNjcmlwdGlvbiJCCg5TY2hlbWFJZGVudGl0eRIRCgluYW1lc3BhY2UYASABKAkSDAoEbmFtZRgCIAEoCRIPCgd2ZXJzaW9uGAMgASgJIoEBCgpGaWVsZEVycm9yEg0KBWZpZWxkGAEgASgJEg8KB21lc3NhZ2UYAiABKAkSFAoHcnVsZV9pZBgDIAEoCUgAiAEBEjEKCHNldmVyaXR5GAQgASgOMh8uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLlNldmVyaXR5QgoKCF9ydWxlX2lkQilaJ2dpdGh1Yi5jb20vc3Ryb3BweS1pby9zY2hlbWFwYi9zY2hlbWFwYmIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp]);
+  fileDesc("ChVzY2hlbWFwYi9zY2hlbWEucHJvdG8SCHNjaGVtYXBiIskhCgZTY2hlbWESJAoCaWQYASABKAsyGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eRIYCgtkZXNjcmlwdGlvbhgCIAEoCUgAiAEBEiYKBmZpZWxkcxgDIAMoCzIWLnNjaGVtYXBiLlNjaGVtYS5GaWxlZBIqCgVydWxlcxgEIAMoCzIbLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5SdWxlGpogCgVGaWxlZBIMCgRuYW1lGAEgASgJEhgKC2Rlc2NyaXB0aW9uGAIgASgJSAGIAQESEAoIbnVsbGFibGUYAyABKAgSEAoIcmVxdWlyZWQYBCABKAgSKgoFcnVsZXMYBSADKAsyGy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuUnVsZRIRCglpbW11dGFibGUYFCABKAgSEgoFZ3JvdXAYFSABKAlIAogBARIRCgR1bml0GBYgASgJSAOIAQESLQoFZmxvYXQYBiABKAsyHC5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRmxvYXRIABIvCgZkb3VibGUYByABKAsyHS5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRG91YmxlSAASLQoFaW50MzIYCCABKAsyHC5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuSW50MzJIABItCgVpbnQ2NBgJIAEoCzIcLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5JbnQ2NEgAEi8KBnVpbnQzMhgKIAEoCzIdLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5VSW50MzJIABIvCgZ1aW50NjQYCyABKAsyHS5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuVUludDY0SAASKwoEYm9vbBgMIAEoCzIbLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5Cb29sSAASLwoGc3RyaW5nGA0gASgLMh0uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLlN0cmluZ0gAEisKBGVudW0YDiABKAsyGy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRW51bUgAEjMKCGR1cmF0aW9uGA8gASgLMh8uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLkR1cmF0aW9uSAASNQoJdGltZXN0YW1wGBAgASgLMiAuc2NoZW1hcGIuU2NoZW1hLkZp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eF9sZW4YBSABKARIBIgBARIUCgdwYXR0ZXJuGAYgASgJSAWIAQESCgoCaW4YByADKAkSDgoGbm90X2luGAggAygJQgoKCF9kZWZhdWx0QggKBl9jb25zdEIGCgRfbGVuQgoKCF9taW5fbGVuQgoKCF9tYXhfbGVuQgoKCF9wYXR0ZXJuGsIBCgRFbnVtEhQKB2RlZmF1bHQYASABKAVIAIgBARI3CgZ2YWx1ZXMYAiADKAsyJy5zY2hlbWFwYi5TY2hlbWEuRmlsZWQuRW51bS5WYWx1ZXNFbnRyeRIUCgxkZWZpbmVkX29ubHkYAyABKAgSCgoCaW4YBCADKAUSDgoGbm90X2luGAUgAygFGi0KC1ZhbHVlc0VudHJ5EgsKA2tleRgBIAEoBRINCgV2YWx1ZRgCIAEoCToCOAFCCgoIX2RlZmF1bHQalwIKCER1cmF0aW9uEi8KB2RlZmF1bHQYASABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25IAIgBARIqCgJndBgCIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkgBiAEBEisKA2d0ZRgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkgCiAEBEioKAmx0GAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uSAOIAQESKwoDbHRlGAUgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uSASIAQFCCgoIX2RlZmF1bHRCBQoDX2d0QgYKBF9ndGVCBQoDX2x0QgYKBF9sdGUanQIKCVRpbWVzdGFtcBIwCgdkZWZhdWx0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgAiAEBEisKAmd0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgBiAEBEiwKA2d0ZRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAogBARIrCgJsdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIA4gBARIsCgNsdGUYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSASIAQFCCgoIX2RlZmF1bHRCBQoDX2d0QgYKBF9ndGVCBQoDX2x0QgYKBF9sdGUaiQEKBExpc3QSJQoFaXRlbXMYASADKAsyFi5zY2hlbWFwYi5TY2hlbWEuRmlsZWQSFgoJbWluX2l0ZW1zGAIgASgESACIAQESFgoJbWF4X2l0ZW1zGAMgASgESAGIAQESDgoGdW5pcXVlGAQgASgIQgwKCl9taW5faXRlbXNCDAoKX21heF9pdGVtcxo6CgZPYmplY3QSJQoGc2NoZW1hGAEgASgLMhAuc2NoZW1hcGIuU2NoZW1hSACIAQFCCQoHX3NjaGVtYRpbCghDb21wdXRlZBIMCgRleHByGAEgASgJEjYKBnJlc3VsdBgCIAEoDjIhLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5SZXN1bHRUeXBlSACIAQFCCQoHX3Jlc3VsdBqCAQoEUnVsZRIMCgRleHByGAEgASgJEg8KB21lc3NhZ2UYAiABKAkSDwoCaWQYAyABKAlIAIgBARI2CghzZXZlcml0eRgEIAEoDjIfLnNjaGVtYXBiLlNjaGVtYS5GaWxlZC5TZXZlcml0eUgBiAEBQgUKA19pZEILCglfc2V2ZXJpdHkiuAEKClJlc3VsdFR5cGUSGwoXUkVTVUxUX1RZUEVfVU5TUEVDSUZJRUQQABIWChJSRVNVTFRfVFlQRV9ET1VCTEUQARIVChFSRVNVTFRfVFlQRV9JTlQ2NBACEhYKElJFU1VMVF9UWVBFX1VJTlQ2NBADEhQKEFJFU1VMVF9UWVBFX0JPT0wQBBIWChJSRVNVTFRfVFlQRV9TVFJJTkcQBRIYChRSRVNVTFRfVFlQRV9EVVJBVElPThAGIjwKCFNldmVyaXR5EhgKFFNFVkVSSVRZX1VOU1BFQ0lGSUVEEAASCQoFRVJST1IQARILCgdXQVJOSU5HEAJCBgoEa2luZEIOCgxfZGVzY3JpcHRpb25CCAoGX2dyb3VwQgcKBV91bml0Qg4KDF9kZXNjcmlwdGlvbiJCCg5TY2hlbWFJZGVudGl0eRIRCgluYW1lc3BhY2UYASABKAkSDAoEbmFtZRgCIAEoCRIPCgd2ZXJzaW9uGAMgASgJIoEBCgpGaWVsZEVycm9yEg0KBWZpZWxkGAEgASgJEg8KB21lc3NhZ2UYAiABKAkSFAoHcnVsZV9pZBgDIAEoCUgAiAEBEjEKCHNldmVyaXR5GAQgASgOMh8uc2NoZW1hcGIuU2NoZW1hLkZpbGVkLlNldmVyaXR5QgoKCF9ydWxlX2lkImEKCVNjaGVtYVJlZhImCgJpZBgBIAEoCzIYLnNjaGVtYXBiLlNjaGVtYUlkZW50aXR5SAASIgoGc2NoZW1hGAIgASgLMhAuc2NoZW1hcGIuU2NoZW1hSABCCAoGc291cmNlIlYKBkZpbGxlZBIjCgZzY2hlbWEYASABKAsyEy5zY2hlbWFwYi5TY2hlbWFSZWYSJwoGdmFsdWVzGAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdCJSCgVCYWtlZBIgCgZzY2hlbWEYASABKAsyEC5zY2hlbWFwYi5TY2hlbWESJwoGdmFsdWVzGAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdEIpWidnaXRodWIuY29tL3N0cm9wcHktaW8vc2NoZW1hcGIvc2NoZW1hcGJiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_struct, file_google_protobuf_timestamp]);
 
 /**
  *
@@ -2425,4 +2425,184 @@ export type FieldErrorValid = FieldError;
  */
 export const FieldErrorSchema: GenMessage<FieldError, {jsonType: FieldErrorJson, validType: FieldErrorValid}> = /*@__PURE__*/
   messageDesc(file_schemapb_schema, 2);
+
+/**
+ *
+ * SchemaRef selects a schema: either inline, or by identity (resolved from a
+ * registry).
+ *
+ * @generated from message schemapb.SchemaRef
+ */
+export type SchemaRef = Message<"schemapb.SchemaRef"> & {
+  /**
+   * @generated from oneof schemapb.SchemaRef.source
+   */
+  source: {
+    /**
+     * Resolve a registered schema by identity. 
+     *
+     * @generated from field: schemapb.SchemaIdentity id = 1;
+     */
+    value: SchemaIdentity;
+    case: "id";
+  } | {
+    /**
+     * Use this schema directly, without registering it. 
+     *
+     * @generated from field: schemapb.Schema schema = 2;
+     */
+    value: Schema;
+    case: "schema";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ *
+ * SchemaRef selects a schema: either inline, or by identity (resolved from a
+ * registry).
+ *
+ * @generated from message schemapb.SchemaRef
+ */
+export type SchemaRefJson = {
+  /**
+   * Resolve a registered schema by identity. 
+   *
+   * @generated from field: schemapb.SchemaIdentity id = 1;
+   */
+  id?: SchemaIdentityJson;
+
+  /**
+   * Use this schema directly, without registering it. 
+   *
+   * @generated from field: schemapb.Schema schema = 2;
+   */
+  schema?: SchemaJson;
+};
+
+export type SchemaRefValid = SchemaRef;
+
+/**
+ * Describes the message schemapb.SchemaRef.
+ * Use `create(SchemaRefSchema)` to create a new message.
+ */
+export const SchemaRefSchema: GenMessage<SchemaRef, {jsonType: SchemaRefJson, validType: SchemaRefValid}> = /*@__PURE__*/
+  messageDesc(file_schemapb_schema, 3);
+
+/**
+ *
+ * Filled is a runtime form: a reference to the schema plus the values entered
+ * for it. The schema says what is allowed/derived; the values are what to
+ * check/resolve. It is mutable input (the thing being edited/validated).
+ *
+ * @generated from message schemapb.Filled
+ */
+export type Filled = Message<"schemapb.Filled"> & {
+  /**
+   * Schema this form is filled against (baked-by-id or inline). 
+   *
+   * @generated from field: schemapb.SchemaRef schema = 1;
+   */
+  schema?: SchemaRef;
+
+  /**
+   * Form values the expressions read and the validator checks. 
+   *
+   * @generated from field: google.protobuf.Struct values = 2;
+   */
+  values?: JsonObject;
+};
+
+/**
+ *
+ * Filled is a runtime form: a reference to the schema plus the values entered
+ * for it. The schema says what is allowed/derived; the values are what to
+ * check/resolve. It is mutable input (the thing being edited/validated).
+ *
+ * @generated from message schemapb.Filled
+ */
+export type FilledJson = {
+  /**
+   * Schema this form is filled against (baked-by-id or inline). 
+   *
+   * @generated from field: schemapb.SchemaRef schema = 1;
+   */
+  schema?: SchemaRefJson;
+
+  /**
+   * Form values the expressions read and the validator checks. 
+   *
+   * @generated from field: google.protobuf.Struct values = 2;
+   */
+  values?: StructJson;
+};
+
+export type FilledValid = Filled;
+
+/**
+ * Describes the message schemapb.Filled.
+ * Use `create(FilledSchema)` to create a new message.
+ */
+export const FilledSchema: GenMessage<Filled, {jsonType: FilledJson, validType: FilledValid}> = /*@__PURE__*/
+  messageDesc(file_schemapb_schema, 4);
+
+/**
+ *
+ * Baked is a sealed result: the final values together with the schema they were
+ * validated and resolved against. It is a self-contained, immutable snapshot —
+ * "these exact values for this exact schema, not to be changed". Unlike Filled
+ * (which only references a schema and is mutable), Baked embeds the full schema
+ * and the frozen values, so it is portable and verifiable on its own.
+ *
+ * @generated from message schemapb.Baked
+ */
+export type Baked = Message<"schemapb.Baked"> & {
+  /**
+   * The schema these values were baked against (embedded, self-contained). 
+   *
+   * @generated from field: schemapb.Schema schema = 1;
+   */
+  schema?: Schema;
+
+  /**
+   * The final, resolved values — frozen. 
+   *
+   * @generated from field: google.protobuf.Struct values = 2;
+   */
+  values?: JsonObject;
+};
+
+/**
+ *
+ * Baked is a sealed result: the final values together with the schema they were
+ * validated and resolved against. It is a self-contained, immutable snapshot —
+ * "these exact values for this exact schema, not to be changed". Unlike Filled
+ * (which only references a schema and is mutable), Baked embeds the full schema
+ * and the frozen values, so it is portable and verifiable on its own.
+ *
+ * @generated from message schemapb.Baked
+ */
+export type BakedJson = {
+  /**
+   * The schema these values were baked against (embedded, self-contained). 
+   *
+   * @generated from field: schemapb.Schema schema = 1;
+   */
+  schema?: SchemaJson;
+
+  /**
+   * The final, resolved values — frozen. 
+   *
+   * @generated from field: google.protobuf.Struct values = 2;
+   */
+  values?: StructJson;
+};
+
+export type BakedValid = Baked;
+
+/**
+ * Describes the message schemapb.Baked.
+ * Use `create(BakedSchema)` to create a new message.
+ */
+export const BakedSchema: GenMessage<Baked, {jsonType: BakedJson, validType: BakedValid}> = /*@__PURE__*/
+  messageDesc(file_schemapb_schema, 5);
 

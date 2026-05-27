@@ -3,16 +3,16 @@ package schemapb
 import (
 	"context"
 	"errors"
-	"sync"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// Config holds SchemaService server settings. The zero value is fully
-// locked down (no inline schemas, no registration); use DefaultConfig for a
-// permissive setup and tighten from there.
+// Config holds SchemaService server settings. The zero value is fully locked
+// down (no inline schemas, no registration); use DefaultConfig for a permissive
+// setup and tighten from there. Compiled programs are cached globally by schema
+// content hash, so there is no per-server validator cache to configure.
 type Config struct {
 	// Registry backs RegisterSchema/GetSchema/ListSchemas and id-based refs.
 	// Defaults to an InMemoryRegistry when nil.
@@ -20,34 +20,26 @@ type Config struct {
 	// AllowRegister permits the RegisterSchema RPC (clients adding schemas).
 	// Disable to serve only a curated, pre-loaded set.
 	AllowRegister bool
-	// AllowInlineSchema permits Validate/Compute against a schema supplied
-	// inline in the request (SchemaRef.schema), rather than only registered
-	// schemas addressed by identity.
+	// AllowInlineSchema permits operations against a schema supplied inline in
+	// the request (SchemaRef.schema), rather than only registered schemas.
 	AllowInlineSchema bool
-	// CacheValidators compiles a *Validator once per registered schema and
-	// reuses it. Inline schemas are never cached.
-	CacheValidators bool
 }
 
-// DefaultConfig returns a permissive configuration backed by a fresh
-// in-memory registry: registration, inline schemas and validator caching all
-// enabled.
+// DefaultConfig returns a permissive configuration backed by a fresh in-memory
+// registry: registration and inline schemas both enabled.
 func DefaultConfig() Config {
 	return Config{
 		Registry:          NewInMemoryRegistry(),
 		AllowRegister:     true,
 		AllowInlineSchema: true,
-		CacheValidators:   true,
 	}
 }
 
-// Server implements SchemaServiceServer over a Registry and the validator /
-// computed-value engine. It is safe for concurrent use.
+// Server implements SchemaServiceServer over a Registry and the schema engine.
+// It is safe for concurrent use.
 type Server struct {
 	UnimplementedSchemaServiceServer
-	cfg   Config
-	mu    sync.Mutex
-	cache map[string]*Validator
+	cfg Config
 }
 
 // NewServer builds a Server from cfg. A nil Registry is replaced with a fresh
@@ -56,7 +48,7 @@ func NewServer(cfg Config) *Server {
 	if cfg.Registry == nil {
 		cfg.Registry = NewInMemoryRegistry()
 	}
-	return &Server{cfg: cfg, cache: map[string]*Validator{}}
+	return &Server{cfg: cfg}
 }
 
 // RegisterSchema validates and stores a schema.
@@ -64,13 +56,12 @@ func (s *Server) RegisterSchema(ctx context.Context, sc *Schema) (*RegisterSchem
 	if !s.cfg.AllowRegister {
 		return nil, status.Error(codes.PermissionDenied, "schema registration is disabled")
 	}
-	if errs := ValidateSchema(sc); len(errs) > 0 {
+	if errs := sc.IsValid(); len(errs) > 0 {
 		return &RegisterSchemaResponse{Valid: false, Errors: errs}, nil
 	}
 	if err := s.cfg.Registry.Put(ctx, sc); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	s.invalidate(sc.GetId())
 	return &RegisterSchemaResponse{Id: sc.GetId(), Valid: true}, nil
 }
 
@@ -105,31 +96,27 @@ func (s *Server) ListSchemas(ctx context.Context, f *Filter) (*ListSchemasRespon
 
 // ValidateSchema checks that a descriptor is well-formed.
 func (s *Server) ValidateSchema(_ context.Context, sc *Schema) (*ValidateSchemaResponse, error) {
-	errs := ValidateSchema(sc)
+	errs := sc.IsValid()
 	return &ValidateSchemaResponse{Valid: len(errs) == 0, Errors: errs}, nil
 }
 
-// Validate validates form values against the referenced schema.
-func (s *Server) Validate(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
-	v, err := s.resolveValidator(ctx, req.GetSchema())
+// Validate validates a Filled form against its schema.
+func (s *Server) Validate(ctx context.Context, req *Filled) (*ValidateResponse, error) {
+	sc, err := s.resolve(ctx, req.GetSchema())
 	if err != nil {
 		return nil, err
 	}
-	errs := v.ValidateStruct(req.GetValues())
+	errs := sc.ValidateStruct(req.GetValues())
 	return &ValidateResponse{Valid: !hasBlockingError(errs), Errors: errs}, nil
 }
 
-// Compute evaluates the schema's Computed fields for the given values.
-func (s *Server) Compute(ctx context.Context, req *ComputeRequest) (*ComputeResponse, error) {
-	v, err := s.resolveValidator(ctx, req.GetSchema())
+// Compute evaluates the Computed fields of a Filled form.
+func (s *Server) Compute(ctx context.Context, req *Filled) (*ComputeResponse, error) {
+	sc, err := s.resolve(ctx, req.GetSchema())
 	if err != nil {
 		return nil, err
 	}
-	values := map[string]any{}
-	if req.GetValues() != nil {
-		values = req.GetValues().AsMap()
-	}
-	resolved, errs := v.Compute(values)
+	resolved, errs := sc.ComputeStruct(req.GetValues())
 	st, perr := structpb.NewStruct(resolved)
 	if perr != nil {
 		return nil, status.Error(codes.Internal, "marshal resolved values: "+perr.Error())
@@ -137,24 +124,33 @@ func (s *Server) Compute(ctx context.Context, req *ComputeRequest) (*ComputeResp
 	return &ComputeResponse{Values: st, Errors: errs}, nil
 }
 
-// resolveValidator resolves a SchemaRef and returns a compiled validator,
-// mapping registry / schema errors to gRPC statuses.
-func (s *Server) resolveValidator(ctx context.Context, ref *SchemaRef) (*Validator, error) {
-	sc, err := s.resolve(ctx, ref)
+// Bake seals a Filled form into a Baked (validate + resolve).
+func (s *Server) Bake(ctx context.Context, req *Filled) (*BakeResponse, error) {
+	sc, err := s.resolve(ctx, req.GetSchema())
 	if err != nil {
 		return nil, err
 	}
-	v, err := s.validatorFor(sc)
-	if err != nil {
-		var se *SchemaError
-		if errors.As(err, &se) {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid schema: %s", se.Error())
-		}
-		return nil, status.Error(codes.Internal, err.Error())
+	values := map[string]any{}
+	if req.GetValues() != nil {
+		values = req.GetValues().AsMap()
 	}
-	return v, nil
+	baked, errs := sc.Bake(values)
+	return &BakeResponse{Baked: baked, Errors: errs}, nil
 }
 
+// Merge layers overrides onto a Baked and re-seals.
+func (s *Server) Merge(_ context.Context, req *MergeRequest) (*BakeResponse, error) {
+	base := req.GetBase()
+	if base == nil || base.GetSchema() == nil {
+		return nil, status.Error(codes.InvalidArgument, "merge base with a schema is required")
+	}
+	replace := req.GetLists() == ListMerge_LIST_MERGE_REPLACE
+	baked, errs := base.Merge(req.GetOverrides(), replace)
+	return &BakeResponse{Baked: baked, Errors: errs}, nil
+}
+
+// resolve turns a SchemaRef into a schema: by identity from the registry, or
+// inline when permitted.
 func (s *Server) resolve(ctx context.Context, ref *SchemaRef) (*Schema, error) {
 	if ref == nil {
 		return nil, status.Error(codes.InvalidArgument, "schema ref is required")
@@ -179,37 +175,8 @@ func (s *Server) resolve(ctx context.Context, ref *SchemaRef) (*Schema, error) {
 	}
 }
 
-func (s *Server) validatorFor(sc *Schema) (*Validator, error) {
-	var key string
-	if s.cfg.CacheValidators && sc.GetId().GetName() != "" {
-		key = identityKey(sc.GetId())
-		s.mu.Lock()
-		v, ok := s.cache[key]
-		s.mu.Unlock()
-		if ok {
-			return v, nil
-		}
-	}
-	v, err := NewValidator(sc)
-	if err != nil {
-		return nil, err
-	}
-	if key != "" {
-		s.mu.Lock()
-		s.cache[key] = v
-		s.mu.Unlock()
-	}
-	return v, nil
-}
-
-func (s *Server) invalidate(id *SchemaIdentity) {
-	s.mu.Lock()
-	delete(s.cache, identityKey(id))
-	s.mu.Unlock()
-}
-
 // hasBlockingError reports whether any error has ERROR (or unspecified)
-// severity — i.e. a failure that blocks submit. WARNING does not block.
+// severity — a failure that blocks submit. WARNING does not block.
 func hasBlockingError(errs []*FieldError) bool {
 	for _, e := range errs {
 		if e.GetSeverity() != Schema_Filed_WARNING {

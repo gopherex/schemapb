@@ -25,6 +25,8 @@ const (
 	SchemaService_ValidateSchema_FullMethodName = "/schemapb.SchemaService/ValidateSchema"
 	SchemaService_Validate_FullMethodName       = "/schemapb.SchemaService/Validate"
 	SchemaService_Compute_FullMethodName        = "/schemapb.SchemaService/Compute"
+	SchemaService_Bake_FullMethodName           = "/schemapb.SchemaService/Bake"
+	SchemaService_Merge_FullMethodName          = "/schemapb.SchemaService/Merge"
 )
 
 // SchemaServiceClient is the client API for SchemaService service.
@@ -45,10 +47,14 @@ type SchemaServiceClient interface {
 	ListSchemas(ctx context.Context, in *Filter, opts ...grpc.CallOption) (*ListSchemasResponse, error)
 	// Check that a schema descriptor itself is well-formed.
 	ValidateSchema(ctx context.Context, in *Schema, opts ...grpc.CallOption) (*ValidateSchemaResponse, error)
-	// Validate form values against a schema.
-	Validate(ctx context.Context, in *ValidateRequest, opts ...grpc.CallOption) (*ValidateResponse, error)
-	// Evaluate the schema's Computed fields for the given values.
-	Compute(ctx context.Context, in *ComputeRequest, opts ...grpc.CallOption) (*ComputeResponse, error)
+	// Validate the values of a Filled form against its schema.
+	Validate(ctx context.Context, in *Filled, opts ...grpc.CallOption) (*ValidateResponse, error)
+	// Evaluate the Computed fields of a Filled form.
+	Compute(ctx context.Context, in *Filled, opts ...grpc.CallOption) (*ComputeResponse, error)
+	// Seal a Filled form into an immutable Baked (validate + resolve).
+	Bake(ctx context.Context, in *Filled, opts ...grpc.CallOption) (*BakeResponse, error)
+	// Layer overrides onto a Baked and re-seal.
+	Merge(ctx context.Context, in *MergeRequest, opts ...grpc.CallOption) (*BakeResponse, error)
 }
 
 type schemaServiceClient struct {
@@ -99,7 +105,7 @@ func (c *schemaServiceClient) ValidateSchema(ctx context.Context, in *Schema, op
 	return out, nil
 }
 
-func (c *schemaServiceClient) Validate(ctx context.Context, in *ValidateRequest, opts ...grpc.CallOption) (*ValidateResponse, error) {
+func (c *schemaServiceClient) Validate(ctx context.Context, in *Filled, opts ...grpc.CallOption) (*ValidateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ValidateResponse)
 	err := c.cc.Invoke(ctx, SchemaService_Validate_FullMethodName, in, out, cOpts...)
@@ -109,10 +115,30 @@ func (c *schemaServiceClient) Validate(ctx context.Context, in *ValidateRequest,
 	return out, nil
 }
 
-func (c *schemaServiceClient) Compute(ctx context.Context, in *ComputeRequest, opts ...grpc.CallOption) (*ComputeResponse, error) {
+func (c *schemaServiceClient) Compute(ctx context.Context, in *Filled, opts ...grpc.CallOption) (*ComputeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ComputeResponse)
 	err := c.cc.Invoke(ctx, SchemaService_Compute_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *schemaServiceClient) Bake(ctx context.Context, in *Filled, opts ...grpc.CallOption) (*BakeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BakeResponse)
+	err := c.cc.Invoke(ctx, SchemaService_Bake_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *schemaServiceClient) Merge(ctx context.Context, in *MergeRequest, opts ...grpc.CallOption) (*BakeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BakeResponse)
+	err := c.cc.Invoke(ctx, SchemaService_Merge_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -137,10 +163,14 @@ type SchemaServiceServer interface {
 	ListSchemas(context.Context, *Filter) (*ListSchemasResponse, error)
 	// Check that a schema descriptor itself is well-formed.
 	ValidateSchema(context.Context, *Schema) (*ValidateSchemaResponse, error)
-	// Validate form values against a schema.
-	Validate(context.Context, *ValidateRequest) (*ValidateResponse, error)
-	// Evaluate the schema's Computed fields for the given values.
-	Compute(context.Context, *ComputeRequest) (*ComputeResponse, error)
+	// Validate the values of a Filled form against its schema.
+	Validate(context.Context, *Filled) (*ValidateResponse, error)
+	// Evaluate the Computed fields of a Filled form.
+	Compute(context.Context, *Filled) (*ComputeResponse, error)
+	// Seal a Filled form into an immutable Baked (validate + resolve).
+	Bake(context.Context, *Filled) (*BakeResponse, error)
+	// Layer overrides onto a Baked and re-seal.
+	Merge(context.Context, *MergeRequest) (*BakeResponse, error)
 	mustEmbedUnimplementedSchemaServiceServer()
 }
 
@@ -163,11 +193,17 @@ func (UnimplementedSchemaServiceServer) ListSchemas(context.Context, *Filter) (*
 func (UnimplementedSchemaServiceServer) ValidateSchema(context.Context, *Schema) (*ValidateSchemaResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ValidateSchema not implemented")
 }
-func (UnimplementedSchemaServiceServer) Validate(context.Context, *ValidateRequest) (*ValidateResponse, error) {
+func (UnimplementedSchemaServiceServer) Validate(context.Context, *Filled) (*ValidateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Validate not implemented")
 }
-func (UnimplementedSchemaServiceServer) Compute(context.Context, *ComputeRequest) (*ComputeResponse, error) {
+func (UnimplementedSchemaServiceServer) Compute(context.Context, *Filled) (*ComputeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Compute not implemented")
+}
+func (UnimplementedSchemaServiceServer) Bake(context.Context, *Filled) (*BakeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Bake not implemented")
+}
+func (UnimplementedSchemaServiceServer) Merge(context.Context, *MergeRequest) (*BakeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Merge not implemented")
 }
 func (UnimplementedSchemaServiceServer) mustEmbedUnimplementedSchemaServiceServer() {}
 func (UnimplementedSchemaServiceServer) testEmbeddedByValue()                       {}
@@ -263,7 +299,7 @@ func _SchemaService_ValidateSchema_Handler(srv interface{}, ctx context.Context,
 }
 
 func _SchemaService_Validate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ValidateRequest)
+	in := new(Filled)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -275,13 +311,13 @@ func _SchemaService_Validate_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: SchemaService_Validate_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SchemaServiceServer).Validate(ctx, req.(*ValidateRequest))
+		return srv.(SchemaServiceServer).Validate(ctx, req.(*Filled))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _SchemaService_Compute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ComputeRequest)
+	in := new(Filled)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -293,7 +329,43 @@ func _SchemaService_Compute_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: SchemaService_Compute_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SchemaServiceServer).Compute(ctx, req.(*ComputeRequest))
+		return srv.(SchemaServiceServer).Compute(ctx, req.(*Filled))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SchemaService_Bake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Filled)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchemaServiceServer).Bake(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SchemaService_Bake_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchemaServiceServer).Bake(ctx, req.(*Filled))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SchemaService_Merge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MergeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchemaServiceServer).Merge(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SchemaService_Merge_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchemaServiceServer).Merge(ctx, req.(*MergeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -328,6 +400,14 @@ var SchemaService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Compute",
 			Handler:    _SchemaService_Compute_Handler,
+		},
+		{
+			MethodName: "Bake",
+			Handler:    _SchemaService_Bake_Handler,
+		},
+		{
+			MethodName: "Merge",
+			Handler:    _SchemaService_Merge_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
