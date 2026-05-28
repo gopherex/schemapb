@@ -16,9 +16,6 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ts
     steps:
       - uses: actions/checkout@v5
 
@@ -44,15 +41,20 @@ jobs:
           else
             VERSION="$INPUT_VERSION"
           fi
-          npm version "$VERSION" --no-git-tag-version
+          # Bump every workspace package to the same version.
+          npm version "$VERSION" --no-git-tag-version --workspaces
 
       - run: npm install
 
-      - run: npm run build # `make wasm` (Go) + tsup → dist/ + *.wasm
+      # Build all packages (schemapb: make wasm + tsup; schemapb-react: tsup).
+      - run: npm run build --workspaces --if-present
 
-      - run: npm publish
+      - name: Publish packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm publish -w @stroppy-io/schemapb
+          npm publish -w @stroppy-io/schemapb-react
 
       - name: Create GitHub release
         if: github.event_name == 'push'

@@ -1,7 +1,7 @@
 {
-  "name": "@stroppy-io/schemapb",
+  "name": "@stroppy-io/schemapb-react",
   "version": "0.0.1",
-  "description": "schemapb — form-schema validator and derived-value (Computed) engine, running the same expr-lang engine as the Go server via WebAssembly.",
+  "description": "Headless React hook for building forms from a schemapb schema — bring your own components.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -22,22 +22,26 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./schemapb.wasm": "./dist/schemapb.wasm",
-    "./wasm_exec.js": "./dist/wasm_exec.js"
+    }
   },
   "scripts": {
-    "build:wasm": "cd .. && make wasm",
-    "build": "npm run build:wasm && tsup",
-    "pretest": "npm run build:wasm",
+    "build": "tsup",
+    "pretest": "cd ../schemapb && npm run build",
     "test": "vitest run",
     "prepack": "npm run build"
   },
-  "dependencies": {
-    "@bufbuild/protobuf": "^2.11.0"
+  "peerDependencies": {
+    "@stroppy-io/schemapb": "*",
+    "react": ">=18"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@bufbuild/protobuf": "^2.11.0",
+    "@stroppy-io/schemapb": "*",
+    "@testing-library/react": "^16.0.0",
+    "@types/react": "^18.3.0",
+    "jsdom": "^25.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^2.1.0"

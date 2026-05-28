@@ -14,9 +14,9 @@ proto:
 .PHONY: wasm
 wasm:
 	set -e
-	GOOS=js GOARCH=wasm go build -o ts/schemapb.wasm ./wasm
-	cp -f "$$(go env GOROOT)/lib/wasm/wasm_exec.js" ts/wasm_exec.js
-	chmod u+w ts/wasm_exec.js
+	GOOS=js GOARCH=wasm go build -o packages/schemapb/schemapb.wasm ./wasm
+	cp -f "$$(go env GOROOT)/lib/wasm/wasm_exec.js" packages/schemapb/wasm_exec.js
+	chmod u+w packages/schemapb/wasm_exec.js
 
 .PHONY: test
 test:

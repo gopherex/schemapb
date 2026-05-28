@@ -682,6 +682,20 @@ The TS wrapper also exposes the renderer helpers `sp.fieldActive(schema, field, 
 
 Schemas may also be fetched from a running `SchemaService` with `GetSchema` and deserialised with protobuf-es — no need to build them client-side.
 
+### React
+
+[`@stroppy-io/schemapb-react`](packages/schemapb-react) is a **headless** hook on top of this SDK: it owns the form logic (state + validate/compute/bake + `when`/`options`/`count` helpers) and leaves rendering to your own components.
+
+```tsx
+const form = useSchemaForm({ schema, initialValues: {} });
+form.register("name");          // { name, value, error, onChange }
+form.fieldActive("tls_cert");   // when-gate → show/hide
+form.enumOptions("version");    // dynamic options for a <select>
+form.handleSubmit(baked => save(baked.values));
+```
+
+See the [package README](packages/schemapb-react/README.md) for the full API.
+
 ---
 
 ## gRPC SchemaService
@@ -770,7 +784,7 @@ Runs `easyp generate` (`easyp.yaml`), which invokes four plugins from the `schem
 | `protoc-gen-go` (`go`) | `.` (source-relative) | Go message types |
 | `go-grpc` | `.` | gRPC server/client stubs |
 | `go-hashpb` | `.` | Content-hash support used by `schemapb.Hash` |
-| `protobuf-es` (`es`) | `ts/` | TypeScript types with JSON types and `create()`/`toJson()` |
+| `protobuf-es` (`es`) | `packages/schemapb/` | TypeScript types with JSON types and `create()`/`toJson()` |
 
 The hand-written Go files (`new.go`, `validate.go`, `compute.go`, `server.go`, `registry.go`) live alongside the generated files in `schemapb/` and add methods directly to the generated types.
 
@@ -783,15 +797,16 @@ make wasm
 Compiles the `wasm/` entry point (`GOOS=js GOARCH=wasm`) and copies Go's runtime loader:
 
 ```sh
-GOOS=js GOARCH=wasm go build -o ts/schemapb.wasm ./wasm
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" ts/wasm_exec.js
+GOOS=js GOARCH=wasm go build -o packages/schemapb/schemapb.wasm ./wasm
+cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" packages/schemapb/wasm_exec.js
 ```
 
 ### Run tests
 
 ```sh
-make test       # Go tests: go test ./...
-cd ts && npm test  # TypeScript tests via vitest (builds WASM first)
+make test                          # Go tests: go test ./...
+npm install                        # once, from the repo root (npm workspaces)
+npm test --workspaces --if-present # all TS packages via vitest (build WASM first)
 ```
 
 ### Validator cache
@@ -821,18 +836,21 @@ schemapb/           Core Go package
   server.go         gRPC server implementation (hand-written)
   registry.go       Registry interface + InMemoryRegistry (hand-written)
 
-ts/                 TypeScript / npm package (@stroppy-io/schemapb)
-  schemapb.ts       WASM wrapper (Schemapb class)
-  index.ts          Package entry point
-  schemapb/
-    schema_pb.ts    Generated protobuf-es types
-    service_pb.ts   Generated protobuf-es service types
-  schemapb.wasm     Compiled WASM module (not in git; built by make wasm)
-  wasm_exec.js      Go runtime loader (not in git; copied by make wasm)
-  package.json      npm configuration
+packages/           npm workspaces (TypeScript)
+  schemapb/         @stroppy-io/schemapb — WASM SDK
+    schemapb.ts     WASM wrapper (Schemapb class + schemapb() loader)
+    index.ts        Package entry point
+    schemapb/
+      schema_pb.ts  Generated protobuf-es types
+      service_pb.ts Generated protobuf-es service types
+    schemapb.wasm   Compiled WASM module (not in git; built by make wasm)
+    wasm_exec.js    Go runtime loader (not in git; copied by make wasm)
+  schemapb-react/   @stroppy-io/schemapb-react — headless useSchemaForm hook
+    useSchemaForm.ts  The hook (state + WASM engine, bring your own UI)
+    helpers.ts        Pure path/error utilities
 
 wasm/               Go WASM entry point (main.go)
-  main.go           Registers schemapbValidate/Compute/Bake/Merge globals
+  main.go           Registers schemapbValidate/Compute/Bake/Merge/Link/... globals
 
 go.mod              module github.com/stroppy-io/schemapb
 easyp.yaml          easyp code-generation configuration

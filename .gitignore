@@ -4,11 +4,11 @@
 
 # Node / TypeScript
 node_modules/
-ts/dist/
+packages/*/dist/
 
 # WASM build artifacts (regenerate with `make wasm`)
-ts/schemapb.wasm
-ts/wasm_exec.js
+packages/schemapb/schemapb.wasm
+packages/schemapb/wasm_exec.js
 
 # IDE
 .idea/
