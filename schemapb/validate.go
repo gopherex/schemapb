@@ -143,7 +143,22 @@ func (v *validator) compileField(f *Schema_Filed) error {
 			return err
 		}
 	}
+	if w := f.GetWhen(); w != "" {
+		if err := v.addProgram(w); err != nil {
+			return err
+		}
+	}
+	if e := f.GetEnum(); e != nil && e.GetOptionsExpr() != "" {
+		if err := v.addProgram(e.GetOptionsExpr()); err != nil {
+			return err
+		}
+	}
 	if l := f.GetList(); l != nil {
+		if ce := l.GetCountExpr(); ce != "" {
+			if err := v.addProgram(ce); err != nil {
+				return err
+			}
+		}
 		for _, it := range l.GetItems() {
 			if err := v.compileField(it); err != nil {
 				return err
@@ -184,25 +199,55 @@ func (v *validator) addProgram(code string) error {
 func (v *validator) validate(form map[string]any) []*FieldError {
 	// Reject attempts to change immutable fields, checked on the raw input
 	// before resolve forces them back to their defaults.
-	out := v.checkImmutable(v.schema.GetFields(), form, "")
+	out := v.checkImmutable(v.schema.GetFields(), form, "", form)
 	// Resolve: fill defaults and evaluate Computed fields, so structured and
-	// CEL/expr rules validate the fully resolved form.
+	// expr rules validate the fully resolved form.
 	out = append(out, v.resolve(form)...)
 	out = append(out, v.validateFields(v.schema, form, form, "")...)
 	for _, r := range v.schema.GetRules() {
-		out = append(out, v.evalRule(r, ruleScope(r), nil, form)...)
+		out = append(out, v.evalRule(r, ruleScope(r), nil, form, nil)...)
 	}
 	return out
+}
+
+// active reports whether a field is active for the given root. An empty `when`
+// is always active. A `when` that errors or yields a non-bool returns an error;
+// callers treat an errored field as inactive (and surface the error in the
+// validation phase). `this` is intentionally not bound: a field's own value
+// must not gate its existence.
+func (v *validator) active(f *Schema_Filed, root map[string]any) (bool, error) {
+	w := f.GetWhen()
+	if w == "" {
+		return true, nil
+	}
+	prg, ok := v.programs[w]
+	if !ok {
+		return false, fmt.Errorf("when expression not compiled")
+	}
+	res, err := expr.Run(prg, map[string]any{"root": root})
+	if err != nil {
+		return false, err
+	}
+	b, ok := res.(bool)
+	if !ok {
+		return false, fmt.Errorf("when must evaluate to bool, got %T", res)
+	}
+	return b, nil
 }
 
 // checkImmutable reports a submitted value that differs from an immutable
 // field's default (a system-fixed value cannot be changed). It walks present
 // objects and object-typed list elements. Only enforced when a default exists.
-func (v *validator) checkImmutable(fields []*Schema_Filed, scope map[string]any, prefix string) []*FieldError {
+func (v *validator) checkImmutable(fields []*Schema_Filed, scope map[string]any, prefix string, root map[string]any) []*FieldError {
 	var out []*FieldError
 	for _, f := range fields {
 		name := f.GetName()
 		path := join(prefix, name)
+		// Inactive fields (when=false) are treated as absent: skip them and
+		// their subtree entirely.
+		if act, err := v.active(f, root); err != nil || !act {
+			continue
+		}
 		if f.GetImmutable() {
 			if cur, ok := scope[name]; ok {
 				if dv, has := defaultValue(f); has && cur != dv {
@@ -213,7 +258,7 @@ func (v *validator) checkImmutable(fields []*Schema_Filed, scope map[string]any,
 		}
 		if o := f.GetObject(); o != nil && o.GetSchema() != nil {
 			if child, ok := scope[name].(map[string]any); ok {
-				out = append(out, v.checkImmutable(o.GetSchema().GetFields(), child, path)...)
+				out = append(out, v.checkImmutable(o.GetSchema().GetFields(), child, path, root)...)
 			}
 		}
 		if l := f.GetList(); l != nil && len(l.GetItems()) >= 1 {
@@ -221,7 +266,7 @@ func (v *validator) checkImmutable(fields []*Schema_Filed, scope map[string]any,
 				if arr, ok := scope[name].([]any); ok {
 					for i, el := range arr {
 						if m, ok := el.(map[string]any); ok {
-							out = append(out, v.checkImmutable(o.GetSchema().GetFields(), m, fmt.Sprintf("%s[%d]", path, i))...)
+							out = append(out, v.checkImmutable(o.GetSchema().GetFields(), m, fmt.Sprintf("%s[%d]", path, i), root)...)
 						}
 					}
 				}
@@ -235,7 +280,25 @@ func (v *validator) validateFields(schema *Schema, scope, root map[string]any, p
 	fields := schema.GetFields()
 	var out []*FieldError
 
-	// Strict mode: reject unknown keys.
+	// Evaluate `when` once per field: an errored field surfaces a "when" error
+	// and is treated as inactive; an inactive field is skipped entirely (its
+	// value key is ignored, not counted, and not validated).
+	type fstate struct {
+		active bool
+		err    error
+	}
+	states := make(map[string]fstate, len(fields))
+	inactive := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		a, err := v.active(f, root)
+		states[f.GetName()] = fstate{active: a, err: err}
+		if err != nil || !a {
+			inactive[f.GetName()] = true
+		}
+	}
+
+	// Strict mode: reject unknown keys. Declared fields (active or not) are
+	// always known, so an inactive field's value key never trips strict.
 	if schema.GetStrict() {
 		known := make(map[string]bool, len(fields))
 		for _, f := range fields {
@@ -249,8 +312,15 @@ func (v *validator) validateFields(schema *Schema, scope, root map[string]any, p
 		}
 	}
 
-	// min_properties / max_properties.
-	n := uint64(len(scope))
+	// min_properties / max_properties: inactive fields' present keys do not
+	// count toward the present-property total.
+	var n uint64
+	for key := range scope {
+		if inactive[key] {
+			continue
+		}
+		n++
+	}
 	if schema.MinProperties != nil && n < *schema.MinProperties {
 		out = append(out, codeErr(prefix, fmt.Sprintf("must have at least %d properties", *schema.MinProperties), "min_properties", map[string]string{"min": fmt.Sprintf("%d", *schema.MinProperties)}))
 	}
@@ -259,13 +329,22 @@ func (v *validator) validateFields(schema *Schema, scope, root map[string]any, p
 	}
 
 	for _, f := range fields {
+		st := states[f.GetName()]
+		path := join(prefix, f.GetName())
+		if st.err != nil {
+			out = append(out, codeErr(path, "when error: "+st.err.Error(), "when", nil))
+			continue
+		}
+		if !st.active {
+			continue
+		}
 		val, exists := scope[f.GetName()]
-		out = append(out, v.validateOne(f, val, exists, join(prefix, f.GetName()), root)...)
+		out = append(out, v.validateOne(f, val, exists, path, root, nil)...)
 	}
 	return out
 }
 
-func (v *validator) validateOne(f *Schema_Filed, val any, exists bool, path string, root map[string]any) []*FieldError {
+func (v *validator) validateOne(f *Schema_Filed, val any, exists bool, path string, root, extra map[string]any) []*FieldError {
 	if !exists {
 		if f.GetRequired() {
 			return []*FieldError{codeErr(path, "required", "required", nil)}
@@ -285,7 +364,7 @@ func (v *validator) validateOne(f *Schema_Filed, val any, exists bool, path stri
 
 	out := v.checkKind(f, val, path, root)
 	for _, r := range f.GetRules() {
-		out = append(out, v.evalRule(r, path, val, root)...)
+		out = append(out, v.evalRule(r, path, val, root, extra)...)
 	}
 	return out
 }
@@ -317,7 +396,7 @@ func (v *validator) checkKind(f *Schema_Filed, val any, path string, root map[st
 		}
 		return checkString(path, s, f.GetString_())
 	case f.GetEnum() != nil:
-		return checkEnum(path, val, f.GetEnum())
+		return v.checkEnum(path, val, f.GetEnum(), root)
 	case f.GetDuration() != nil:
 		s, ok := val.(string)
 		if !ok {
@@ -354,10 +433,15 @@ func (v *validator) checkKind(f *Schema_Filed, val any, path string, root map[st
 		return v.checkOneOf(path, m, f.GetOneOf(), root)
 	case f.GetRef() != nil:
 		ref := f.GetRef()
-		name := ref.GetName()
+		name := refDefKey(ref)
 		def := v.schema.GetDefs()[name]
 		if def == nil {
-			return []*FieldError{codeErr(path, "unknown $ref: "+name, "ref", map[string]string{"ref": name})}
+			label := name
+			if id := ref.GetId(); id != nil {
+				// Readable identity (the key embeds NUL separators); hint Link.
+				label = identityString(id) + " (unlinked identity-ref — call Schema.Link)"
+			}
+			return []*FieldError{codeErr(path, "unknown $ref: "+label, "ref", map[string]string{"ref": name})}
 		}
 		m, ok := val.(map[string]any)
 		if !ok {
@@ -366,7 +450,7 @@ func (v *validator) checkKind(f *Schema_Filed, val any, path string, root map[st
 		var out []*FieldError
 		out = append(out, v.validateFields(def, m, root, path)...)
 		for _, r := range def.GetRules() {
-			out = append(out, v.evalRule(r, path, m, root)...)
+			out = append(out, v.evalRule(r, path, m, root, nil)...)
 		}
 		return out
 	}
@@ -380,7 +464,7 @@ func (v *validator) checkObject(path string, m map[string]any, o *Schema_Filed_O
 	}
 	out := v.validateFields(s, m, root, path)
 	for _, r := range s.GetRules() {
-		out = append(out, v.evalRule(r, path, m, root)...)
+		out = append(out, v.evalRule(r, path, m, root, nil)...)
 	}
 	return out
 }
@@ -403,7 +487,7 @@ func (v *validator) checkOneOf(path string, m map[string]any, oo *Schema_Filed_O
 	var out []*FieldError
 	out = append(out, v.validateFields(variant, m, root, path)...)
 	for _, r := range variant.GetRules() {
-		out = append(out, v.evalRule(r, path, m, root)...)
+		out = append(out, v.evalRule(r, path, m, root, nil)...)
 	}
 	return out
 }
@@ -416,6 +500,15 @@ func (v *validator) checkList(path string, arr []any, l *Schema_Filed_List, root
 	}
 	if l.MaxItems != nil && n > *l.MaxItems {
 		out = append(out, codeErr(path, fmt.Sprintf("must have at most %d items", *l.MaxItems), "max_items", map[string]string{"max": fmt.Sprintf("%d", *l.MaxItems)}))
+	}
+	// count_expr: the list length must equal the dynamic count over root.
+	if ce := l.GetCountExpr(); ce != "" {
+		want, err := v.evalCount(ce, root)
+		if err != nil {
+			out = append(out, codeErr(path, "count_expr error: "+err.Error(), "list_count_mismatch", nil))
+		} else if uint64(want) != n {
+			out = append(out, codeErr(path, fmt.Sprintf("must have exactly %d items", want), "list_count_mismatch", map[string]string{"count": fmt.Sprintf("%d", want), "actual": fmt.Sprintf("%d", n)}))
+		}
 	}
 	if l.GetUnique() {
 		seen := map[string]bool{}
@@ -430,7 +523,7 @@ func (v *validator) checkList(path string, arr []any, l *Schema_Filed_List, root
 	if items := l.GetItems(); len(items) >= 1 {
 		def := items[0]
 		for i, el := range arr {
-			errs := v.validateOne(def, el, true, fmt.Sprintf("%s[%d]", path, i), root)
+			errs := v.validateOne(def, el, true, fmt.Sprintf("%s[%d]", path, i), root, map[string]any{"index": float64(i)})
 			for _, e := range errs {
 				if e.Code == "" {
 					e.Code = "item"
@@ -442,12 +535,16 @@ func (v *validator) checkList(path string, arr []any, l *Schema_Filed_List, root
 	return out
 }
 
-func (v *validator) evalRule(r *Schema_Filed_Rule, path string, this any, root map[string]any) []*FieldError {
+func (v *validator) evalRule(r *Schema_Filed_Rule, path string, this any, root, extra map[string]any) []*FieldError {
 	prg, ok := v.programs[r.GetExpr()]
 	if !ok {
 		return nil
 	}
-	out, err := expr.Run(prg, map[string]any{"this": this, "root": root})
+	env := map[string]any{"this": this, "root": root}
+	for k, val := range extra {
+		env[k] = val
+	}
+	out, err := expr.Run(prg, env)
 	if err != nil {
 		e := ferr(path, "rule error: "+err.Error(), Schema_Filed_ERROR, r.Id)
 		e.Code = "rule"
@@ -620,7 +717,100 @@ func checkStringFormat(path, s string, fmt_ Schema_Filed_String_StringFormat) []
 	return nil
 }
 
-func checkEnum(path string, val any, k *Schema_Filed_Enum) []*FieldError {
+// checkEnum validates an enum value. When the field carries options_expr, the
+// allowed set is computed dynamically over root and REPLACES the static checks
+// (defined_only/in/not_in); otherwise the static set applies.
+func (v *validator) checkEnum(path string, val any, k *Schema_Filed_Enum, root map[string]any) []*FieldError {
+	if k.GetOptionsExpr() == "" {
+		return checkEnumStatic(path, val, k)
+	}
+	n, ok := val.(float64)
+	if !ok {
+		return typeErr(path, "enum (number)")
+	}
+	var out []*FieldError
+	if n != math.Trunc(n) {
+		out = append(out, codeErr(path, "must be an integer enum value", "integer", nil))
+	}
+	allowed, err := v.evalEnumOptions(k.GetOptionsExpr(), root)
+	if err != nil {
+		return append(out, codeErr(path, "options_expr error: "+err.Error(), "enum_not_allowed", nil))
+	}
+	if !contains(allowed, int32(n)) {
+		out = append(out, codeErr(path, fmt.Sprintf("must be one of %v", allowed), "enum_not_allowed", nil))
+	}
+	return out
+}
+
+// evalEnumOptions runs an enum options_expr over root and returns the allowed
+// integer values. The result must be a list of numbers.
+func (v *validator) evalEnumOptions(code string, root map[string]any) ([]int32, error) {
+	prg, ok := v.programs[code]
+	if !ok {
+		return nil, fmt.Errorf("options_expr not compiled")
+	}
+	res, err := expr.Run(prg, map[string]any{"root": root})
+	if err != nil {
+		return nil, err
+	}
+	list, ok := res.([]any)
+	if !ok {
+		return nil, fmt.Errorf("options_expr must return a list, got %T", res)
+	}
+	out := make([]int32, 0, len(list))
+	for _, el := range list {
+		f, ok := toFloat(el)
+		if !ok {
+			return nil, fmt.Errorf("options_expr element must be a number, got %T", el)
+		}
+		out = append(out, int32(f))
+	}
+	return out, nil
+}
+
+// evalCount runs a list count_expr over root and returns the required length.
+// The result must be a non-negative integer.
+func (v *validator) evalCount(code string, root map[string]any) (int64, error) {
+	prg, ok := v.programs[code]
+	if !ok {
+		return 0, fmt.Errorf("count_expr not compiled")
+	}
+	res, err := expr.Run(prg, map[string]any{"root": root})
+	if err != nil {
+		return 0, err
+	}
+	f, ok := toFloat(res)
+	if !ok {
+		return 0, fmt.Errorf("count_expr must return a number, got %T", res)
+	}
+	if f != math.Trunc(f) {
+		return 0, fmt.Errorf("count_expr must return an integer, got %v", f)
+	}
+	if f < 0 {
+		return 0, fmt.Errorf("count_expr must be non-negative, got %v", f)
+	}
+	return int64(f), nil
+}
+
+// toFloat converts expr-lang numeric output to float64.
+func toFloat(v any) (float64, bool) {
+	switch n := v.(type) {
+	case int:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case float32:
+		return float64(n), true
+	case float64:
+		return n, true
+	default:
+		return 0, false
+	}
+}
+
+func checkEnumStatic(path string, val any, k *Schema_Filed_Enum) []*FieldError {
 	n, ok := val.(float64)
 	if !ok {
 		return typeErr(path, "enum (number)")
@@ -747,7 +937,14 @@ func collectRefErrors(fields []*Schema_Filed, rootDefs map[string]*Schema, prefi
 		path := join(prefix, name)
 		switch {
 		case f.GetRef() != nil:
-			refName := f.GetRef().GetName()
+			ref := f.GetRef()
+			// Identity-refs target an external registered schema; they are
+			// resolved by Link at validate time, not against local defs, so a
+			// missing one is not a schema (build-time) error.
+			if ref.GetId() != nil {
+				break
+			}
+			refName := ref.GetName()
 			if _, ok := rootDefs[refName]; !ok {
 				out = append(out, schemaErr(path, fmt.Sprintf("ref %q is not defined in schema defs", refName)))
 			}
@@ -782,9 +979,10 @@ func validateSchemaFields(fields []*Schema_Filed, prefix string) []*FieldError {
 		if f.GetKind() == nil {
 			out = append(out, schemaErr(path, "exactly one field kind must be set"))
 		}
-		// Ref kind: name must be non-empty (actual def existence checked in IsValid).
-		if r := f.GetRef(); r != nil && r.GetName() == "" {
-			out = append(out, schemaErr(path, "ref field requires a non-empty name"))
+		// Ref kind: a target must be set — either a local def name or an
+		// identity (actual resolvability checked in IsValid / at Link time).
+		if r := f.GetRef(); r != nil && r.GetName() == "" && r.GetId() == nil {
+			out = append(out, schemaErr(path, "ref field requires a name or id target"))
 		}
 		if e := f.GetEnum(); e != nil && e.GetDefinedOnly() && len(e.GetValues()) == 0 {
 			out = append(out, schemaErr(path, "enum with defined_only requires values"))
@@ -804,6 +1002,21 @@ func validateSchemaFields(fields []*Schema_Filed, prefix string) []*FieldError {
 		if norm := f.GetNormalize(); norm != "" {
 			if _, err := expr.Compile(norm); err != nil {
 				out = append(out, schemaErr(path, "normalize expr does not compile: "+err.Error()))
+			}
+		}
+		if w := f.GetWhen(); w != "" {
+			if _, err := expr.Compile(w); err != nil {
+				out = append(out, schemaErr(path, "when expr does not compile: "+err.Error()))
+			}
+		}
+		if e := f.GetEnum(); e != nil && e.GetOptionsExpr() != "" {
+			if _, err := expr.Compile(e.GetOptionsExpr()); err != nil {
+				out = append(out, schemaErr(path, "options_expr does not compile: "+err.Error()))
+			}
+		}
+		if l := f.GetList(); l != nil && l.GetCountExpr() != "" {
+			if _, err := expr.Compile(l.GetCountExpr()); err != nil {
+				out = append(out, schemaErr(path, "count_expr does not compile: "+err.Error()))
 			}
 		}
 		if l := f.GetList(); l != nil {

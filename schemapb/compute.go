@@ -81,6 +81,74 @@ func (s *Schema) ComputeJSON(raw json.RawMessage) (map[string]any, []*FieldError
 	return out, errs, nil
 }
 
+// FieldActive reports whether the named top-level field is active for the given
+// form (its `when` gate, evaluated over root). A field with no `when` is always
+// active. Renderers use it to decide whether to show a field. It errors if the
+// field is unknown, the schema does not compile, or `when` is not boolean.
+func (s *Schema) FieldActive(name string, root map[string]any) (bool, error) {
+	v, err := s.compiled()
+	if err != nil {
+		return false, err
+	}
+	f := findField(s.GetFields(), name)
+	if f == nil {
+		return false, fmt.Errorf("unknown field %q", name)
+	}
+	return v.active(f, root)
+}
+
+// EnumOptions returns the allowed integer values for the named top-level enum
+// field given the form. If the field carries options_expr the set is computed
+// over root; otherwise the static enum values (the keys of values) are returned.
+func (s *Schema) EnumOptions(name string, root map[string]any) ([]int32, error) {
+	v, err := s.compiled()
+	if err != nil {
+		return nil, err
+	}
+	f := findField(s.GetFields(), name)
+	if f == nil || f.GetEnum() == nil {
+		return nil, fmt.Errorf("field %q is not an enum", name)
+	}
+	e := f.GetEnum()
+	if e.GetOptionsExpr() == "" {
+		out := make([]int32, 0, len(e.GetValues()))
+		for k := range e.GetValues() {
+			out = append(out, k)
+		}
+		return out, nil
+	}
+	return v.evalEnumOptions(e.GetOptionsExpr(), root)
+}
+
+// ListCount returns the required length of the named top-level list field as
+// derived from its count_expr over root. It errors if the field is not a list,
+// has no count_expr, or the expression does not yield a non-negative integer.
+func (s *Schema) ListCount(name string, root map[string]any) (int64, error) {
+	v, err := s.compiled()
+	if err != nil {
+		return 0, err
+	}
+	f := findField(s.GetFields(), name)
+	if f == nil || f.GetList() == nil {
+		return 0, fmt.Errorf("field %q is not a list", name)
+	}
+	ce := f.GetList().GetCountExpr()
+	if ce == "" {
+		return 0, fmt.Errorf("field %q has no count_expr", name)
+	}
+	return v.evalCount(ce, root)
+}
+
+// findField returns the field with the given name, or nil.
+func findField(fields []*Schema_Filed, name string) *Schema_Filed {
+	for _, f := range fields {
+		if f.GetName() == name {
+			return f
+		}
+	}
+	return nil
+}
+
 // Bake validates and resolves values, then seals them with the schema into a
 // Baked snapshot. On a blocking (ERROR) failure baked is nil; warnings do not
 // block and are returned alongside the Baked.
@@ -182,7 +250,7 @@ func mergeMaps(dst, src map[string]any, replaceLists bool) map[string]any {
 // tree, mutating form into the fully resolved state.
 func (v *validator) resolve(form map[string]any) []*FieldError {
 	var tasks []computeTask
-	v.seed(v.schema, form, "", &tasks)
+	v.seed(v.schema, form, "", &tasks, form)
 	v.runNormalize(v.schema, form, form)
 	return v.runCompute(form, tasks)
 }
@@ -195,6 +263,10 @@ func (v *validator) runNormalize(schema *Schema, scope, root map[string]any) {
 		name := f.GetName()
 		cur, exists := scope[name]
 		if !exists || cur == nil {
+			continue
+		}
+		// Inactive fields are treated as absent: skip normalize and subtree.
+		if act, err := v.active(f, root); err != nil || !act {
 			continue
 		}
 		if norm := f.GetNormalize(); norm != "" {
@@ -240,7 +312,7 @@ func (v *validator) runNormalize(schema *Schema, scope, root map[string]any) {
 		}
 		// Recurse into Ref values: normalize fields inside the referenced def.
 		if ref := f.GetRef(); ref != nil {
-			if def := v.schema.GetDefs()[ref.GetName()]; def != nil {
+			if def := v.schema.GetDefs()[refDefKey(ref)]; def != nil {
 				if m, ok := cur.(map[string]any); ok {
 					v.runNormalize(def, m, root)
 				}
@@ -261,11 +333,17 @@ type computeTask struct {
 // recursing into present objects and object-typed list elements. It never
 // materialises an absent object, so optional sub-forms stay absent (and don't
 // spuriously trip their children's "required" checks).
-func (v *validator) seed(schema *Schema, scope map[string]any, prefix string, tasks *[]computeTask) {
+func (v *validator) seed(schema *Schema, scope map[string]any, prefix string, tasks *[]computeTask, root map[string]any) {
 	coerce := schema.GetCoerce()
 	for _, f := range schema.GetFields() {
 		name := f.GetName()
 		path := join(prefix, name)
+
+		// Inactive fields (when=false) are treated as absent: no default seeded,
+		// no Computed scheduled, subtree not recursed. Existing value preserved.
+		if act, err := v.active(f, root); err != nil || !act {
+			continue
+		}
 
 		// Coerce scalar string inputs to the field's kind when coerce is enabled.
 		if coerce {
@@ -293,14 +371,14 @@ func (v *validator) seed(schema *Schema, scope map[string]any, prefix string, ta
 			*tasks = append(*tasks, computeTask{field: f, scope: scope, path: path})
 		case f.GetObject() != nil && f.GetObject().GetSchema() != nil:
 			if child, ok := scope[name].(map[string]any); ok {
-				v.seed(f.GetObject().GetSchema(), child, path, tasks)
+				v.seed(f.GetObject().GetSchema(), child, path, tasks, root)
 			}
 		case f.GetList() != nil && len(f.GetList().GetItems()) >= 1:
 			if o := f.GetList().GetItems()[0].GetObject(); o != nil && o.GetSchema() != nil {
 				if arr, ok := scope[name].([]any); ok {
 					for i, el := range arr {
 						if m, ok := el.(map[string]any); ok {
-							v.seed(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks)
+							v.seed(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks, root)
 						}
 					}
 				}
@@ -311,7 +389,7 @@ func (v *validator) seed(schema *Schema, scope map[string]any, prefix string, ta
 				if discVal, ok := m[oo.GetDiscriminator()]; ok {
 					if discStr, ok := discVal.(string); ok && discStr != "" {
 						if variant, ok := oo.GetVariants()[discStr]; ok {
-							v.seed(variant, m, path, tasks)
+							v.seed(variant, m, path, tasks, root)
 						}
 					}
 				}
@@ -319,10 +397,10 @@ func (v *validator) seed(schema *Schema, scope map[string]any, prefix string, ta
 		case f.GetRef() != nil:
 			// Recurse into the referenced def so defaults and Computed inside
 			// the def are applied to the present object value.
-			refName := f.GetRef().GetName()
+			refName := refDefKey(f.GetRef())
 			if def := v.schema.GetDefs()[refName]; def != nil {
 				if child, ok := scope[name].(map[string]any); ok {
-					v.seed(def, child, path, tasks)
+					v.seed(def, child, path, tasks, root)
 				}
 			}
 		}

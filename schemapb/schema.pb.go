@@ -717,6 +717,21 @@ func (x *Baked) GetValues() *structpb.Struct {
 	return nil
 }
 
+// Filed is one field of the form.
+//
+// Per-field evaluation order (each stage reads the form as resolved by the
+// previous one):
+//  1. when         — gate: if false the field is INACTIVE and every stage
+//     below is skipped; the field is treated as ABSENT (its
+//     value, if any, is preserved but ignored). For a
+//     container kind (Object/OneOf/List/Ref) the WHOLE
+//     subtree is gated.
+//  2. normalize    — map the field's own value.
+//  3. Computed     — derive the value from `root`.
+//  4. options_expr / count_expr — dynamic Enum options / List length.
+//  5. rules + kind constraints — required/nullable, gt/lt/in/pattern, ...
+//
+// Renderer contract: an inactive field (when=false) MUST NOT be rendered.
 type Schema_Filed struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Field name; the key under which the value lives in the form.
@@ -753,6 +768,19 @@ type Schema_Filed struct {
 	// Applied after defaults/coercion and before Computed evaluation and
 	// validation.
 	Normalize *string `protobuf:"bytes,27,opt,name=normalize,proto3,oneof" json:"normalize,omitempty"`
+	// Conditional gate: an expr boolean over `root` (the whole form as
+	// map<string, dyn>). When it evaluates to false the field is INACTIVE —
+	// the validator skips it ENTIRELY (no required/nullable, no rules, no
+	// kind constraints, no Computed/normalize) and treats it as ABSENT
+	// regardless of any value present in `values`. For a container kind the
+	// whole subtree is gated. Inactive fields do not count toward
+	// min/max_properties and their value key never raises a strict
+	// "unknown_field". Their value is NOT deleted, so it reappears if the
+	// field becomes active again. Renderers MUST hide an inactive field.
+	// `this` is NOT bound (a field's own value must not gate its
+	// existence). Empty/absent => always active. A non-bool result is a
+	// runtime error.
+	When *string `protobuf:"bytes,30,opt,name=when,proto3,oneof" json:"when,omitempty"`
 	// The field kind; exactly one must be set.
 	// Types that are valid to be assigned to Kind:
 	//
@@ -894,6 +922,13 @@ func (x *Schema_Filed) GetSecret() bool {
 func (x *Schema_Filed) GetNormalize() string {
 	if x != nil && x.Normalize != nil {
 		return *x.Normalize
+	}
+	return ""
+}
+
+func (x *Schema_Filed) GetWhen() string {
+	if x != nil && x.When != nil {
+		return *x.When
 	}
 	return ""
 }
@@ -2060,7 +2095,15 @@ type Schema_Filed_Enum struct {
 	// Value must be one of these.
 	In []int32 `protobuf:"varint,4,rep,packed,name=in,proto3" json:"in,omitempty"`
 	// Value must not be any of these.
-	NotIn         []int32 `protobuf:"varint,5,rep,packed,name=not_in,json=notIn,proto3" json:"not_in,omitempty"`
+	NotIn []int32 `protobuf:"varint,5,rep,packed,name=not_in,json=notIn,proto3" json:"not_in,omitempty"`
+	// expr over `root` returning a list of allowed integer values. When
+	// set it REPLACES the static allowed set (values/in/not_in/
+	// defined_only) for validation and supplies the option list to
+	// renderers. The submitted value must be a member of the result,
+	// else FieldError code "enum_not_allowed". Empty/absent => use the
+	// static values. The result must be a list; a non-list is a runtime
+	// error. Use cases: db versions by kind, zones by region.
+	OptionsExpr   *string `protobuf:"bytes,6,opt,name=options_expr,json=optionsExpr,proto3,oneof" json:"options_expr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2128,6 +2171,13 @@ func (x *Schema_Filed_Enum) GetNotIn() []int32 {
 		return x.NotIn
 	}
 	return nil
+}
+
+func (x *Schema_Filed_Enum) GetOptionsExpr() string {
+	if x != nil && x.OptionsExpr != nil {
+		return *x.OptionsExpr
+	}
+	return ""
 }
 
 // Duration field kind with optional range bounds.
@@ -2304,7 +2354,16 @@ type Schema_Filed_List struct {
 	// Maximum number of items.
 	MaxItems *uint64 `protobuf:"varint,3,opt,name=max_items,json=maxItems,proto3,oneof" json:"max_items,omitempty"`
 	// If true, items must be unique.
-	Unique        bool `protobuf:"varint,4,opt,name=unique,proto3" json:"unique,omitempty"`
+	Unique bool `protobuf:"varint,4,opt,name=unique,proto3" json:"unique,omitempty"`
+	// expr over `root` returning a non-negative int: the exact number
+	// of items the list must have. Renderers generate that many item
+	// slots. The list length must equal the result, else FieldError
+	// code "list_count_mismatch". Empty/absent => length bounded only by
+	// min_items/max_items. A non-int or negative result is a runtime
+	// error. Each item is still validated by the item schema; inside an
+	// item's rules the item's zero-based position is bound as `index`.
+	// Use case: per-machine settings where N = replicas + 1.
+	CountExpr     *string `protobuf:"bytes,5,opt,name=count_expr,json=countExpr,proto3,oneof" json:"count_expr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2365,6 +2424,13 @@ func (x *Schema_Filed_List) GetUnique() bool {
 		return x.Unique
 	}
 	return false
+}
+
+func (x *Schema_Filed_List) GetCountExpr() string {
+	if x != nil && x.CountExpr != nil {
+		return *x.CountExpr
+	}
+	return ""
 }
 
 // Object field kind: a nested sub-form described by its own Schema.
@@ -2618,14 +2684,24 @@ func (x *Schema_Filed_OneOf) GetVariants() map[string]*Schema {
 	return nil
 }
 
-// Ref field kind: the value must be an object validated against the
-// named definition in the root schema's defs map. Enables recursive
-// schemas — a def may contain a Ref back to itself; recursion
-// terminates because it follows the (finite) data.
+// Ref field kind: the value is an object validated against another
+// schema. The target is selected one of two ways:
+//   - name: a key in the root schema's defs map (local composition;
+//     enables recursion — a def may Ref back to itself, terminating on
+//     the finite data).
+//   - id:   the SchemaIdentity of a separately-registered schema. The
+//     identity is PRESERVED on the node (renderers can show/link the
+//     target), and the referenced schema must be made resolvable —
+//     either present in the root defs under its identity key, or pulled
+//     in by Link(resolver) before validation. An id-ref to a schema not
+//     present in defs is an "unknown $ref" error at validate time.
 type Schema_Filed_Ref struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Name of the def in the root schema's defs map.
-	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Types that are valid to be assigned to Target:
+	//
+	//	*Schema_Filed_Ref_Name
+	//	*Schema_Filed_Ref_Id
+	Target        isSchema_Filed_Ref_Target `protobuf_oneof:"target"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2660,18 +2736,54 @@ func (*Schema_Filed_Ref) Descriptor() ([]byte, []int) {
 	return file_schemapb_schema_proto_rawDescGZIP(), []int{0, 0, 16}
 }
 
+func (x *Schema_Filed_Ref) GetTarget() isSchema_Filed_Ref_Target {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
 func (x *Schema_Filed_Ref) GetName() string {
 	if x != nil {
-		return x.Name
+		if x, ok := x.Target.(*Schema_Filed_Ref_Name); ok {
+			return x.Name
+		}
 	}
 	return ""
 }
+
+func (x *Schema_Filed_Ref) GetId() *SchemaIdentity {
+	if x != nil {
+		if x, ok := x.Target.(*Schema_Filed_Ref_Id); ok {
+			return x.Id
+		}
+	}
+	return nil
+}
+
+type isSchema_Filed_Ref_Target interface {
+	isSchema_Filed_Ref_Target()
+}
+
+type Schema_Filed_Ref_Name struct {
+	// Name of the def in the root schema's defs map.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3,oneof"`
+}
+
+type Schema_Filed_Ref_Id struct {
+	// Identity of a registered schema (resolved via defs / Link).
+	Id *SchemaIdentity `protobuf:"bytes,2,opt,name=id,proto3,oneof"`
+}
+
+func (*Schema_Filed_Ref_Name) isSchema_Filed_Ref_Target() {}
+
+func (*Schema_Filed_Ref_Id) isSchema_Filed_Ref_Target() {}
 
 var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xab1\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf12\n" +
 	"\x06Schema\x12(\n" +
 	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
@@ -2681,7 +2793,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x0emin_properties\x18\x06 \x01(\x04H\x01R\rminProperties\x88\x01\x01\x12*\n" +
 	"\x0emax_properties\x18\a \x01(\x04H\x02R\rmaxProperties\x88\x01\x01\x12\x16\n" +
 	"\x06coerce\x18\b \x01(\bR\x06coerce\x12.\n" +
-	"\x04defs\x18\t \x03(\v2\x1a.schemapb.Schema.DefsEntryR\x04defs\x1a\xb3-\n" +
+	"\x04defs\x18\t \x03(\v2\x1a.schemapb.Schema.DefsEntryR\x04defs\x1a\xf9.\n" +
 	"\x05Filed\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
@@ -2697,7 +2809,8 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"deprecated\x122\n" +
 	"\bexamples\x18\x19 \x03(\v2\x16.google.protobuf.ValueR\bexamples\x12\x16\n" +
 	"\x06secret\x18\x1a \x01(\bR\x06secret\x12!\n" +
-	"\tnormalize\x18\x1b \x01(\tH\x05R\tnormalize\x88\x01\x01\x124\n" +
+	"\tnormalize\x18\x1b \x01(\tH\x05R\tnormalize\x88\x01\x01\x12\x17\n" +
+	"\x04when\x18\x1e \x01(\tH\x06R\x04when\x88\x01\x01\x124\n" +
 	"\x05float\x18\x06 \x01(\v2\x1c.schemapb.Schema.Filed.FloatH\x00R\x05float\x127\n" +
 	"\x06double\x18\a \x01(\v2\x1d.schemapb.Schema.Filed.DoubleH\x00R\x06double\x124\n" +
 	"\x05int32\x18\b \x01(\v2\x1c.schemapb.Schema.Filed.Int32H\x00R\x05int32\x124\n" +
@@ -2868,18 +2981,20 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\b_max_lenB\n" +
 	"\n" +
 	"\b_patternB\t\n" +
-	"\a_format\x1a\xf7\x01\n" +
+	"\a_format\x1a\xb0\x02\n" +
 	"\x04Enum\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\x05H\x00R\adefault\x88\x01\x01\x12?\n" +
 	"\x06values\x18\x02 \x03(\v2'.schemapb.Schema.Filed.Enum.ValuesEntryR\x06values\x12!\n" +
 	"\fdefined_only\x18\x03 \x01(\bR\vdefinedOnly\x12\x0e\n" +
 	"\x02in\x18\x04 \x03(\x05R\x02in\x12\x15\n" +
-	"\x06not_in\x18\x05 \x03(\x05R\x05notIn\x1a9\n" +
+	"\x06not_in\x18\x05 \x03(\x05R\x05notIn\x12&\n" +
+	"\foptions_expr\x18\x06 \x01(\tH\x01R\voptionsExpr\x88\x01\x01\x1a9\n" +
 	"\vValuesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\x05R\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\n" +
 	"\n" +
-	"\b_default\x1a\xb2\x02\n" +
+	"\b_defaultB\x0f\n" +
+	"\r_options_expr\x1a\xb2\x02\n" +
 	"\bDuration\x128\n" +
 	"\adefault\x18\x01 \x01(\v2\x19.google.protobuf.DurationH\x00R\adefault\x88\x01\x01\x12.\n" +
 	"\x02gt\x18\x02 \x01(\v2\x19.google.protobuf.DurationH\x01R\x02gt\x88\x01\x01\x120\n" +
@@ -2903,16 +3018,19 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x03_gtB\x06\n" +
 	"\x04_gteB\x05\n" +
 	"\x03_ltB\x06\n" +
-	"\x04_lte\x1a\xac\x01\n" +
+	"\x04_lte\x1a\xdf\x01\n" +
 	"\x04List\x12,\n" +
 	"\x05items\x18\x01 \x03(\v2\x16.schemapb.Schema.FiledR\x05items\x12 \n" +
 	"\tmin_items\x18\x02 \x01(\x04H\x00R\bminItems\x88\x01\x01\x12 \n" +
 	"\tmax_items\x18\x03 \x01(\x04H\x01R\bmaxItems\x88\x01\x01\x12\x16\n" +
-	"\x06unique\x18\x04 \x01(\bR\x06uniqueB\f\n" +
+	"\x06unique\x18\x04 \x01(\bR\x06unique\x12\"\n" +
+	"\n" +
+	"count_expr\x18\x05 \x01(\tH\x02R\tcountExpr\x88\x01\x01B\f\n" +
 	"\n" +
 	"_min_itemsB\f\n" +
 	"\n" +
-	"_max_items\x1aB\n" +
+	"_max_itemsB\r\n" +
+	"\v_count_expr\x1aB\n" +
 	"\x06Object\x12-\n" +
 	"\x06schema\x18\x01 \x01(\v2\x10.schemapb.SchemaH\x00R\x06schema\x88\x01\x01B\t\n" +
 	"\a_schema\x1ai\n" +
@@ -2932,9 +3050,11 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\bvariants\x18\x02 \x03(\v2*.schemapb.Schema.Filed.OneOf.VariantsEntryR\bvariants\x1aM\n" +
 	"\rVariantsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12&\n" +
-	"\x05value\x18\x02 \x01(\v2\x10.schemapb.SchemaR\x05value:\x028\x01\x1a\x19\n" +
-	"\x03Ref\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\xb8\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\x10.schemapb.SchemaR\x05value:\x028\x01\x1aQ\n" +
+	"\x03Ref\x12\x14\n" +
+	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x12*\n" +
+	"\x02id\x18\x02 \x01(\v2\x18.schemapb.SchemaIdentityH\x00R\x02idB\b\n" +
+	"\x06target\"\xb8\x01\n" +
 	"\n" +
 	"ResultType\x12\x1b\n" +
 	"\x17RESULT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -2954,7 +3074,8 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x05_unitB\b\n" +
 	"\x06_titleB\f\n" +
 	"\n" +
-	"_normalize\x1aI\n" +
+	"_normalizeB\a\n" +
+	"\x05_when\x1aI\n" +
 	"\tDefsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12&\n" +
 	"\x05value\x18\x02 \x01(\v2\x10.schemapb.SchemaR\x05value:\x028\x01B\x0e\n" +
@@ -3089,12 +3210,13 @@ var file_schemapb_schema_proto_depIdxs = []int32{
 	0,  // 45: schemapb.Schema.Filed.Computed.result:type_name -> schemapb.Schema.Filed.ResultType
 	1,  // 46: schemapb.Schema.Filed.Rule.severity:type_name -> schemapb.Schema.Filed.Severity
 	29, // 47: schemapb.Schema.Filed.OneOf.variants:type_name -> schemapb.Schema.Filed.OneOf.VariantsEntry
-	3,  // 48: schemapb.Schema.Filed.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
-	49, // [49:49] is the sub-list for method output_type
-	49, // [49:49] is the sub-list for method input_type
-	49, // [49:49] is the sub-list for extension type_name
-	49, // [49:49] is the sub-list for extension extendee
-	0,  // [0:49] is the sub-list for field type_name
+	4,  // 48: schemapb.Schema.Filed.Ref.id:type_name -> schemapb.SchemaIdentity
+	3,  // 49: schemapb.Schema.Filed.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
+	50, // [50:50] is the sub-list for method output_type
+	50, // [50:50] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_schema_proto_init() }
@@ -3141,6 +3263,10 @@ func file_schemapb_schema_proto_init() {
 	file_schemapb_schema_proto_msgTypes[20].OneofWrappers = []any{}
 	file_schemapb_schema_proto_msgTypes[21].OneofWrappers = []any{}
 	file_schemapb_schema_proto_msgTypes[22].OneofWrappers = []any{}
+	file_schemapb_schema_proto_msgTypes[24].OneofWrappers = []any{
+		(*Schema_Filed_Ref_Name)(nil),
+		(*Schema_Filed_Ref_Id)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -9,7 +9,7 @@
 // and copy Go's loader:
 //   cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" ts/wasm_exec.js
 
-import { toJson } from "@bufbuild/protobuf";
+import { fromJson, toJson } from "@bufbuild/protobuf";
 import {
   SchemaSchema,
   BakedSchema,
@@ -55,6 +55,14 @@ declare global {
   var schemapbBake: (schemaJSON: string, valuesJSON: string) => string;
   // eslint-disable-next-line no-var
   var schemapbMerge: (bakedJSON: string, overridesJSON: string, replaceLists: boolean) => string;
+  // eslint-disable-next-line no-var
+  var schemapbLink: (schemaJSON: string, registrySchemasJSON: string) => string;
+  // eslint-disable-next-line no-var
+  var schemapbFieldActive: (schemaJSON: string, field: string, rootJSON: string) => string;
+  // eslint-disable-next-line no-var
+  var schemapbEnumOptions: (schemaJSON: string, field: string, rootJSON: string) => string;
+  // eslint-disable-next-line no-var
+  var schemapbListCount: (schemaJSON: string, field: string, rootJSON: string) => string;
 }
 
 export class Schemapb {
@@ -81,6 +89,47 @@ export class Schemapb {
   /** Validate + resolve `values` and seal them with `schema` into a Baked. */
   bake(schema: Schema, values: unknown): BakeResult {
     return this.call(globalThis.schemapbBake, schema, values) as BakeResult;
+  }
+
+  /** Whether the named top-level field is active for `root` (its `when` gate).
+   *  A field with no `when` is always active. Mirrors Go's `Schema.FieldActive`. */
+  fieldActive(schema: Schema, field: string, root: unknown): boolean {
+    return (this.helper(globalThis.schemapbFieldActive, schema, field, root) as { active: boolean }).active;
+  }
+
+  /** Allowed integer values for the named enum field given `root` (dynamic via
+   *  `options_expr`, else the static values). Mirrors Go's `Schema.EnumOptions`. */
+  enumOptions(schema: Schema, field: string, root: unknown): number[] {
+    return (this.helper(globalThis.schemapbEnumOptions, schema, field, root) as { options: number[] }).options;
+  }
+
+  /** Required length of the named list field derived from its `count_expr` over
+   *  `root`. Mirrors Go's `Schema.ListCount`. */
+  listCount(schema: Schema, field: string, root: unknown): number {
+    return (this.helper(globalThis.schemapbListCount, schema, field, root) as { count: number }).count;
+  }
+
+  private helper(
+    fn: (s: string, field: string, root: string) => string,
+    schema: Schema,
+    field: string,
+    root: unknown,
+  ): unknown {
+    const out = JSON.parse(fn(JSON.stringify(toJson(SchemaSchema, schema)), field, JSON.stringify(root ?? {})));
+    if (out.error) throw new Error(out.error);
+    return out;
+  }
+
+  /** Resolve every identity-Ref in `schema` against `registry` (a pool of
+   *  built schemas), folding the referenced schemas into the result so it is
+   *  self-contained and validates standalone. The id-ref nodes keep their
+   *  identity. Mirrors Go's `Schema.Link`. */
+  link(schema: Schema, registry: Schema[]): Schema {
+    const schemaJSON = JSON.stringify(toJson(SchemaSchema, schema));
+    const regJSON = JSON.stringify(registry.map((s) => toJson(SchemaSchema, s)));
+    const out = JSON.parse(globalThis.schemapbLink(schemaJSON, regJSON));
+    if (out.error) throw new Error(out.error);
+    return fromJson(SchemaSchema, out.schema);
   }
 
   /** Layer `overrides` onto a `baked` snapshot and re-seal. Lists append unless

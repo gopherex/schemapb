@@ -3,6 +3,7 @@ package schemapb_test
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -28,6 +29,16 @@ func msgs(errs []*schemapb.FieldError) map[string]string {
 }
 
 func has(m map[string]string, field string) bool { _, ok := m[field]; return ok }
+
+// codeFor returns the FieldError code for the given field path, or "".
+func codeFor(errs []*schemapb.FieldError, field string) string {
+	for _, e := range errs {
+		if e.GetField() == field {
+			return e.GetCode()
+		}
+	}
+	return ""
+}
 
 func mustValidator(t *testing.T, s *schemapb.Schema) *schemapb.Schema {
 	t.Helper()
@@ -1316,5 +1327,688 @@ func TestRef_UnknownDefRejectedByIsValid(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected error mentioning 'nonexistent', got: %v", msgs(errs))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Feature: when (conditional field gate)
+// ---------------------------------------------------------------------------
+
+func TestWhen_InactiveSkipsRequired(t *testing.T) {
+	// "tls_cert" is required only when tls is enabled.
+	v := build(t,
+		schemapb.Bool("tls"),
+		schemapb.Str("tls_cert").Required().When("root.tls == true"),
+	)
+	// tls off => field inactive => required NOT enforced.
+	if g := validateJSON(t, v, `{"tls":false}`); len(g) != 0 {
+		t.Errorf("inactive required must be skipped, got %v", g)
+	}
+	// tls on => field active => required enforced.
+	if g := validateJSON(t, v, `{"tls":true}`); !has(g, "tls_cert") {
+		t.Errorf("active required must fire, got %v", g)
+	}
+	// tls on + value present => valid.
+	if g := validateJSON(t, v, `{"tls":true,"tls_cert":"pem"}`); len(g) != 0 {
+		t.Errorf("active+present must be valid, got %v", g)
+	}
+}
+
+func TestWhen_InactiveValueNotValidated(t *testing.T) {
+	// An inactive field's present value is ignored entirely (no kind/rule check).
+	v := build(t,
+		schemapb.Bool("adv"),
+		schemapb.Int32("threads").Gte(1).Lte(8).When("root.adv == true"),
+	)
+	// adv off but a value out of range is present => ignored, valid.
+	if g := validateJSON(t, v, `{"adv":false,"threads":999}`); len(g) != 0 {
+		t.Errorf("inactive value must not be validated, got %v", g)
+	}
+	// adv on => out-of-range now fails.
+	if g := validateJSON(t, v, `{"adv":true,"threads":999}`); !has(g, "threads") {
+		t.Errorf("active value must be validated, got %v", g)
+	}
+}
+
+func TestWhen_GatesContainerSubtree(t *testing.T) {
+	// When a container is inactive its whole subtree is gated.
+	v := build(t,
+		schemapb.Bool("backup"),
+		schemapb.Object("backup_cfg",
+			schemapb.Str("bucket").Required(),
+		).When("root.backup == true"),
+	)
+	// inactive => nested required not enforced.
+	if g := validateJSON(t, v, `{"backup":false}`); len(g) != 0 {
+		t.Errorf("inactive subtree must be skipped, got %v", g)
+	}
+	// active => nested required enforced.
+	if g := validateJSON(t, v, `{"backup":true,"backup_cfg":{}}`); !has(g, "backup_cfg.bucket") {
+		t.Errorf("active subtree required must fire, got %v", g)
+	}
+}
+
+func TestWhen_InactiveNotCountedNorStrict(t *testing.T) {
+	// An inactive field's key does not count toward properties and never trips
+	// strict's unknown-field check.
+	s := schemapb.NewSchema("test", "s", "v1").
+		Strict().
+		MaxProps(1).
+		Fields(
+			schemapb.Bool("flag"),
+			schemapb.Str("extra").When("root.flag == true"),
+		).MustBuild()
+	v := mustValidator(t, s)
+	// flag off, extra present: extra is inactive => not unknown, not counted.
+	// Only "flag" counts (1 <= max 1), extra is a declared (inactive) field.
+	if g := validateJSON(t, v, `{"flag":false,"extra":"x"}`); len(g) != 0 {
+		t.Errorf("inactive key must not trip strict/max_properties, got %v", g)
+	}
+}
+
+func TestWhen_InactiveSkipsComputeAndNormalize(t *testing.T) {
+	v := build(t,
+		schemapb.Bool("on"),
+		schemapb.Str("tag").Normalize("lower(this)").When("root.on == true"),
+		schemapb.Computed("derived", `root.tag`).
+			Result(schemapb.ResultString).When("root.on == true"),
+	)
+	// off: normalize + computed skipped (derived not seeded).
+	out, errs := v.Compute(map[string]any{"on": false, "tag": "HELLO"})
+	if len(errs) != 0 {
+		t.Fatalf("compute: %v", msgs(errs))
+	}
+	if out["tag"] != "HELLO" {
+		t.Errorf("inactive normalize must be skipped: tag=%v", out["tag"])
+	}
+	if _, ok := out["derived"]; ok {
+		t.Errorf("inactive computed must not be seeded: %v", out["derived"])
+	}
+	// on: normalize + computed run.
+	out2, errs2 := v.Compute(map[string]any{"on": true, "tag": "HELLO"})
+	if len(errs2) != 0 {
+		t.Fatalf("compute: %v", msgs(errs2))
+	}
+	if out2["tag"] != "hello" {
+		t.Errorf("active normalize: tag=%v", out2["tag"])
+	}
+	if out2["derived"] != "hello" {
+		t.Errorf("active computed: derived=%v", out2["derived"])
+	}
+}
+
+func TestWhen_NonBoolIsRuntimeError(t *testing.T) {
+	v := build(t,
+		schemapb.Str("x").When(`"notabool"`),
+	)
+	g := validateJSON(t, v, `{"x":"v"}`)
+	errs, _ := v.ValidateJSON(json.RawMessage(`{"x":"v"}`))
+	if codeFor(errs, "x") != "when" {
+		t.Errorf("non-bool when must yield code 'when', got %v", g)
+	}
+}
+
+func TestWhen_BadExprRejectedByIsValid(t *testing.T) {
+	_, err := schemapb.NewSchema("t", "s", "v1").
+		Fields(schemapb.Str("x").When("root.a >")).
+		Build()
+	if err == nil {
+		t.Fatal("want schema error for bad when expr")
+	}
+}
+
+func TestFieldActive_API(t *testing.T) {
+	v := build(t,
+		schemapb.Bool("flag"),
+		schemapb.Str("gated").When("root.flag == true"),
+		schemapb.Str("always"),
+	)
+	// no-when field is always active.
+	if a, err := v.FieldActive("always", map[string]any{}); err != nil || !a {
+		t.Errorf("always: a=%v err=%v", a, err)
+	}
+	if a, err := v.FieldActive("gated", map[string]any{"flag": true}); err != nil || !a {
+		t.Errorf("gated on: a=%v err=%v", a, err)
+	}
+	if a, err := v.FieldActive("gated", map[string]any{"flag": false}); err != nil || a {
+		t.Errorf("gated off: a=%v err=%v", a, err)
+	}
+	if _, err := v.FieldActive("nope", map[string]any{}); err == nil {
+		t.Error("want error for unknown field")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Feature: options_expr (dynamic enum options)
+// ---------------------------------------------------------------------------
+
+func TestOptionsExpr_DynamicAllowedSet(t *testing.T) {
+	// Allowed pg versions depend on the chosen edition.
+	v := build(t,
+		schemapb.Str("edition"),
+		schemapb.Enum("version").
+			Values(map[int32]string{13: "13", 14: "14", 15: "15", 16: "16"}).
+			Options(`root.edition == "lts" ? [14, 16] : [15]`),
+	)
+	// lts allows 16.
+	if g := validateJSON(t, v, `{"edition":"lts","version":16}`); len(g) != 0 {
+		t.Errorf("16 allowed for lts, got %v", g)
+	}
+	// lts disallows 15.
+	errs, _ := v.ValidateJSON(json.RawMessage(`{"edition":"lts","version":15}`))
+	if codeFor(errs, "version") != "enum_not_allowed" {
+		t.Errorf("15 must be enum_not_allowed for lts, got %v", msgs(errs))
+	}
+	// non-lts allows 15.
+	if g := validateJSON(t, v, `{"edition":"std","version":15}`); len(g) != 0 {
+		t.Errorf("15 allowed for std, got %v", g)
+	}
+}
+
+func TestOptionsExpr_NonListRuntimeError(t *testing.T) {
+	v := build(t,
+		schemapb.Enum("e").Values(map[int32]string{1: "a"}).Options(`42`),
+	)
+	errs, _ := v.ValidateJSON(json.RawMessage(`{"e":1}`))
+	if codeFor(errs, "e") != "enum_not_allowed" {
+		t.Errorf("non-list options_expr must error, got %v", msgs(errs))
+	}
+}
+
+func TestOptionsExpr_BadExprRejectedByIsValid(t *testing.T) {
+	_, err := schemapb.NewSchema("t", "s", "v1").
+		Fields(schemapb.Enum("e").Values(map[int32]string{1: "a"}).Options("[1, ")).
+		Build()
+	if err == nil {
+		t.Fatal("want schema error for bad options_expr")
+	}
+}
+
+func TestEnumOptions_API(t *testing.T) {
+	v := build(t,
+		schemapb.Enum("dyn").
+			Values(map[int32]string{1: "a", 2: "b", 3: "c"}).
+			Options(`root.big == true ? [1, 2, 3] : [1]`),
+		schemapb.Enum("stat").Values(map[int32]string{7: "x", 8: "y"}),
+	)
+	// dynamic
+	got, err := v.EnumOptions("dyn", map[string]any{"big": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(got)
+	if len(got) != 3 || got[0] != 1 || got[2] != 3 {
+		t.Errorf("dynamic options = %v", got)
+	}
+	// static fallback (no options_expr): keys of values.
+	st, err := v.EnumOptions("stat", map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(st)
+	if len(st) != 2 || st[0] != 7 || st[1] != 8 {
+		t.Errorf("static options = %v", st)
+	}
+	// not an enum
+	if _, err := v.EnumOptions("nope", map[string]any{}); err == nil {
+		t.Error("want error for non-enum field")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Feature: count_expr (dynamic list length)
+// ---------------------------------------------------------------------------
+
+func TestCountExpr_LengthMustMatch(t *testing.T) {
+	// Exactly replicas+1 machine entries are required.
+	v := build(t,
+		schemapb.Int32("replicas").Gte(0),
+		schemapb.List("machines", schemapb.Str("host")).Count("root.replicas + 1"),
+	)
+	// replicas=2 => 3 items: valid.
+	if g := validateJSON(t, v, `{"replicas":2,"machines":["a","b","c"]}`); len(g) != 0 {
+		t.Errorf("matching length must be valid, got %v", g)
+	}
+	// replicas=2 => 2 items: mismatch.
+	errs, _ := v.ValidateJSON(json.RawMessage(`{"replicas":2,"machines":["a","b"]}`))
+	if codeFor(errs, "machines") != "list_count_mismatch" {
+		t.Errorf("wrong length must be list_count_mismatch, got %v", msgs(errs))
+	}
+}
+
+func TestCountExpr_IndexBoundInItemRules(t *testing.T) {
+	// Inside an item rule the zero-based position is bound as `index`.
+	v := build(t,
+		schemapb.Int32("n").Gte(0),
+		schemapb.List("seq",
+			schemapb.Int32("v").Rules(schemapb.Rule("this == index", "must equal its index").ID("rng")),
+		).Count("root.n"),
+	)
+	// values equal their indices => valid.
+	if g := validateJSON(t, v, `{"n":3,"seq":[0,1,2]}`); len(g) != 0 {
+		t.Errorf("index-matched items must be valid, got %v", g)
+	}
+	// one item violates index rule.
+	if g := validateJSON(t, v, `{"n":3,"seq":[0,9,2]}`); !has(g, "seq[1]") {
+		t.Errorf("index rule violation must fire at seq[1], got %v", g)
+	}
+}
+
+func TestCountExpr_BadExprRejectedByIsValid(t *testing.T) {
+	_, err := schemapb.NewSchema("t", "s", "v1").
+		Fields(schemapb.List("l", schemapb.Str("x")).Count("root.n +")).
+		Build()
+	if err == nil {
+		t.Fatal("want schema error for bad count_expr")
+	}
+}
+
+func TestListCount_API(t *testing.T) {
+	v := build(t,
+		schemapb.Int32("replicas"),
+		schemapb.List("nodes", schemapb.Str("h")).Count("root.replicas + 1"),
+		schemapb.List("plain", schemapb.Str("h")),
+	)
+	n, err := v.ListCount("nodes", map[string]any{"replicas": float64(4)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 5 {
+		t.Errorf("ListCount = %d, want 5", n)
+	}
+	// no count_expr => error.
+	if _, err := v.ListCount("plain", map[string]any{}); err == nil {
+		t.Error("want error for list without count_expr")
+	}
+	// not a list => error.
+	if _, err := v.ListCount("replicas", map[string]any{}); err == nil {
+		t.Error("want error for non-list field")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Conditional presence sugar: RequiredWhen / RequiredUnless / ForbiddenWhen
+// ---------------------------------------------------------------------------
+
+func TestRequiredWhen(t *testing.T) {
+	v := mustValidator(t, schemapb.NewSchema("t", "s", "v1").
+		Fields(
+			schemapb.Bool("tls"),
+			schemapb.Str("cert"), // NOT .Required()
+		).
+		RequiredWhen("cert", "root.tls == true").
+		MustBuild())
+
+	// tls off => cert optional.
+	if g := validateJSON(t, v, `{"tls":false}`); len(g) != 0 {
+		t.Errorf("cert optional when tls off, got %v", g)
+	}
+	// tls on, cert absent => error on "cert".
+	g := validateJSON(t, v, `{"tls":true}`)
+	if !has(g, "cert") {
+		t.Errorf("cert required when tls on, got %v", g)
+	}
+	// tls on, cert present => valid.
+	if g := validateJSON(t, v, `{"tls":true,"cert":"pem"}`); len(g) != 0 {
+		t.Errorf("cert present satisfies, got %v", g)
+	}
+}
+
+func TestRequiredUnless(t *testing.T) {
+	v := mustValidator(t, schemapb.NewSchema("t", "s", "v1").
+		Fields(
+			schemapb.Bool("anon"),
+			schemapb.Str("user"),
+		).
+		RequiredUnless("user", "root.anon == true").
+		MustBuild())
+
+	// anon true => user optional.
+	if g := validateJSON(t, v, `{"anon":true}`); len(g) != 0 {
+		t.Errorf("user optional when anon, got %v", g)
+	}
+	// anon false, user absent => required.
+	if g := validateJSON(t, v, `{"anon":false}`); !has(g, "user") {
+		t.Errorf("user required unless anon, got %v", g)
+	}
+	// anon false, user present => valid.
+	if g := validateJSON(t, v, `{"anon":false,"user":"bob"}`); len(g) != 0 {
+		t.Errorf("user present satisfies, got %v", g)
+	}
+}
+
+func TestForbiddenWhen(t *testing.T) {
+	v := mustValidator(t, schemapb.NewSchema("t", "s", "v1").
+		Fields(
+			schemapb.Bool("managed"),
+			schemapb.Str("manual_host"),
+		).
+		ForbiddenWhen("manual_host", "root.managed == true").
+		MustBuild())
+
+	// managed => manual_host must be absent.
+	if g := validateJSON(t, v, `{"managed":true}`); len(g) != 0 {
+		t.Errorf("absent satisfies, got %v", g)
+	}
+	if g := validateJSON(t, v, `{"managed":true,"manual_host":"h"}`); !has(g, "manual_host") {
+		t.Errorf("present must be rejected when managed, got %v", g)
+	}
+	// not managed => allowed.
+	if g := validateJSON(t, v, `{"managed":false,"manual_host":"h"}`); len(g) != 0 {
+		t.Errorf("allowed when not managed, got %v", g)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Composition: embedding a built *Schema (ObjectOf / DefSchema / VariantOf)
+// ---------------------------------------------------------------------------
+
+// dbSchema is a small reusable, self-contained sub-schema.
+func dbSchema(t *testing.T) *schemapb.Schema {
+	t.Helper()
+	return schemapb.NewSchema("infra", "db", "v1").Fields(
+		schemapb.Str("host").Required(),
+		schemapb.Int32("port").Gte(1).Lte(65535).Default(5432),
+	).MustBuild()
+}
+
+func TestObjectOf_EmbedsBuiltSchema(t *testing.T) {
+	db := dbSchema(t)
+	v := mustValidator(t, schemapb.NewSchema("app", "cfg", "v1").Fields(
+		schemapb.Str("name").Required(),
+		schemapb.ObjectOf("primary", db).Required(),
+	).MustBuild())
+
+	// valid nested object.
+	if g := validateJSON(t, v, `{"name":"x","primary":{"host":"h"}}`); len(g) != 0 {
+		t.Errorf("valid embed, got %v", g)
+	}
+	// nested required host missing.
+	if g := validateJSON(t, v, `{"name":"x","primary":{}}`); !has(g, "primary.host") {
+		t.Errorf("embedded required must fire, got %v", g)
+	}
+	// embedded default is applied on compute.
+	out, errs := v.Compute(map[string]any{"name": "x", "primary": map[string]any{"host": "h"}})
+	if len(errs) != 0 {
+		t.Fatalf("compute: %v", msgs(errs))
+	}
+	prim := out["primary"].(map[string]any)
+	if prim["port"] != float64(5432) {
+		t.Errorf("embedded default port = %v, want 5432", prim["port"])
+	}
+}
+
+func TestObjectOf_ClonesSource(t *testing.T) {
+	db := dbSchema(t)
+	_ = schemapb.NewSchema("app", "cfg", "v1").Fields(schemapb.ObjectOf("p", db)).MustBuild()
+	// Mutating the source after embedding must not affect the composite (clone).
+	db.Fields = append(db.Fields, schemapb.Str("injected").Required().Done())
+	v := mustValidator(t, schemapb.NewSchema("app", "cfg2", "v1").Fields(
+		schemapb.ObjectOf("p", db),
+	).MustBuild())
+	// The clone taken BEFORE mutation has no "injected"; but this v embeds the
+	// mutated db, so injected IS required here — proves we embed a snapshot.
+	if g := validateJSON(t, v, `{"p":{"host":"h"}}`); !has(g, "p.injected") {
+		t.Errorf("expected injected required in second composite, got %v", g)
+	}
+}
+
+func TestDefSchema_RegisterAndRef(t *testing.T) {
+	db := dbSchema(t)
+	v := mustValidator(t, schemapb.NewSchema("app", "cfg", "v1").
+		DefSchema("db", db).
+		Fields(
+			schemapb.Ref("primary", "db").Required(),
+			schemapb.Ref("replica", "db"),
+		).MustBuild())
+
+	if g := validateJSON(t, v, `{"primary":{"host":"p"},"replica":{"host":"r","port":5433}}`); len(g) != 0 {
+		t.Errorf("valid def+ref reuse, got %v", g)
+	}
+	if g := validateJSON(t, v, `{"primary":{"host":"p"},"replica":{"host":"r","port":0}}`); !has(g, "replica.port") {
+		t.Errorf("ref'd constraint must fire, got %v", g)
+	}
+}
+
+func TestVariantOf_BuiltSchemaVariant(t *testing.T) {
+	db := dbSchema(t)
+	v := mustValidator(t, schemapb.NewSchema("app", "cfg", "v1").Fields(
+		schemapb.OneOf("backend", "kind").
+			VariantOf("db", db).
+			Variant("cache", schemapb.Int32("ttl").Required()).
+			Required(),
+	).MustBuild())
+
+	if g := validateJSON(t, v, `{"backend":{"kind":"db","host":"h"}}`); len(g) != 0 {
+		t.Errorf("valid db variant, got %v", g)
+	}
+	if g := validateJSON(t, v, `{"backend":{"kind":"db"}}`); !has(g, "backend.host") {
+		t.Errorf("variant required must fire, got %v", g)
+	}
+	if g := validateJSON(t, v, `{"backend":{"kind":"cache","ttl":60}}`); len(g) != 0 {
+		t.Errorf("valid cache variant, got %v", g)
+	}
+}
+
+func TestHoistDefs_EmbeddedInternalRef(t *testing.T) {
+	// A built schema that uses its OWN $defs + Ref internally. When embedded via
+	// ObjectOf, Build must hoist that def to root so the internal Ref resolves.
+	inner := schemapb.NewSchema("lib", "tree", "v1").
+		Def("node", schemapb.Str("label").Required()).
+		Fields(schemapb.Ref("root", "node").Required()).
+		MustBuild()
+
+	v := mustValidator(t, schemapb.NewSchema("app", "host", "v1").Fields(
+		schemapb.ObjectOf("t", inner).Required(),
+	).MustBuild())
+
+	if g := validateJSON(t, v, `{"t":{"root":{"label":"x"}}}`); len(g) != 0 {
+		t.Errorf("hoisted internal ref must resolve, got %v", g)
+	}
+	if g := validateJSON(t, v, `{"t":{"root":{}}}`); !has(g, "t.root.label") {
+		t.Errorf("internal ref constraint must fire, got %v", g)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Composition by identity: RefID + Link
+// ---------------------------------------------------------------------------
+
+func TestRefID_UnlinkedIsError(t *testing.T) {
+	id := &schemapb.SchemaIdentity{Namespace: "infra", Name: "db", Version: "v1"}
+	s := schemapb.NewSchema("app", "cfg", "v1").Fields(
+		schemapb.RefID("primary", id).Required(),
+	).MustBuild()
+
+	// Build succeeds (id-refs are external, resolved at link/validate time).
+	// The node preserves its identity (renderer can read it).
+	got := s.GetFields()[0].GetRef().GetId()
+	if got.GetName() != "db" || got.GetNamespace() != "infra" || got.GetVersion() != "v1" {
+		t.Fatalf("identity not preserved on node: %v", got)
+	}
+	// Unlinked => validating a value hits "unknown $ref".
+	errs, err := s.ValidateJSON([]byte(`{"primary":{"host":"h"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if codeFor(errs, "primary") != "ref" {
+		t.Errorf("unlinked id-ref must be 'ref' error, got %v", msgs(errs))
+	}
+}
+
+func TestLink_ResolvesIdentityRef(t *testing.T) {
+	ctx := context.Background()
+	reg := schemapb.NewInMemoryRegistry()
+	if err := reg.Put(ctx, dbSchema(t)); err != nil {
+		t.Fatal(err)
+	}
+	id := &schemapb.SchemaIdentity{Namespace: "infra", Name: "db", Version: "v1"}
+	s := schemapb.NewSchema("app", "cfg", "v1").Fields(
+		schemapb.RefID("primary", id).Required(),
+	).MustBuild()
+
+	linked, err := s.Link(ctx, reg)
+	if err != nil {
+		t.Fatalf("link: %v", err)
+	}
+	// After linking the schema validates standalone.
+	if g := validateJSON(t, mustValidator(t, linked), `{"primary":{"host":"h"}}`); len(g) != 0 {
+		t.Errorf("linked schema must validate, got %v", g)
+	}
+	if g := validateJSON(t, mustValidator(t, linked), `{"primary":{"host":"h","port":0}}`); !has(g, "primary.port") {
+		t.Errorf("linked target constraint must fire, got %v", g)
+	}
+	// Identity still present on the node post-link (renderer-friendly).
+	if linked.GetFields()[0].GetRef().GetId().GetName() != "db" {
+		t.Error("identity lost after link")
+	}
+	// Original schema untouched (Link returns a clone).
+	if len(s.GetDefs()) != 0 {
+		t.Error("Link mutated the receiver")
+	}
+}
+
+func TestLink_Transitive(t *testing.T) {
+	ctx := context.Background()
+	reg := schemapb.NewInMemoryRegistry()
+	// C is a leaf; B refs C by identity; A refs B by identity.
+	cID := &schemapb.SchemaIdentity{Namespace: "x", Name: "c", Version: "v1"}
+	bID := &schemapb.SchemaIdentity{Namespace: "x", Name: "b", Version: "v1"}
+	c := schemapb.NewSchema("x", "c", "v1").Fields(schemapb.Str("leaf").Required()).MustBuild()
+	b := schemapb.NewSchema("x", "b", "v1").Fields(
+		schemapb.RefID("c", cID).Required(),
+	).MustBuild()
+	if err := reg.Put(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	if err := reg.Put(ctx, b); err != nil {
+		t.Fatal(err)
+	}
+	a := schemapb.NewSchema("x", "a", "v1").Fields(
+		schemapb.RefID("b", bID).Required(),
+	).MustBuild()
+
+	linked, err := a.Link(ctx, reg)
+	if err != nil {
+		t.Fatalf("link: %v", err)
+	}
+	v := mustValidator(t, linked)
+	if g := validateJSON(t, v, `{"b":{"c":{"leaf":"y"}}}`); len(g) != 0 {
+		t.Errorf("transitive link must validate, got %v", g)
+	}
+	if g := validateJSON(t, v, `{"b":{"c":{}}}`); !has(g, "b.c.leaf") {
+		t.Errorf("deep constraint must fire, got %v", g)
+	}
+}
+
+func TestLink_MissingIdentityErrors(t *testing.T) {
+	ctx := context.Background()
+	reg := schemapb.NewInMemoryRegistry() // empty
+	id := &schemapb.SchemaIdentity{Namespace: "infra", Name: "missing", Version: "v1"}
+	s := schemapb.NewSchema("app", "cfg", "v1").Fields(
+		schemapb.RefID("x", id),
+	).MustBuild()
+	if _, err := s.Link(ctx, reg); err == nil {
+		t.Fatal("want error linking an unresolvable identity")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Builder coverage: exercise every per-kind constraint setter once.
+// ---------------------------------------------------------------------------
+
+func TestBuilders_EverySetter(t *testing.T) {
+	s, err := schemapb.NewSchema("t", "setters", "v1").
+		MinProps(0).MaxProps(50).
+		Fields(
+			schemapb.Float("f").Gt(0).Gte(0).Lt(9).Lte(9).In(1, 2).NotIn(3).MultipleOf(0.5).Const(2).Default(2),
+			schemapb.Double("d").Gt(0).Gte(0).Lt(9).Lte(9).In(1).NotIn(3).MultipleOf(0.5).Const(2).Default(2),
+			schemapb.Int32("i32").Gt(0).Gte(0).Lt(9).Lte(9).In(1).NotIn(3).MultipleOf(2).Const(2).Default(2),
+			schemapb.Int64("i64").Gt(0).Gte(0).Lt(9).Lte(9).In(1).NotIn(3).MultipleOf(2).Const(2).Default(2),
+			schemapb.UInt32("u32").Gt(0).Gte(0).Lt(9).Lte(9).In(1).NotIn(3).MultipleOf(2).Const(2).Default(2),
+			schemapb.UInt64("u64").Gt(0).Gte(0).Lt(9).Lte(9).In(1).NotIn(3).MultipleOf(2).Const(2).Default(2),
+			schemapb.Str("s").Const("x").NotIn("y"),
+			schemapb.Duration("dur").Gt(time.Second).Gte(time.Second).Lt(time.Hour).Lte(time.Hour).Default(time.Minute),
+			schemapb.Timestamp("ts").Gt(time.Unix(0, 0)).Gte(time.Unix(0, 0)).Lt(time.Unix(1<<31, 0)).Lte(time.Unix(1<<31, 0)).Default(time.Unix(1, 0)),
+			schemapb.Object("o", schemapb.Str("z").Required()).
+				Rule(schemapb.Rule("true", "ok").ID("or")),
+			schemapb.RefIdentity("ext", "ns", "name", "v1"), // id-ref (external)
+		).
+		Rules(schemapb.Rule("true", "warn-only").ID("w").Severity(schemapb.SeverityWarning)).
+		Build()
+	if err != nil {
+		t.Fatalf("every-setter schema must build: %v", err)
+	}
+	if s == nil {
+		t.Fatal("nil schema")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Server RPCs: ValidateSchema / Bake / Merge.
+// ---------------------------------------------------------------------------
+
+func TestServer_ValidateSchemaRPC(t *testing.T) {
+	srv := schemapb.NewServer(schemapb.DefaultConfig())
+	ctx := context.Background()
+
+	okResp, err := srv.ValidateSchema(ctx, diskSchema())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !okResp.GetValid() {
+		t.Errorf("disk schema should be valid: %v", msgs(okResp.GetErrors()))
+	}
+
+	bad := &schemapb.Schema{} // no id, no fields
+	badResp, err := srv.ValidateSchema(ctx, bad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if badResp.GetValid() || len(badResp.GetErrors()) == 0 {
+		t.Error("empty schema must be reported invalid")
+	}
+}
+
+func TestServer_BakeAndMergeRPC(t *testing.T) {
+	srv := schemapb.NewServer(schemapb.DefaultConfig())
+	ctx := context.Background()
+	reg, _ := srv.RegisterSchema(ctx, diskSchema())
+
+	bakeResp, err := srv.Bake(ctx, &schemapb.Filled{
+		Schema: refID(reg.GetId()),
+		Values: mustStruct(t, map[string]any{"disk_type": 1, "disk_size": 100}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	baked := bakeResp.GetBaked()
+	if baked == nil {
+		t.Fatalf("bake should seal: %v", msgs(bakeResp.GetErrors()))
+	}
+	if baked.GetValues().AsMap()["iops"] != float64(5000) {
+		t.Errorf("baked iops = %v", baked.GetValues().AsMap()["iops"])
+	}
+
+	// Merge an override and re-seal (computed recomputes).
+	mergeResp, err := srv.Merge(ctx, &schemapb.MergeRequest{
+		Base:      baked,
+		Overrides: mustStruct(t, map[string]any{"disk_size": 200}),
+		Lists:     schemapb.ListMerge_LIST_MERGE_REPLACE,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mb := mergeResp.GetBaked()
+	if mb == nil {
+		t.Fatalf("merge should seal: %v", msgs(mergeResp.GetErrors()))
+	}
+	if mb.GetValues().AsMap()["disk_size"] != float64(200) {
+		t.Errorf("merged disk_size = %v", mb.GetValues().AsMap()["disk_size"])
+	}
+
+	// Merge without a base/schema is an InvalidArgument error.
+	if _, err := srv.Merge(ctx, &schemapb.MergeRequest{}); err == nil {
+		t.Error("merge without base must error")
 	}
 }

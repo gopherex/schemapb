@@ -1,6 +1,7 @@
 package schemapb
 
 import (
+	"fmt"
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -97,9 +98,51 @@ func (b *SchemaB) Rules(rules ...RuleDef) *SchemaB {
 	return b
 }
 
+// --- conditional presence sugar --------------------------------------------
+//
+// These emit a form-wide rule (so they fire even when the field is absent) that
+// toggles a top-level field's PRESENCE requirement on a condition over `root`.
+// They differ from .When(cond): When gates EXISTENCE (an inactive field is
+// hidden and its value ignored), while these keep the field active and only
+// constrain whether it must be present. Presence is tested with `"field" in
+// root`, so they target top-level fields by name. The error is reported on
+// `field` (code "rule").
+
+// RequiredWhen makes `field` required only when `cond` (an expr over root) is
+// true; otherwise it stays optional.
+func (b *SchemaB) RequiredWhen(field, cond string) *SchemaB {
+	return b.Rules(Rule(
+		fmt.Sprintf(`!(%s) || (%q in root)`, cond, field),
+		fmt.Sprintf("%s is required when: %s", field, cond),
+	).ID(field))
+}
+
+// RequiredUnless makes `field` required unless `cond` is true (the inverse of
+// RequiredWhen).
+func (b *SchemaB) RequiredUnless(field, cond string) *SchemaB {
+	return b.Rules(Rule(
+		fmt.Sprintf(`(%s) || (%q in root)`, cond, field),
+		fmt.Sprintf("%s is required unless: %s", field, cond),
+	).ID(field))
+}
+
+// ForbiddenWhen rejects `field` being present when `cond` is true: a hard error,
+// unlike .When which silently ignores the value of an inactive field.
+func (b *SchemaB) ForbiddenWhen(field, cond string) *SchemaB {
+	return b.Rules(Rule(
+		fmt.Sprintf(`!(%s) || !(%q in root)`, cond, field),
+		fmt.Sprintf("%s must be absent when: %s", field, cond),
+	).ID(field))
+}
+
 // Build assembles and validates the schema; it returns a *SchemaError if the
 // descriptor is malformed.
 func (b *SchemaB) Build() (*Schema, error) {
+	// Lift any embedded schema's $defs to the root so internal Refs resolve
+	// (inline composition via ObjectOf/VariantOf/DefSchema).
+	if err := hoistDefs(b.s); err != nil {
+		return nil, &SchemaError{Errors: []*FieldError{schemaErr("$defs", err.Error())}}
+	}
 	if errs := b.s.IsValid(); len(errs) > 0 {
 		return nil, &SchemaError{Errors: errs}
 	}
@@ -200,6 +243,11 @@ func (b fieldBase[S]) Rules(rules ...RuleDef) S {
 // Normalize sets the normalize expression for the field. `this` = current
 // value, `root` = whole form; the expression result becomes the new value.
 func (b fieldBase[S]) Normalize(e string) S { b.f.Normalize = &e; return b.self }
+
+// When sets the conditional gate: an expr boolean over `root`. When it is false
+// the field (and, for container kinds, its whole subtree) is inactive — skipped
+// by validation and hidden by renderers. `this` is not bound.
+func (b fieldBase[S]) When(e string) S { b.f.When = &e; return b.self }
 
 // Done returns the built field.
 func (b fieldBase[S]) Done() *Schema_Filed { return b.f }
@@ -406,6 +454,10 @@ func (b *EnumB) DefinedOnly() *EnumB              { b.k.DefinedOnly = true; retu
 func (b *EnumB) In(v ...int32) *EnumB             { b.k.In = v; return b }
 func (b *EnumB) NotIn(v ...int32) *EnumB          { b.k.NotIn = v; return b }
 
+// Options sets the dynamic options expression: an expr over `root` returning the
+// list of allowed integer values. When set it replaces the static allowed set.
+func (b *EnumB) Options(e string) *EnumB { b.k.OptionsExpr = &e; return b }
+
 // --- duration / timestamp --------------------------------------------------
 
 // DurationB builds a duration field.
@@ -468,6 +520,11 @@ func List(name string, items ...FieldDef) *ListB {
 func (b *ListB) MinItems(v uint64) *ListB { b.k.MinItems = &v; return b }
 func (b *ListB) MaxItems(v uint64) *ListB { b.k.MaxItems = &v; return b }
 func (b *ListB) Unique() *ListB           { b.k.Unique = true; return b }
+
+// Count sets the dynamic length expression: an expr over `root` returning the
+// exact non-negative number of items the list must have. Inside an item's rules
+// the item's zero-based position is bound as `index`.
+func (b *ListB) Count(e string) *ListB { b.k.CountExpr = &e; return b }
 
 // ObjectB builds a nested object field.
 type ObjectB struct {
@@ -570,13 +627,31 @@ type RefB struct {
 	fieldBase[*RefB]
 }
 
-// Ref builds a field of kind Ref. name is the field name; defName is the key
-// in the root schema's defs map that the value must validate against.
+// Ref builds a field of kind Ref that resolves against a LOCAL def. name is the
+// field name; defName is the key in the root schema's defs map that the value
+// must validate against.
 func Ref(name, defName string) *RefB {
 	b := &RefB{}
 	b.fieldBase = newField(name, b)
-	b.f.Kind = &Schema_Filed_Ref_{Ref: &Schema_Filed_Ref{Name: defName}}
+	b.f.Kind = &Schema_Filed_Ref_{Ref: &Schema_Filed_Ref{Target: &Schema_Filed_Ref_Name{Name: defName}}}
 	return b
+}
+
+// RefID builds a Ref field that targets a separately-registered schema by
+// identity. The identity is preserved on the node (renderers can resolve/link
+// the target). The referenced schema must be resolvable at validate time:
+// either already present in the root defs under its identity key, or pulled in
+// by Link(resolver). name is the field name.
+func RefID(name string, id *SchemaIdentity) *RefB {
+	b := &RefB{}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Ref_{Ref: &Schema_Filed_Ref{Target: &Schema_Filed_Ref_Id{Id: id}}}
+	return b
+}
+
+// RefIdentity is RefID with the identity spelled out inline.
+func RefIdentity(name, namespace, schemaName, version string) *RefB {
+	return RefID(name, &SchemaIdentity{Namespace: namespace, Name: schemaName, Version: version})
 }
 
 // =============================================================================

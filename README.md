@@ -19,9 +19,10 @@ Typical use cases: `postgresql.conf`-style configuration UIs, dynamic form gener
 4. [Validation model](#validation-model)
 5. [Computed / resolve / Bake](#computed--resolve--bake)
 6. [Composition — OneOf and Ref/$defs](#composition--oneof-and-refdefs)
-7. [TypeScript / browser](#typescript--browser)
-8. [gRPC SchemaService](#grpc-schemaservice)
-9. [Development](#development)
+7. [Dynamic fields — when / options_expr / count_expr](#dynamic-fields--when--options_expr--count_expr)
+8. [TypeScript / browser](#typescript--browser)
+9. [gRPC SchemaService](#grpc-schemaservice)
+10. [Development](#development)
 
 ---
 
@@ -174,8 +175,10 @@ Every field has exactly one *kind*. Kind constructors take the field name and re
 | `List(name, items...)` | array | items = element field def |
 | `Object(name, fields...)` | nested object | inline sub-schema |
 | `Computed(name, expr)` | derived value | read-only, evaluated from `root` |
-| `OneOf(name, discriminator)` | discriminated union | `.Variant(key, fields...)` |
-| `Ref(name, defName)` | reference to `$defs` | validates object against named def |
+| `OneOf(name, discriminator)` | discriminated union | `.Variant(key, fields...)` / `.VariantOf(key, *Schema)` |
+| `Ref(name, defName)` | reference to local `$defs` | validates object against named def |
+| `RefID(name, *SchemaIdentity)` | reference by identity | external; resolved via `Link` (see Composition) |
+| `ObjectOf(name, *Schema)` | embed a built schema | inline object (clone) |
 
 ### Per-kind constraint methods
 
@@ -232,6 +235,7 @@ String format constants (use with `.Format(...)`):
 .In(v...)                      // allowlist of integer values
 .NotIn(v...)                   // denylist
 .Default(v int32)
+.Options(expr)                 // dynamic allowed set over `root` (see Dynamic fields)
 ```
 
 **Duration** and **Timestamp**: `.Default(...)`, `.Gt(...)`, `.Gte(...)`, `.Lt(...)`, `.Lte(...)`
@@ -244,7 +248,8 @@ String format constants (use with `.Format(...)`):
 List("tags", Str("tag")).
     MinItems(1).
     MaxItems(10).
-    Unique()
+    Unique().
+    Count(expr)   // dynamic exact length over `root` (see Dynamic fields)
 ```
 
 **Computed**:
@@ -269,6 +274,7 @@ Result type constants: `ResultDouble`, `ResultInt64`, `ResultUint64`, `ResultBoo
 .Secret()            // sensitive value, e.g. password (informative only)
 .Examples(vals...)   // example values (*structpb.Value; informative only)
 .Normalize(expr)     // transform the value before validation (see below)
+.When(expr)          // conditional gate: field is active only if expr is true (see Dynamic fields)
 .Rules(rules...)     // attach cross-field rules to this field
 ```
 
@@ -474,7 +480,129 @@ schemapb.NewSchema("app", "tree", "v1").
     MustBuild()
 ```
 
-`IsValid` checks that every `Ref.name` resolves to a key in `schema.defs`. An unresolved ref produces a schema error at build time.
+`IsValid` checks that every local `Ref.name` resolves to a key in `schema.defs`. An unresolved ref produces a schema error at build time.
+
+### Embedding an already-built `*Schema`
+
+To reuse a separately-built `*Schema` (instead of re-declaring its fields inline) there are two models.
+
+**By value (inline)** — the embedded schema's fields are *cloned* into the host. Its identity is not used (validation is structural); its own `$defs` are hoisted into the root at `Build()` so internal refs still resolve. Self-contained, validates offline, good for snapshots / `Baked`.
+
+```go
+db := schemapb.NewSchema("infra", "db", "v1").Fields(
+    schemapb.Str("host").Required(),
+    schemapb.Int32("port").Gte(1).Lte(65535).Default(5432),
+).MustBuild()
+
+schemapb.NewSchema("app", "cfg", "v1").
+    DefSchema("db", db).                          // register a built schema as a def
+    Fields(
+        schemapb.ObjectOf("primary", db),         // embed as a nested object
+        schemapb.Ref("replica", "db"),            // or reference the registered def
+        schemapb.OneOf("backend", "kind").
+            VariantOf("db", db).                  // a built schema as a oneof variant
+            Variant("cache", schemapb.Int32("ttl").Required()),
+    ).
+    MustBuild()
+```
+
+| Builder | Embeds a `*Schema` as |
+|---|---|
+| `ObjectOf(name, s)` | a nested object field |
+| `(*SchemaB).DefSchema(name, s)` | a named def (pair with `Ref`) |
+| `(*OneOfB).VariantOf(key, s)` | a oneof variant |
+
+All three clone the source — later mutation of the original never leaks into the composite.
+
+**By identity (reference)** — a `Ref` carries the *target's `SchemaIdentity`* instead of a copy. The identity is **preserved on the node**, so a renderer can see exactly which schema (and version) a branch points at — useful for lazy-loading, linking, and version-aware UIs. The referenced schema isn't copied, so a source update propagates.
+
+```go
+dbID := &schemapb.SchemaIdentity{Namespace: "infra", Name: "db", Version: "v1"}
+
+cfg := schemapb.NewSchema("app", "cfg", "v1").Fields(
+    schemapb.RefID("primary", dbID).Required(),         // refers to infra/db/v1 by identity
+    // or: schemapb.RefIdentity("primary", "infra", "db", "v1")
+).MustBuild()
+```
+
+An identity-ref is **external**: it does not have to resolve at build time. Before validation the target must be pulled in with `Link`, which resolves every identity-ref (transitively) against a `Registry` and folds the referenced schemas into the root defs — keeping the identity on the node, but making the schema self-contained so it validates standalone:
+
+```go
+reg := schemapb.NewInMemoryRegistry()
+_ = reg.Put(ctx, db)                 // db has identity infra/db/v1
+
+linked, err := cfg.Link(ctx, reg)    // resolves all id-refs; returns a clone
+// linked validates standalone; linked's id-ref nodes still report their identity.
+```
+
+`Registry` is the same interface the gRPC `SchemaService` uses, so the core needs no extra resolver. An unlinked identity-ref that reaches validation produces a `FieldError` with code `"ref"` (message hints to call `Link`). Typical flow: the **server** links and ships the self-contained schema; the **browser** receives it and validates with the embedded WASM engine (no registry needed client-side).
+
+| Mode | Builder | Identity kept | Needs registry | Self-contained |
+|---|---|---|---|---|
+| inline (value) | `ObjectOf` / `DefSchema` / `VariantOf` | no | no | yes |
+| reference (identity) | `RefID` / `RefIdentity` + `Link` | **yes** | to `Link` | after `Link` |
+
+---
+
+## Dynamic fields — when / options_expr / count_expr
+
+Three field-level expressions make a field's shape depend on the rest of the form (`root`). Each is an expr-lang expression evaluated over `root` (the whole form as `map<string, dyn>`); they compile at `Build()` and run during validation/compute.
+
+### `When(expr)` — conditional gate
+
+`When` is a boolean expression. When it is **false** the field is *inactive*: the validator skips it entirely (no required/nullable, no rules, no kind constraints, no Computed/normalize) and treats it as **absent** regardless of any value present. For a container kind (Object/OneOf/List/Ref) the whole subtree is gated. Inactive fields do not count toward `min/max_properties` and their key never trips `Strict` "unknown_field". The value is not deleted, so it reappears if the field becomes active again. `this` is **not** bound (a field's own value must not gate its existence). Empty/absent ⇒ always active; a non-bool result is a runtime error (code `when`).
+
+```go
+schemapb.Bool("tls"),
+schemapb.Str("tls_cert").Required().When("root.tls == true"), // required only when tls is on
+```
+
+Renderers decide visibility with `Schema.FieldActive(name, root) (bool, error)` (TS: `sp.fieldActive`).
+
+### `Options(expr)` on Enum — dynamic allowed set
+
+An expr returning a list of allowed integer values. When set it **replaces** the static allowed set (`Values`/`In`/`NotIn`/`DefinedOnly`) for validation and supplies the option list to renderers. A submitted value not in the result fails with code `enum_not_allowed`. Empty/absent ⇒ use the static values; a non-list result is a runtime error.
+
+```go
+schemapb.Enum("version").
+    Values(map[int32]string{13: "13", 14: "14", 15: "15", 16: "16"}).
+    Options(`root.edition == "lts" ? [14, 16] : [15]`)
+```
+
+Renderers fetch options with `Schema.EnumOptions(name, root) ([]int32, error)` (falls back to the static keys when no `Options`; TS: `sp.enumOptions`).
+
+### `Count(expr)` on List — dynamic exact length
+
+An expr returning a non-negative integer: the exact number of items the list must have. The length must equal the result, else code `list_count_mismatch`. Empty/absent ⇒ length bounded only by `MinItems`/`MaxItems`; a non-int or negative result is a runtime error. Each item is still validated by the item schema, and inside an item's rules the item's zero-based position is bound as `index`.
+
+```go
+schemapb.Int32("replicas").Gte(0),
+schemapb.List("machines", schemapb.Str("host")).Count("root.replicas + 1"),
+```
+
+Renderers fetch the count with `Schema.ListCount(name, root) (int64, error)` (TS: `sp.listCount`).
+
+### Conditional presence sugar (schema-level)
+
+`When` gates a field's **existence** (inactive ⇒ hidden, value ignored). When a field should stay active/visible but its **presence** is conditional, use these schema-level helpers — they emit a form-wide rule (so they fire even when the field is absent) and report the error on `field`:
+
+```go
+schemapb.NewSchema("t","s","v1").Fields(
+    schemapb.Bool("tls"),
+    schemapb.Str("cert"),               // NOT .Required()
+).
+    RequiredWhen("cert", "root.tls == true").       // required only when tls on
+    RequiredUnless("user", "root.anon == true").    // required unless anon
+    ForbiddenWhen("manual_host", "root.managed == true") // must be ABSENT when managed (hard error)
+```
+
+| Helper | Meaning |
+|---|---|
+| `RequiredWhen(field, cond)` | `field` required iff `cond` true |
+| `RequiredUnless(field, cond)` | `field` required unless `cond` true |
+| `ForbiddenWhen(field, cond)` | `field` must be absent when `cond` true (vs `When`, which silently ignores) |
+
+Presence is tested with `"field" in root`, so these target top-level fields by name. They are pure sugar over `Rules(...)`, so the behavior ships through WASM to TS unchanged (TS users write the equivalent rule directly).
 
 ---
 
@@ -537,9 +665,16 @@ if (result.baked) {
 // replaceLists=false → lists append; true → lists replace.
 const merged = sp.merge(result.baked!, { max_connections: 300 });
 console.log("Merged:", merged.baked?.values);
+
+// Link: resolve identity-Refs against a pool of built schemas (mirrors Go's
+// Schema.Link). Returns a self-contained Schema; id-ref nodes keep their identity.
+const linked = sp.link(cfgSchema, [dbSchema]);
+const ok = sp.validate(linked, { primary: { host: "h" } }).ok;
 ```
 
-`Schemapb.load` calls `WebAssembly.instantiate` and runs the Go binary, which registers four globals: `schemapbValidate`, `schemapbCompute`, `schemapbBake`, `schemapbMerge`. These accept and return JSON strings; the TypeScript wrapper handles serialisation via protobuf-es `toJson`.
+The TS wrapper also exposes the renderer helpers `sp.fieldActive(schema, field, root)`, `sp.enumOptions(schema, field, root)` and `sp.listCount(schema, field, root)` — the exact counterparts of Go's `Schema.FieldActive` / `EnumOptions` / `ListCount`.
+
+`Schemapb.load` calls `WebAssembly.instantiate` and runs the Go binary, which registers eight globals: `schemapbValidate`, `schemapbCompute`, `schemapbBake`, `schemapbMerge`, `schemapbLink`, `schemapbFieldActive`, `schemapbEnumOptions`, `schemapbListCount`. These accept and return JSON strings; the TypeScript wrapper handles serialisation via protobuf-es `toJson`/`fromJson`. The engine is the *same* Go code compiled to WASM, so the TS and Go SDKs validate, compute, bake, merge, link, and render identically.
 
 Schemas may also be fetched from a running `SchemaService` with `GetSchema` and deserialised with protobuf-es — no need to build them client-side.
 

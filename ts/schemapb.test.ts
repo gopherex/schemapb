@@ -493,7 +493,7 @@ describe("Ref + defs", () => {
           kind: {
             case: "list",
             value: {
-              items: [{ name: "child", kind: { case: "ref", value: { name: "node" } } }],
+              items: [{ name: "child", kind: { case: "ref", value: { target: { case: "name", value: "node" } } } }],
             },
           },
         },
@@ -502,7 +502,7 @@ describe("Ref + defs", () => {
     return create(SchemaSchema, {
       id: { namespace: "t", name: "tree", version: "v1" },
       defs: { node: nodeSchema },
-      fields: [{ name: "root", required: true, kind: { case: "ref", value: { name: "node" } } }],
+      fields: [{ name: "root", required: true, kind: { case: "ref", value: { target: { case: "name", value: "node" } } } }],
     });
   }
 
@@ -585,5 +585,461 @@ describe("FieldError.code", () => {
     const r = sp.validate(codeSchema, { name: "x", email: "notanemail" });
     const e = r.errors.find((x) => x.field === "email");
     expect(e?.code).toBe("format");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Feature: when (conditional field gate)
+// ---------------------------------------------------------------------------
+
+describe("when (conditional gate)", () => {
+  // tls_cert required + range-checked only when tls is on.
+  const whenSchema = create(SchemaSchema, {
+    id: { namespace: "t", name: "when", version: "v1" },
+    fields: [
+      { name: "tls", kind: { case: "bool", value: {} } },
+      {
+        name: "tls_cert",
+        required: true,
+        when: "root.tls == true",
+        kind: { case: "string", value: { minLen: 3n } },
+      },
+    ],
+  });
+
+  it("skips required for an inactive field", () => {
+    expect(sp.validate(whenSchema, { tls: false }).ok).toBe(true);
+  });
+
+  it("enforces required for an active field", () => {
+    const r = sp.validate(whenSchema, { tls: true });
+    expect(r.ok).toBe(false);
+    expect(r.errors.find((e) => e.field === "tls_cert")?.code).toBe("required");
+  });
+
+  it("does not validate an inactive field's present value", () => {
+    // too short, but inactive => ignored.
+    expect(sp.validate(whenSchema, { tls: false, tls_cert: "x" }).ok).toBe(true);
+  });
+
+  it("validates an active field's value", () => {
+    expect(sp.validate(whenSchema, { tls: true, tls_cert: "x" }).ok).toBe(false);
+    expect(sp.validate(whenSchema, { tls: true, tls_cert: "pem" }).ok).toBe(true);
+  });
+
+  it("gates a whole container subtree", () => {
+    const s = create(SchemaSchema, {
+      id: { namespace: "t", name: "whenobj", version: "v1" },
+      fields: [
+        { name: "backup", kind: { case: "bool", value: {} } },
+        {
+          name: "backup_cfg",
+          when: "root.backup == true",
+          kind: {
+            case: "object",
+            value: { schema: { fields: [{ name: "bucket", required: true, kind: { case: "string", value: {} } }] } },
+          },
+        },
+      ],
+    });
+    expect(sp.validate(s, { backup: false }).ok).toBe(true);
+    const r = sp.validate(s, { backup: true, backup_cfg: {} });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.field === "backup_cfg.bucket")).toBe(true);
+  });
+
+  it("skips compute/normalize for an inactive field", () => {
+    const s = create(SchemaSchema, {
+      id: { namespace: "t", name: "whencompute", version: "v1" },
+      fields: [
+        { name: "on", kind: { case: "bool", value: {} } },
+        { name: "tag", when: "root.on == true", kind: { case: "string", value: {}, }, normalize: "lower(this)" },
+        { name: "derived", when: "root.on == true", kind: { case: "computed", value: { expr: "root.tag", result: RT.STRING } } },
+      ],
+    });
+    const off = sp.compute(s, { on: false, tag: "HELLO" });
+    expect(off.values.tag).toBe("HELLO"); // normalize skipped
+    expect(off.values.derived).toBeUndefined(); // computed not seeded
+    const on = sp.compute(s, { on: true, tag: "HELLO" });
+    expect(on.values.tag).toBe("hello");
+    expect(on.values.derived).toBe("hello");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Feature: options_expr (dynamic enum options)
+// ---------------------------------------------------------------------------
+
+describe("options_expr (dynamic enum options)", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "opts", version: "v1" },
+    fields: [
+      { name: "edition", kind: { case: "string", value: {} } },
+      {
+        name: "version",
+        kind: {
+          case: "enum",
+          value: {
+            values: { 13: "13", 14: "14", 15: "15", 16: "16" },
+            optionsExpr: 'root.edition == "lts" ? [14, 16] : [15]',
+          },
+        },
+      },
+    ],
+  });
+
+  it("accepts a value in the dynamic set", () => {
+    expect(sp.validate(s, { edition: "lts", version: 16 }).ok).toBe(true);
+    expect(sp.validate(s, { edition: "std", version: 15 }).ok).toBe(true);
+  });
+
+  it("rejects a value outside the dynamic set with code enum_not_allowed", () => {
+    const r = sp.validate(s, { edition: "lts", version: 15 });
+    expect(r.ok).toBe(false);
+    expect(r.errors.find((e) => e.field === "version")?.code).toBe("enum_not_allowed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Feature: count_expr (dynamic list length)
+// ---------------------------------------------------------------------------
+
+describe("count_expr (dynamic list length)", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "cnt", version: "v1" },
+    fields: [
+      { name: "replicas", kind: { case: "int32", value: { gte: 0 } } },
+      {
+        name: "machines",
+        kind: {
+          case: "list",
+          value: { countExpr: "root.replicas + 1", items: [{ name: "host", kind: { case: "string", value: {} } }] },
+        },
+      },
+    ],
+  });
+
+  it("accepts a list of the required length", () => {
+    expect(sp.validate(s, { replicas: 2, machines: ["a", "b", "c"] }).ok).toBe(true);
+  });
+
+  it("rejects a wrong length with code list_count_mismatch", () => {
+    const r = sp.validate(s, { replicas: 2, machines: ["a", "b"] });
+    expect(r.ok).toBe(false);
+    expect(r.errors.find((e) => e.field === "machines")?.code).toBe("list_count_mismatch");
+  });
+
+  it("binds the item index inside item rules", () => {
+    const idx = create(SchemaSchema, {
+      id: { namespace: "t", name: "cntidx", version: "v1" },
+      fields: [
+        { name: "n", kind: { case: "int32", value: { gte: 0 } } },
+        {
+          name: "seq",
+          kind: {
+            case: "list",
+            value: {
+              countExpr: "root.n",
+              items: [{ name: "v", kind: { case: "int32", value: {} }, rules: [{ expr: "this == index", message: "must equal its index", id: "rng" }] }],
+            },
+          },
+        },
+      ],
+    });
+    expect(sp.validate(idx, { n: 3, seq: [0, 1, 2] }).ok).toBe(true);
+    const r = sp.validate(idx, { n: 3, seq: [0, 9, 2] });
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.field === "seq[1]")).toBe(true);
+  });
+});
+
+// Identity-ref (Ref by SchemaIdentity). Linking is server-side (Go Schema.Link);
+// the browser receives an already self-contained schema. An UNLINKED id-ref
+// surfaces a "ref" error — proving the new Ref oneof shape flows through WASM.
+describe("identity ref (RefID)", () => {
+  it("reports a 'ref' error for an unlinked identity ref", () => {
+    const s = create(SchemaSchema, {
+      id: { namespace: "app", name: "cfg", version: "v1" },
+      fields: [
+        {
+          name: "primary",
+          required: true,
+          kind: {
+            case: "ref",
+            value: { target: { case: "id", value: { namespace: "infra", name: "db", version: "v1" } } },
+          },
+        },
+      ],
+    });
+    const r = sp.validate(s, { primary: { host: "h" } });
+    expect(r.ok).toBe(false);
+    expect(r.errors.find((e) => e.field === "primary")?.code).toBe("ref");
+  });
+});
+
+// ===========================================================================
+// SDK parity: mirror the Go scenarios that exercise the shared WASM engine, so
+// both SDKs are confirmed to behave identically (and protojson round-trips).
+// ===========================================================================
+
+describe("parity: numeric constraints", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "num", version: "v1" },
+    fields: [
+      { name: "a", kind: { case: "int32", value: { gt: 0, lte: 10 } } },
+      { name: "b", kind: { case: "double", value: { multipleOf: 0.5 } } },
+      { name: "c", kind: { case: "int64", value: { in: [1n, 2n, 3n] } } },
+    ],
+  });
+  it("accepts values within all bounds", () => {
+    expect(sp.validate(s, { a: 5, b: 1.5, c: 2 }).ok).toBe(true);
+  });
+  it.each([
+    [{ a: 0 }, "a"],
+    [{ a: 11 }, "a"],
+    [{ b: 1.3 }, "b"],
+    [{ c: 9 }, "c"],
+  ])("rejects %o on field %s", (vals, field) => {
+    expect(sp.validate(s, vals).errors.some((e) => e.field === field)).toBe(true);
+  });
+});
+
+describe("parity: string constraints", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "str", version: "v1" },
+    fields: [
+      { name: "s", kind: { case: "string", value: { minLen: 2n, maxLen: 4n, pattern: "^[a-z]+$" } } },
+      { name: "e", kind: { case: "string", value: { in: ["x", "y"] } } },
+    ],
+  });
+  it("accepts a valid string", () => {
+    expect(sp.validate(s, { s: "abc", e: "x" }).ok).toBe(true);
+  });
+  it.each([
+    [{ s: "a" }],     // too short
+    [{ s: "abcde" }], // too long
+    [{ s: "AB" }],    // pattern
+    [{ e: "z" }],     // not in allowlist
+  ])("rejects %o", (vals) => {
+    expect(sp.validate(s, vals).ok).toBe(false);
+  });
+});
+
+describe("parity: list constraints", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "lst", version: "v1" },
+    fields: [
+      {
+        name: "tags",
+        kind: {
+          case: "list",
+          value: { minItems: 1n, maxItems: 3n, unique: true, items: [{ name: "t", kind: { case: "string", value: { minLen: 1n } } }] },
+        },
+      },
+    ],
+  });
+  it("accepts a valid unique list", () => {
+    expect(sp.validate(s, { tags: ["a", "b"] }).ok).toBe(true);
+  });
+  it("rejects too few / too many / duplicate / bad item", () => {
+    expect(sp.validate(s, { tags: [] }).ok).toBe(false);
+    expect(sp.validate(s, { tags: ["a", "b", "c", "d"] }).ok).toBe(false);
+    expect(sp.validate(s, { tags: ["a", "a"] }).ok).toBe(false);
+    expect(sp.validate(s, { tags: [""] }).ok).toBe(false);
+  });
+});
+
+describe("parity: bool + enum", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "be", version: "v1" },
+    fields: [
+      { name: "flag", kind: { case: "bool", value: { const: true } } },
+      { name: "role", kind: { case: "enum", value: { values: { 1: "user", 2: "admin" }, definedOnly: true } } },
+    ],
+  });
+  it("accepts const bool + defined enum", () => {
+    expect(sp.validate(s, { flag: true, role: 2 }).ok).toBe(true);
+  });
+  it("rejects wrong const + undefined enum", () => {
+    expect(sp.validate(s, { flag: false }).ok).toBe(false);
+    expect(sp.validate(s, { flag: true, role: 9 }).ok).toBe(false);
+  });
+});
+
+describe("parity: duration + timestamp", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "dt", version: "v1" },
+    fields: [
+      // create() takes the message-init form; toJson emits "1s" / RFC3339.
+      { name: "d", kind: { case: "duration", value: { gte: { seconds: 1n }, lte: { seconds: 60n } } } },
+      { name: "ts", kind: { case: "timestamp", value: { gte: { seconds: 1577836800n } } } }, // 2020-01-01Z
+    ],
+  });
+  it("accepts in-range duration + timestamp", () => {
+    expect(sp.validate(s, { d: "30s", ts: "2021-01-01T00:00:00Z" }).ok).toBe(true);
+  });
+  it("rejects out-of-range and unparseable", () => {
+    expect(sp.validate(s, { d: "90s" }).ok).toBe(false);
+    expect(sp.validate(s, { ts: "2019-01-01T00:00:00Z" }).ok).toBe(false);
+    expect(sp.validate(s, { d: "nope" }).ok).toBe(false);
+  });
+});
+
+describe("parity: immutable", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "imm", version: "v1" },
+    fields: [{ name: "id", immutable: true, kind: { case: "int32", value: { default: 7 } } }],
+  });
+  it("accepts the fixed default", () => {
+    expect(sp.validate(s, { id: 7 }).ok).toBe(true);
+  });
+  it("rejects a changed immutable value", () => {
+    expect(sp.validate(s, { id: 8 }).ok).toBe(false);
+  });
+});
+
+describe("parity: nullable + required", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "nr", version: "v1" },
+    fields: [
+      { name: "req", required: true, kind: { case: "string", value: {} } },
+      { name: "opt", nullable: true, kind: { case: "string", value: {} } },
+      { name: "nn", kind: { case: "string", value: {} } },
+    ],
+  });
+  it("allows explicit null on a nullable field", () => {
+    expect(sp.validate(s, { req: "x", opt: null }).ok).toBe(true);
+  });
+  it("requires a missing required field", () => {
+    expect(sp.validate(s, {}).errors.find((e) => e.field === "req")?.code).toBe("required");
+  });
+  it("rejects null on a non-nullable field with code not_null", () => {
+    expect(sp.validate(s, { req: "x", nn: null }).errors.find((e) => e.field === "nn")?.code).toBe("not_null");
+  });
+});
+
+describe("parity: compute defaults + nested", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "comp", version: "v1" },
+    fields: [
+      { name: "qty", kind: { case: "int32", value: { default: 3 } } },
+      { name: "price", kind: { case: "double", value: { default: 2.0 } } },
+      { name: "total", kind: { case: "computed", value: { expr: "root.qty * root.price", result: RT.DOUBLE } } },
+      {
+        name: "box",
+        kind: {
+          case: "object",
+          value: {
+            schema: {
+              fields: [
+                { name: "w", kind: { case: "int32", value: { default: 4 } } },
+                { name: "area", kind: { case: "computed", value: { expr: "root.box.w * 2", result: RT.INT64 } } },
+              ],
+            },
+          },
+        },
+      },
+    ],
+  });
+  it("fills defaults and evaluates computed (incl. nested)", () => {
+    const r = sp.compute(s, { box: {} });
+    expect(r.errors).toHaveLength(0);
+    expect(r.values.qty).toBe(3);
+    expect(r.values.total).toBe(6); // 3 * 2.0
+    expect((r.values.box as Record<string, unknown>).area).toBe(8); // 4 * 2
+  });
+});
+
+describe("parity: Link (identity composition via WASM)", () => {
+  const db = create(SchemaSchema, {
+    id: { namespace: "infra", name: "db", version: "v1" },
+    fields: [
+      { name: "host", required: true, kind: { case: "string", value: {} } },
+      { name: "port", kind: { case: "int32", value: { gte: 1, lte: 65535, default: 5432 } } },
+    ],
+  });
+  const idRef = (name: string, id: { namespace: string; name: string; version: string }) => ({
+    name,
+    required: true,
+    kind: { case: "ref" as const, value: { target: { case: "id" as const, value: id } } },
+  });
+
+  it("resolves an identity ref then validates standalone", () => {
+    const cfg = create(SchemaSchema, {
+      id: { namespace: "app", name: "cfg", version: "v1" },
+      fields: [idRef("primary", { namespace: "infra", name: "db", version: "v1" })],
+    });
+    const linked = sp.link(cfg, [db]);
+    expect(sp.validate(linked, { primary: { host: "h" } }).ok).toBe(true);
+    expect(sp.validate(linked, { primary: {} }).ok).toBe(false); // host required
+    // identity preserved on the node post-link
+    const ref = linked.fields[0].kind.value as { target: { case: string; value: { name: string } } };
+    expect(ref.target.case).toBe("id");
+    expect(ref.target.value.name).toBe("db");
+  });
+
+  it("resolves transitively (A -> B -> C)", () => {
+    const c = create(SchemaSchema, {
+      id: { namespace: "x", name: "c", version: "v1" },
+      fields: [{ name: "leaf", required: true, kind: { case: "string", value: {} } }],
+    });
+    const b = create(SchemaSchema, {
+      id: { namespace: "x", name: "b", version: "v1" },
+      fields: [idRef("c", { namespace: "x", name: "c", version: "v1" })],
+    });
+    const a = create(SchemaSchema, {
+      id: { namespace: "x", name: "a", version: "v1" },
+      fields: [idRef("b", { namespace: "x", name: "b", version: "v1" })],
+    });
+    const linked = sp.link(a, [b, c]);
+    expect(sp.validate(linked, { b: { c: { leaf: "y" } } }).ok).toBe(true);
+    expect(sp.validate(linked, { b: { c: {} } }).ok).toBe(false);
+  });
+
+  it("throws when an identity cannot be resolved", () => {
+    const cfg = create(SchemaSchema, {
+      id: { namespace: "app", name: "cfg", version: "v1" },
+      fields: [idRef("x", { namespace: "infra", name: "missing", version: "v1" })],
+    });
+    expect(() => sp.link(cfg, [])).toThrow();
+  });
+});
+
+describe("parity: renderer helpers (FieldActive / EnumOptions / ListCount)", () => {
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "rh", version: "v1" },
+    fields: [
+      { name: "flag", kind: { case: "bool", value: {} } },
+      { name: "gated", when: "root.flag == true", kind: { case: "string", value: {} } },
+      { name: "always", kind: { case: "string", value: {} } },
+      {
+        name: "version",
+        kind: {
+          case: "enum",
+          value: { values: { 13: "13", 14: "14", 15: "15" }, optionsExpr: 'root.flag == true ? [14, 15] : [13]' },
+        },
+      },
+      { name: "n", kind: { case: "int32", value: {} } },
+      {
+        name: "machines",
+        kind: { case: "list", value: { countExpr: "root.n + 1", items: [{ name: "h", kind: { case: "string", value: {} } }] } },
+      },
+    ],
+  });
+
+  it("FieldActive reflects the when gate", () => {
+    expect(sp.fieldActive(s, "always", {})).toBe(true);
+    expect(sp.fieldActive(s, "gated", { flag: true })).toBe(true);
+    expect(sp.fieldActive(s, "gated", { flag: false })).toBe(false);
+    expect(() => sp.fieldActive(s, "nope", {})).toThrow();
+  });
+
+  it("EnumOptions returns the dynamic set", () => {
+    expect(sp.enumOptions(s, "version", { flag: true }).sort()).toEqual([14, 15]);
+    expect(sp.enumOptions(s, "version", { flag: false })).toEqual([13]);
+  });
+
+  it("ListCount derives the required length", () => {
+    expect(sp.listCount(s, "machines", { n: 4 })).toBe(5);
   });
 });

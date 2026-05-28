@@ -11,14 +11,17 @@
 //	schemapbCompute(schemaJSON, valuesJSON)  -> {"values":{...},"errors":[...]}
 //	schemapbBake(schemaJSON, valuesJSON)     -> {"baked":{schema,values},"errors":[...]}
 //	schemapbMerge(bakedJSON, overridesJSON, replaceLists) -> {"baked":{...},"errors":[...]}
+//	schemapbLink(schemaJSON, registrySchemasJSON)         -> {"schema":{...}}
 //	   ("values" = the fully resolved form; "baked" = the sealed Baked, omitted
-//	    when errors block sealing)
+//	    when errors block sealing; "schema" = the linked, self-contained schema)
 //
 // On a malformed schema or bad JSON, the result is {"error":"..."}.
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"syscall/js"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -32,7 +35,136 @@ func main() {
 	js.Global().Set("schemapbCompute", js.FuncOf(compute))
 	js.Global().Set("schemapbBake", js.FuncOf(bake))
 	js.Global().Set("schemapbMerge", js.FuncOf(merge))
+	js.Global().Set("schemapbLink", js.FuncOf(link))
+	js.Global().Set("schemapbFieldActive", js.FuncOf(fieldActive))
+	js.Global().Set("schemapbEnumOptions", js.FuncOf(enumOptions))
+	js.Global().Set("schemapbListCount", js.FuncOf(listCount))
 	select {} // keep the Go runtime alive for the registered callbacks
+}
+
+// parseSchemaOnly parses + validates a schema from a single arg.
+func parseSchemaOnly(arg js.Value) (*schemapb.Schema, string) {
+	var s schemapb.Schema
+	if err := protojson.Unmarshal([]byte(arg.String()), &s); err != nil {
+		return nil, "parse schema: " + err.Error()
+	}
+	if errs := s.IsValid(); len(errs) > 0 {
+		return nil, (&schemapb.SchemaError{Errors: errs}).Error()
+	}
+	return &s, ""
+}
+
+// parseRoot parses a form object (the `root` map) from an arg.
+func parseRoot(arg js.Value) (map[string]any, error) {
+	root := map[string]any{}
+	if str := arg.String(); str != "" && str != "null" {
+		if err := json.Unmarshal([]byte(str), &root); err != nil {
+			return nil, err
+		}
+	}
+	return root, nil
+}
+
+// fieldActive: schemapbFieldActive(schemaJSON, fieldName, rootJSON) ->
+// {"active":bool} or {"error":...}. Mirrors Schema.FieldActive (renderer helper).
+func fieldActive(_ js.Value, args []js.Value) any {
+	if len(args) < 3 {
+		return fail("expected (schemaJSON, fieldName, rootJSON)")
+	}
+	s, e := parseSchemaOnly(args[0])
+	if e != "" {
+		return fail(e)
+	}
+	root, err := parseRoot(args[2])
+	if err != nil {
+		return fail("parse root: " + err.Error())
+	}
+	active, err := s.FieldActive(args[1].String(), root)
+	if err != nil {
+		return fail(err.Error())
+	}
+	return result(map[string]any{"active": active})
+}
+
+// enumOptions: schemapbEnumOptions(schemaJSON, fieldName, rootJSON) ->
+// {"options":[int...]}. Mirrors Schema.EnumOptions.
+func enumOptions(_ js.Value, args []js.Value) any {
+	if len(args) < 3 {
+		return fail("expected (schemaJSON, fieldName, rootJSON)")
+	}
+	s, e := parseSchemaOnly(args[0])
+	if e != "" {
+		return fail(e)
+	}
+	root, err := parseRoot(args[2])
+	if err != nil {
+		return fail("parse root: " + err.Error())
+	}
+	opts, err := s.EnumOptions(args[1].String(), root)
+	if err != nil {
+		return fail(err.Error())
+	}
+	return result(map[string]any{"options": opts})
+}
+
+// listCount: schemapbListCount(schemaJSON, fieldName, rootJSON) ->
+// {"count":int}. Mirrors Schema.ListCount.
+func listCount(_ js.Value, args []js.Value) any {
+	if len(args) < 3 {
+		return fail("expected (schemaJSON, fieldName, rootJSON)")
+	}
+	s, e := parseSchemaOnly(args[0])
+	if e != "" {
+		return fail(e)
+	}
+	root, err := parseRoot(args[2])
+	if err != nil {
+		return fail("parse root: " + err.Error())
+	}
+	n, err := s.ListCount(args[1].String(), root)
+	if err != nil {
+		return fail(err.Error())
+	}
+	return result(map[string]any{"count": n})
+}
+
+// link resolves all identity-Refs in schemaJSON against a registry built from
+// registrySchemasJSON (a JSON array of schema protojson objects), returning the
+// linked, self-contained schema: {"schema": <protojson>} or {"error": "..."}.
+func link(_ js.Value, args []js.Value) any {
+	if len(args) < 2 {
+		return fail("expected (schemaJSON, registrySchemasJSON)")
+	}
+	var s schemapb.Schema
+	if err := protojson.Unmarshal([]byte(args[0].String()), &s); err != nil {
+		return fail("parse schema: " + err.Error())
+	}
+	var raw []json.RawMessage
+	if str := args[1].String(); str != "" && str != "null" {
+		if err := json.Unmarshal([]byte(str), &raw); err != nil {
+			return fail("parse registry: " + err.Error())
+		}
+	}
+	ctx := context.Background()
+	reg := schemapb.NewInMemoryRegistry()
+	for i, r := range raw {
+		var rs schemapb.Schema
+		if err := protojson.Unmarshal(r, &rs); err != nil {
+			return fail(fmt.Sprintf("parse registry[%d]: %v", i, err))
+		}
+		if err := reg.Put(ctx, &rs); err != nil {
+			return fail(fmt.Sprintf("register[%d]: %v", i, err))
+		}
+	}
+	linked, err := s.Link(ctx, reg)
+	if err != nil {
+		return fail(err.Error())
+	}
+	b, err := protojson.Marshal(linked)
+	if err != nil {
+		return fail("marshal linked: " + err.Error())
+	}
+	return result(map[string]any{"schema": json.RawMessage(b)})
 }
 
 // bakeResult renders a Baked + errors. baked is omitted when nil.
