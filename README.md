@@ -611,13 +611,17 @@ Presence is tested with `"field" in root`, so these target top-level fields by n
 The package exposes a thin TypeScript wrapper around the WASM-compiled Go engine. The schema is expressed using **protobuf-es** `create(SchemaSchema, ...)` and passed to the `Schemapb` instance.
 
 ```typescript
-import { Schemapb, SchemaSchema, create } from "@stroppy-io/schemapb";
+import { schemapb, SchemaSchema } from "@stroppy-io/schemapb";
+import { create } from "@bufbuild/protobuf";
 import type { Schema } from "@stroppy-io/schemapb";
 
-// Load the WASM module once (e.g. at app start).
-const wasmBytes = await fetch("/@stroppy-io/schemapb/schemapb.wasm")
-  .then(r => r.arrayBuffer());
-const sp = await Schemapb.load(wasmBytes);
+// Zero-config: auto-loads the bundled schemapb.wasm (readFile on Node, fetch in
+// the browser) and runs wasm_exec.js for you. Cached, so call it anywhere.
+const sp = await schemapb();
+
+// Advanced: supply the module yourself (custom path / CDN / cache):
+//   import { Schemapb } from "@stroppy-io/schemapb";
+//   const sp = await Schemapb.load(await fetch(wasmUrl).then(r => r.arrayBuffer()));
 
 // Build a schema using protobuf-es (matches the Go proto definition exactly).
 const schema: Schema = create(SchemaSchema, {
@@ -674,7 +678,7 @@ const ok = sp.validate(linked, { primary: { host: "h" } }).ok;
 
 The TS wrapper also exposes the renderer helpers `sp.fieldActive(schema, field, root)`, `sp.enumOptions(schema, field, root)` and `sp.listCount(schema, field, root)` — the exact counterparts of Go's `Schema.FieldActive` / `EnumOptions` / `ListCount`.
 
-`Schemapb.load` calls `WebAssembly.instantiate` and runs the Go binary, which registers eight globals: `schemapbValidate`, `schemapbCompute`, `schemapbBake`, `schemapbMerge`, `schemapbLink`, `schemapbFieldActive`, `schemapbEnumOptions`, `schemapbListCount`. These accept and return JSON strings; the TypeScript wrapper handles serialisation via protobuf-es `toJson`/`fromJson`. The engine is the *same* Go code compiled to WASM, so the TS and Go SDKs validate, compute, bake, merge, link, and render identically.
+`schemapb()` (or `Schemapb.load()`) calls `WebAssembly.instantiate` and runs the Go binary, which registers eight globals: `schemapbValidate`, `schemapbCompute`, `schemapbBake`, `schemapbMerge`, `schemapbLink`, `schemapbFieldActive`, `schemapbEnumOptions`, `schemapbListCount`. These accept and return JSON strings; the TypeScript wrapper handles serialisation via protobuf-es `toJson`/`fromJson`. The engine is the *same* Go code compiled to WASM, so the TS and Go SDKs validate, compute, bake, merge, link, and render identically.
 
 Schemas may also be fetched from a running `SchemaService` with `GetSchema` and deserialised with protobuf-es — no need to build them client-side.
 

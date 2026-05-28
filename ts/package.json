@@ -13,9 +13,7 @@
   "type": "module",
   "sideEffects": false,
   "files": [
-    "dist",
-    "schemapb.wasm",
-    "wasm_exec.js"
+    "dist"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -25,8 +23,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./schemapb.wasm": "./schemapb.wasm",
-    "./wasm_exec.js": "./wasm_exec.js"
+    "./schemapb.wasm": "./dist/schemapb.wasm",
+    "./wasm_exec.js": "./dist/wasm_exec.js"
   },
   "scripts": {
     "build:wasm": "cd .. && make wasm",

@@ -40,12 +40,15 @@ export interface BakeResult {
 }
 
 // The Go wasm glue (wasm_exec.js) defines a global `Go` class.
-declare const Go: new () => {
+type GoClass = new () => {
   importObject: WebAssembly.Imports;
   run(instance: WebAssembly.Instance): void;
 };
 
 declare global {
+  // Defined by wasm_exec.js (loaded automatically by Schemapb.load).
+  // eslint-disable-next-line no-var
+  var Go: GoClass | undefined;
   // Registered by wasm/main.go.
   // eslint-disable-next-line no-var
   var schemapbValidate: (schemaJSON: string, valuesJSON: string) => string;
@@ -65,13 +68,58 @@ declare global {
   var schemapbListCount: (schemaJSON: string, field: string, rootJSON: string) => string;
 }
 
+const isNode =
+  typeof process !== "undefined" && !!(process as { versions?: { node?: string } }).versions?.node;
+
+// loadDefaultBytes fetches the schemapb.wasm shipped alongside this module —
+// readFile on Node, fetch in the browser — so callers need not locate it.
+async function loadDefaultBytes(): Promise<BufferSource> {
+  const url = new URL("./schemapb.wasm", import.meta.url);
+  if (isNode) {
+    const { readFile } = await import("node:fs/promises");
+    return readFile(url);
+  }
+  return (await fetch(url)).arrayBuffer();
+}
+
+// ensureGo runs wasm_exec.js (which defines globalThis.Go) once, if needed.
+async function ensureGo(): Promise<GoClass> {
+  if (!globalThis.Go) {
+    await import(/* @vite-ignore */ new URL("./wasm_exec.js", import.meta.url).href);
+  }
+  if (!globalThis.Go) throw new Error("schemapb: wasm_exec.js did not define globalThis.Go");
+  return globalThis.Go;
+}
+
+let defaultInstance: Promise<Schemapb> | undefined;
+
+/**
+ * Returns a ready, shared Schemapb instance, loading the WASM module on first
+ * call and caching it thereafter. This is the zero-config entry point:
+ *
+ *   import { schemapb } from "@stroppy-io/schemapb";
+ *   const sp = await schemapb();
+ *   sp.validate(schema, values);
+ */
+export function schemapb(): Promise<Schemapb> {
+  return (defaultInstance ??= Schemapb.load());
+}
+
 export class Schemapb {
   private constructor() {}
 
-  /** Instantiate the wasm module. `wasmBytes` is the compiled schemapb.wasm. */
-  static async load(wasmBytes: BufferSource): Promise<Schemapb> {
-    const go = new Go();
-    const { instance } = await WebAssembly.instantiate(wasmBytes, go.importObject);
+  /**
+   * Instantiate the WASM module. With no argument it auto-loads the
+   * `schemapb.wasm` shipped with the package (readFile on Node, fetch in the
+   * browser) and runs `wasm_exec.js` itself — no setup required. Pass
+   * `wasmBytes` only to supply the module yourself (custom path, CDN, cache).
+   * For a shared cached instance prefer the `schemapb()` helper.
+   */
+  static async load(wasmBytes?: BufferSource): Promise<Schemapb> {
+    const GoCtor = await ensureGo();
+    const bytes = wasmBytes ?? (await loadDefaultBytes());
+    const go = new GoCtor();
+    const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
     go.run(instance); // registers the global functions; runs until program exit
     return new Schemapb();
   }

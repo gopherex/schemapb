@@ -1,9 +1,8 @@
-import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
 import { create, fromJson, toJson } from "@bufbuild/protobuf";
-import "./wasm_exec.js"; // sets globalThis.Go
 import {
-  Schemapb,
+  schemapb,
+  type Schemapb,
   SchemaSchema,
   BakedSchema,
   Schema_Filed_ResultType as RT,
@@ -14,9 +13,9 @@ import {
 
 let sp: Schemapb;
 
+// Zero-config: schemapb() auto-loads the wasm and runs wasm_exec.js itself.
 beforeAll(async () => {
-  const bytes = await readFile(new URL("./schemapb.wasm", import.meta.url));
-  sp = await Schemapb.load(bytes);
+  sp = await schemapb();
 });
 
 // Disk: derived iops/bandwidth/score (score depends on the other two) + the
