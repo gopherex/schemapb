@@ -31,7 +31,7 @@ make dev-workspace      # go work init . ./cmd/schemapbgen
 Read a schema from a protojson file and emit typed Go structs:
 
 ```bash
-schemapbgen -in schema.json -out config_gen.go -pkg myconfig
+schemapbgen --in schema.json --out config_gen.go --pkg myconfig
 ```
 
 Flags:
@@ -42,7 +42,7 @@ Flags:
 Example:
 
 ```bash
-schemapbgen -in configs/disk.json -pkg gen
+schemapbgen --in configs/disk.json --pkg gen
 # → outputs configs/InfraDiskV1_gen.go
 ```
 
@@ -51,7 +51,7 @@ schemapbgen -in configs/disk.json -pkg gen
 Use a `//go:generate` directive to capture schemas built with the Go builder API:
 
 ```go
-//go:generate go run github.com/stroppy-io/schemapb/cmd/schemapbgen -from-go-code . -symbol BuildDiskSchema -pkg myconfig
+//go:generate go run github.com/stroppy-io/schemapb/cmd/schemapbgen@latest --from-go-code . --symbol BuildDiskSchema --pkg config
 
 package config
 
@@ -72,11 +72,18 @@ Then run:
 go generate ./...
 ```
 
-Flags:
-- `-from-go-code`: directory of a Go module exposing a schema provider function
-- `-symbol`: exported provider function returning `*schemapb.Schema` or `[]*schemapb.Schema`
-- `-pkg`: package name of generated code (required)
-- `-out`: (optional) output directory; defaults to the current directory
+Flags (cobra long flags use **two** dashes):
+- `--from-go-code <dir>`: the package directory holding the provider func. May be any
+  package (including a nested `internal/...` one), not a module root — the CLI walks
+  up to the enclosing `go.mod` and imports the package by its full path. The provider
+  may import other packages (e.g. shared schema helpers); they resolve normally.
+- `--symbol <Func>`: exported provider returning `*schemapb.Schema` or `[]*schemapb.Schema`
+- `--pkg <name>`: package clause of the generated file. Set it to the **provider's own
+  package name** so the generated type lands in the same package.
+- `--out <dir>`: (optional) output directory. Defaults to the `--from-go-code` directory,
+  so the generated `<Root>_gen.go` sits next to the schema, in the same package.
+
+Provider modules must compile; the CLI builds and runs them to capture the schemas.
 
 ## Naming scheme
 

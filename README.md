@@ -625,10 +625,10 @@ Code against `cfg.SharedBuffers` instead of `map[string]any`.
 
 ```sh
 # from a protojson schema file
-schemapbgen -in disk.json -out disk_gen.go -pkg myconfig
+schemapbgen --in disk.json --out disk_gen.go --pkg myconfig
 
 # or from a Go builder provider, via go:generate
-//go:generate go run github.com/stroppy-io/schemapb/cmd/schemapbgen -from-go-code . -symbol BuildDiskSchema -pkg myconfig
+//go:generate go run github.com/stroppy-io/schemapb/cmd/schemapbgen@latest --from-go-code . --symbol BuildDiskSchema --pkg config
 ```
 
 Generated per schema: identity-named structs (protobuf-style `_`-nested), enums

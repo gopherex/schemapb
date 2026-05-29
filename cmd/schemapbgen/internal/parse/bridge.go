@@ -26,6 +26,9 @@ func FromGoCode(dir, symbol string) ([]*schemapb.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
+	if fi, serr := os.Stat(abs); serr != nil || !fi.IsDir() {
+		return nil, fmt.Errorf("-from-go-code: %q is not a directory (check the path; it must point at the package holding the provider func)", dir)
+	}
 	modRoot, modPath, err := findModule(abs)
 	if err != nil {
 		return nil, err

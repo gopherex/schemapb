@@ -48,10 +48,14 @@ func rootCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					dst := f.Root + "_gen.go"
+					// Default: write next to the provider (same package dir), so
+					// the generated type lives in the provider's package. -out, if
+					// given, is treated as the output directory.
+					outDir := fromGoCode
 					if out != "" {
-						dst = filepath.Join(filepath.Dir(out), dst)
+						outDir = out
 					}
+					dst := filepath.Join(outDir, f.Root+"_gen.go")
 					if err := os.WriteFile(dst, src, 0o644); err != nil {
 						return err
 					}
