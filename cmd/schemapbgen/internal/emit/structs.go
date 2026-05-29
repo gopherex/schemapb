@@ -61,6 +61,9 @@ func writeOneOfIface(b *bytes.Buffer, od *model.OneOfDef) {
 	fmt.Fprintf(b, "\n")
 }
 
+// writeEnums emits, per int Enum, a defined int32 type, a const per value, the
+// protobuf-style value<->name maps (<Name>_name / <Name>_value), a String()
+// that uses them (numeric fallback for unknown values), and a Parse helper.
 func writeEnums(b *bytes.Buffer, f *model.File) {
 	for _, e := range f.Enums {
 		fmt.Fprintf(b, "type %s int32\n\n", e.Name)
@@ -69,18 +72,39 @@ func writeEnums(b *bytes.Buffer, f *model.File) {
 			vals = append(vals, int(k))
 		}
 		sort.Ints(vals)
+
+		// consts
 		fmt.Fprintf(b, "const (\n")
 		for _, v := range vals {
-			label := e.Values[int32(v)]
-			fmt.Fprintf(b, "\t%s%s %s = %d\n", e.Name, pascalLabel(label), e.Name, v)
+			fmt.Fprintf(b, "\t%s%s %s = %d\n", e.Name, pascalLabel(e.Values[int32(v)]), e.Name, v)
 		}
 		fmt.Fprintf(b, ")\n\n")
-		// String()
-		fmt.Fprintf(b, "func (e %s) String() string {\n\tswitch e {\n", e.Name)
+
+		// value -> name (like protoc-gen-go's <Enum>_name)
+		fmt.Fprintf(b, "// %s_name maps each value to its label.\n", e.Name)
+		fmt.Fprintf(b, "var %s_name = map[int32]string{\n", e.Name)
 		for _, v := range vals {
-			fmt.Fprintf(b, "\tcase %d:\n\t\treturn %q\n", v, e.Values[int32(v)])
+			fmt.Fprintf(b, "\t%d: %q,\n", v, e.Values[int32(v)])
 		}
-		fmt.Fprintf(b, "\tdefault:\n\t\treturn \"\"\n\t}\n}\n\n")
+		fmt.Fprintf(b, "}\n\n")
+
+		// name -> value (like protoc-gen-go's <Enum>_value)
+		fmt.Fprintf(b, "// %s_value maps each label to its value.\n", e.Name)
+		fmt.Fprintf(b, "var %s_value = map[string]int32{\n", e.Name)
+		for _, v := range vals {
+			fmt.Fprintf(b, "\t%q: %d,\n", e.Values[int32(v)], v)
+		}
+		fmt.Fprintf(b, "}\n\n")
+
+		// String() via the name map, numeric fallback for unknown values.
+		fmt.Fprintf(b, "func (e %s) String() string {\n", e.Name)
+		fmt.Fprintf(b, "\tif s, ok := %s_name[int32(e)]; ok {\n\t\treturn s\n\t}\n", e.Name)
+		fmt.Fprintf(b, "\treturn fmt.Sprintf(\"%%d\", int32(e))\n}\n\n")
+
+		// Parse<Name> resolves a label to the enum value.
+		fmt.Fprintf(b, "// Parse%s resolves a label to its %s value.\n", e.Name, e.Name)
+		fmt.Fprintf(b, "func Parse%s(s string) (%s, bool) {\n", e.Name, e.Name)
+		fmt.Fprintf(b, "\tv, ok := %s_value[s]\n\treturn %s(v), ok\n}\n\n", e.Name, e.Name)
 	}
 }
 
