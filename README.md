@@ -37,14 +37,17 @@ go get github.com/stroppy-io/schemapb/schemapb
 
 ### Code generator CLI (`schemapbgen`)
 
-Download a prebuilt binary for your OS/arch from the [latest release](https://github.com/stroppy-io/schemapb/releases), or build from a clone:
+Download a prebuilt binary for your OS/arch from the [latest release](https://github.com/stroppy-io/schemapb/releases), or install from a clone (the repo's `go.work` makes the CLI build against the in-tree library):
 
 ```sh
 git clone https://github.com/stroppy-io/schemapb
-go build -o schemapbgen ./schemapb/cmd/schemapbgen   # or: go run ./cmd/schemapbgen ...
+cd schemapb
+go install ./cmd/schemapbgen     # installs `schemapbgen` to $GOBIN
+# or run without installing:
+go run ./cmd/schemapbgen -in schema.json -out config_gen.go -pkg myconfig
 ```
 
-(`go install ...@latest` is not supported: the CLI is a separate module that builds against the in-tree library via a workspace.) Generates typed Go structs from schemas — see [Code generation](#code-generation--typed-go-structs).
+Standalone `go install <module>/cmd/schemapbgen@latest` is **not** supported: the `@version` form ignores the workspace and pins the library to an older release tag, so the build fails. Generates typed Go structs from schemas — see [Code generation](#code-generation--typed-go-structs).
 
 ### TypeScript / npm
 

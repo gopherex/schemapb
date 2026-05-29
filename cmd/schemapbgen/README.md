@@ -9,19 +9,21 @@ Download a prebuilt binary for your platform from the
 [latest release](https://github.com/stroppy-io/schemapb/releases) (archives named
 `schemapbgen_<tag>_<os>_<arch>`).
 
-Or build from a clone:
+Or install from a clone — the repo's `go.work` makes the CLI build against the
+in-tree library, so the bare `go install` (no `@version`) works:
 
 ```bash
 git clone https://github.com/stroppy-io/schemapb
 cd schemapb
-go build -o schemapbgen ./cmd/schemapbgen
-# or run directly:
+go install ./cmd/schemapbgen     # installs `schemapbgen` to $GOBIN
+# or run without installing:
 go run ./cmd/schemapbgen -in schema.json -out config_gen.go -pkg myconfig
 ```
 
-> `go install github.com/stroppy-io/schemapb/cmd/schemapbgen@latest` is **not**
-> supported: this is a separate module that builds against the in-tree library
-> through the repo's `go.work`, and `go install` ignores workspaces.
+> The **`@version`/`@latest`** form
+> (`go install github.com/stroppy-io/schemapb/cmd/schemapbgen@latest`) is **not**
+> supported: that form ignores the workspace and pins the library to an older
+> release tag, so the build fails. Use a prebuilt binary or the clone above.
 
 ## Phase 1: Generate from protojson files
 
