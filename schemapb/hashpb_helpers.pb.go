@@ -1042,6 +1042,31 @@ func schemapb_Schema_hashpb_sum(m *Schema, hasher hash.Hash, ignore map[string]s
 			}
 		}
 	}
+	if _, ok := ignore["schemapb.Schema.templates"]; !ok {
+		if len(m.Templates) > 0 {
+			if len(m.Templates) <= 32 {
+				keys := hashpb_stringKeyPool.Get().([]string)[:0]
+				for k := range m.Templates {
+					keys = append(keys, k)
+				}
+				slices.Sort(keys)
+				for _, k := range keys {
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(k))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(k), len(k)))
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.Templates[k]))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.Templates[k]), len(m.Templates[k])))
+				}
+				hashpb_stringKeyPool.Put(keys)
+			} else {
+				for _, k := range slices.Sorted(maps.Keys(m.Templates)) {
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(k))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(k), len(k)))
+					_, _ = hasher.Write(protowire.AppendVarint(b[:0], uint64(len(m.Templates[k]))))
+					_, _ = hasher.Write(unsafe.Slice(unsafe.StringData(m.Templates[k]), len(m.Templates[k])))
+				}
+			}
+		}
+	}
 }
 
 func schemapb_ValidateResponse_hashpb_sum(m *ValidateResponse, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {

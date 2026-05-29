@@ -25,7 +25,7 @@ generate:
       opts:
         paths: source_relative
     - name: es
-      out: ts
+      out: packages/schemapb
       opts:
         target: ts
         import_extension: ts

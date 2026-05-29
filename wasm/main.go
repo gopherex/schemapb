@@ -39,7 +39,30 @@ func main() {
 	js.Global().Set("schemapbFieldActive", js.FuncOf(fieldActive))
 	js.Global().Set("schemapbEnumOptions", js.FuncOf(enumOptions))
 	js.Global().Set("schemapbListCount", js.FuncOf(listCount))
+	js.Global().Set("schemapbRender", js.FuncOf(render))
 	select {} // keep the Go runtime alive for the registered callbacks
+}
+
+// render: schemapbRender(schemaJSON, valuesJSON, templateName) ->
+// {"text":string} or {"error":...}. Mirrors Schema.Render so the browser
+// renders the schema's named template identically to the Go server.
+func render(_ js.Value, args []js.Value) any {
+	if len(args) < 3 {
+		return fail("expected (schemaJSON, valuesJSON, templateName)")
+	}
+	s, e := parseSchemaOnly(args[0])
+	if e != "" {
+		return fail(e)
+	}
+	values, err := parseRoot(args[1])
+	if err != nil {
+		return fail("parse values: " + err.Error())
+	}
+	text, err := s.Render(args[2].String(), values)
+	if err != nil {
+		return fail(err.Error())
+	}
+	return result(map[string]any{"text": text})
 }
 
 // parseSchemaOnly parses + validates a schema from a single arg.

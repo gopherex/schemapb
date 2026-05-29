@@ -547,6 +547,16 @@ message Schema {
      * schema; defs inside nested schemas are ignored by the engine.
      */
     map<string, Schema> defs = 9;
+    /*
+     * Named render templates (Go text/template syntax) for serialising resolved
+     * values into a target text format, e.g. "conf" -> a postgresql.conf
+     * template. Portable data: the engine renders them identically on the Go
+     * server and in the browser (via WASM). The template is executed against a
+     * context exposing the ordered fields (.Fields), fields grouped by Group
+     * (.Groups), and the raw values (.Values); see (*Schema).Render. The
+     * validation/compute engine itself ignores these.
+     */
+    map<string, string> templates = 10;
 }
 
 /*

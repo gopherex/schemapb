@@ -39,6 +39,13 @@ func writeSchemaWrap(b *bytes.Buffer, f *model.File) {
 	fmt.Fprintf(b, "\tif err != nil {\n\t\treturn []*schemapb.FieldError{schemapb.NewFieldError(\"\", err.Error())}\n\t}\n")
 	fmt.Fprintf(b, "\treturn _schema%s().ValidateStruct(st)\n}\n\n", root)
 
+	// Render
+	fmt.Fprintf(b, "// Render serialises the value with the schema's named template\n")
+	fmt.Fprintf(b, "// (Go text/template), e.g. a postgresql.conf. Same output as the engine/WASM.\n")
+	fmt.Fprintf(b, "func (c *%s) Render(template string) (string, error) {\n", root)
+	fmt.Fprintf(b, "\tst, err := c.ToValues()\n\tif err != nil {\n\t\treturn \"\", err\n\t}\n")
+	fmt.Fprintf(b, "\treturn _schema%s().Render(template, st.AsMap())\n}\n\n", root)
+
 	// Identity
 	id := f.Identity
 	fmt.Fprintf(b, "// %sIdentity is the schema identity this type was generated from.\n", root)

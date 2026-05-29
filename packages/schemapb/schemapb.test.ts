@@ -1042,3 +1042,33 @@ describe("parity: renderer helpers (FieldActive / EnumOptions / ListCount)", () 
     expect(sp.listCount(s, "machines", { n: 4 })).toBe(5);
   });
 });
+
+describe("render (Go text/template via WASM)", () => {
+  const tmpl =
+    "{{- range .Groups }}\n# === {{ .Name }} ===\n{{- range .Fields }}\n{{ .Name }} = {{ .Value }}{{ .Unit }}\n{{- end }}\n{{ end -}}";
+
+  function confSchema(): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "pg", name: "postgresql", version: "16" },
+      templates: { conf: tmpl },
+      fields: [
+        { name: "shared_buffers", kind: { case: "int64", value: { default: 128n } }, unit: "MB", group: "Resource Usage" },
+        { name: "wal_level", kind: { case: "string", value: { in: ["minimal", "replica"], default: "replica" } }, group: "WAL" },
+      ],
+    });
+  }
+
+  it("renders the schema's named template identically to Go", () => {
+    const s = confSchema();
+    const { values } = sp.compute(s, {});
+    const out = sp.render(s, values, "conf");
+    expect(out).toContain("# === Resource Usage ===");
+    expect(out).toContain("shared_buffers = 128MB");
+    expect(out).toContain("# === WAL ===");
+    expect(out).toContain("wal_level = replica");
+  });
+
+  it("throws on an unknown template", () => {
+    expect(() => sp.render(confSchema(), {}, "nope")).toThrow();
+  });
+});

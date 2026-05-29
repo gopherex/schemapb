@@ -82,6 +82,17 @@ func (b *SchemaB) MaxProps(n uint64) *SchemaB { b.s.MaxProperties = &n; return b
 // Coerce enables input coercion: string inputs are coerced to the field's kind.
 func (b *SchemaB) Coerce() *SchemaB { b.s.Coerce = true; return b }
 
+// Template registers a named render template (Go text/template) on the schema.
+// Render it with (*Schema).Render(name, values) or (*Baked).Render(name); the
+// same template renders identically in the browser via WASM.
+func (b *SchemaB) Template(name, tmpl string) *SchemaB {
+	if b.s.Templates == nil {
+		b.s.Templates = map[string]string{}
+	}
+	b.s.Templates[name] = tmpl
+	return b
+}
+
 // Fields appends fields (field builders or raw *Schema_Filed).
 func (b *SchemaB) Fields(defs ...FieldDef) *SchemaB {
 	for _, d := range defs {

@@ -66,6 +66,8 @@ declare global {
   var schemapbEnumOptions: (schemaJSON: string, field: string, rootJSON: string) => string;
   // eslint-disable-next-line no-var
   var schemapbListCount: (schemaJSON: string, field: string, rootJSON: string) => string;
+  // eslint-disable-next-line no-var
+  var schemapbRender: (schemaJSON: string, valuesJSON: string, template: string) => string;
 }
 
 const isNode =
@@ -187,6 +189,16 @@ export class Schemapb {
     const out = JSON.parse(globalThis.schemapbMerge(bakedJSON, JSON.stringify(overrides ?? {}), replaceLists));
     if (out.error) throw new Error(out.error);
     return out as BakeResult;
+  }
+
+  /** Render `values` with the schema's named `template` (Go text/template),
+   *  producing target text (e.g. a postgresql.conf). The same template renders
+   *  identically on the Go server. Mirrors Go's `Schema.Render`. */
+  render(schema: Schema, values: unknown, template: string): string {
+    const schemaJSON = JSON.stringify(toJson(SchemaSchema, schema));
+    const out = JSON.parse(globalThis.schemapbRender(schemaJSON, JSON.stringify(values ?? {}), template));
+    if (out.error) throw new Error(out.error);
+    return out.text as string;
   }
 
   private call(
