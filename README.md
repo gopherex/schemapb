@@ -20,9 +20,10 @@ Typical use cases: `postgresql.conf`-style configuration UIs, dynamic form gener
 5. [Computed / resolve / Bake](#computed--resolve--bake)
 6. [Composition — OneOf and Ref/$defs](#composition--oneof-and-refdefs)
 7. [Dynamic fields — when / options_expr / count_expr](#dynamic-fields--when--options_expr--count_expr)
-8. [TypeScript / browser](#typescript--browser)
-9. [gRPC SchemaService](#grpc-schemaservice)
-10. [Development](#development)
+8. [Code generation — typed Go structs](#code-generation--typed-go-structs)
+9. [TypeScript / browser](#typescript--browser)
+10. [gRPC SchemaService](#grpc-schemaservice)
+11. [Development](#development)
 
 ---
 
@@ -33,6 +34,14 @@ Typical use cases: `postgresql.conf`-style configuration UIs, dynamic form gener
 ```sh
 go get github.com/stroppy-io/schemapb/schemapb
 ```
+
+### Code generator CLI (`schemapbgen`)
+
+```sh
+go install github.com/stroppy-io/schemapb/cmd/schemapbgen@latest
+```
+
+Generates typed Go structs from schemas — see [Code generation](#code-generation--typed-go-structs).
 
 ### TypeScript / npm
 
@@ -606,6 +615,31 @@ Presence is tested with `"field" in root`, so these target top-level fields by n
 
 ---
 
+## Code generation — typed Go structs
+
+`schemapbgen` reads a schema and emits a typed Go struct mirror of the form's
+data shape, with full roundtrip/validation/sugar and no loss of dynamic rules.
+Code against `cfg.SharedBuffers` instead of `map[string]any`.
+
+```sh
+# from a protojson schema file
+schemapbgen -in disk.json -out disk_gen.go -pkg myconfig
+
+# or from a Go builder provider, via go:generate
+//go:generate go run github.com/stroppy-io/schemapb/cmd/schemapbgen -from-go-code . -symbol BuildDiskSchema -pkg myconfig
+```
+
+Generated per schema: identity-named structs (protobuf-style `_`-nested), enums
+with `String()`, OneOf as interface + variants, `ToValues`/`FromValues`,
+`ToFilled`/`ToBaked`, `Validate()` (through the embedded schema), `Default()`,
+nil-safe getters, builders, and `Clone()`. The struct layer stays simple; dynamic
+logic (`when`/`expr` rules/computed) is preserved as comments plus the embedded
+schema wire bytes and runs through the schemapb engine at runtime.
+
+Full docs, naming scheme, and type mapping: **[`cmd/schemapbgen/README.md`](cmd/schemapbgen/README.md)**.
+
+---
+
 ## TypeScript / browser
 
 The package exposes a thin TypeScript wrapper around the WASM-compiled Go engine. The schema is expressed using **protobuf-es** `create(SchemaSchema, ...)` and passed to the `Schemapb` instance.
@@ -852,6 +886,12 @@ packages/           npm workspaces (TypeScript)
 wasm/               Go WASM entry point (main.go)
   main.go           Registers schemapbValidate/Compute/Bake/Merge/Link/... globals
 
+cmd/schemapbgen/    Code generator CLI (own go.mod; cobra)
+  main.go           Flags + protojson/go-builder input -> model -> emit
+  internal/parse/   protojson loader + go:generate builder bridge
+  internal/model/   schema -> naming-resolved IR (types, enums, oneofs)
+  internal/emit/    IR -> gofmt'd Go (structs, sugar, engine-compatible JSON)
+
 go.mod              module github.com/stroppy-io/schemapb
 easyp.yaml          easyp code-generation configuration
 Makefile            proto / wasm / test / release targets
@@ -860,4 +900,5 @@ Makefile            proto / wasm / test / release targets
 ### Module coordinates
 
 - Go: `github.com/stroppy-io/schemapb` — import path `github.com/stroppy-io/schemapb/schemapb`
+- Go CLI: `github.com/stroppy-io/schemapb/cmd/schemapbgen` (separate module)
 - npm: `@stroppy-io/schemapb` (GitHub Packages, `https://npm.pkg.github.com`)
