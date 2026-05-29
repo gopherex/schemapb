@@ -1,0 +1,9 @@
+{
+  "id": {"namespace": "infra", "name": "disk", "version": "v1"},
+  "fields": [
+    {"name": "shared_buffers", "required": true, "int64": {}},
+    {"name": "wal_level", "string": {}},
+    {"name": "level", "required": true, "enum": {"values": {"0": "minimal", "1": "replica"}}},
+    {"name": "wal", "object": {"schema": {"fields": [{"name": "enabled", "required": true, "bool": {}}]}}}
+  ]
+}

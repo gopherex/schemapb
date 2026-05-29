@@ -22,6 +22,9 @@ wasm:
 test:
 	go test ./...
 
+.PHONY: schemapbgen-test
+schemapbgen-test:
+	cd cmd/schemapbgen && go test ./...
 
 # Interactive release: recreate the latest tag on HEAD, or bump major/minor/patch.
 # Pushing the vX.Y.Z tag triggers .github/workflows/publish-npm.yml.

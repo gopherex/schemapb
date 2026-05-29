@@ -12,3 +12,6 @@ packages/schemapb/wasm_exec.js
 
 # IDE
 .idea/
+
+# schemapbgen build artifact
+cmd/schemapbgen/schemapbgen

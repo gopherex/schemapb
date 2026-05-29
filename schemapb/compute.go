@@ -60,6 +60,14 @@ func (s *Schema) Compute(values map[string]any) (map[string]any, []*FieldError) 
 	return v.Compute(values)
 }
 
+// ApplyDefaults fills any unset fields in m with their schema defaults.
+// It is a thin wrapper around Compute that discards computed-field errors
+// (the caller typically does not have the evaluated form yet).
+// m is mutated in place.
+func (s *Schema) ApplyDefaults(m map[string]any) {
+	s.Compute(m) //nolint:errcheck // best-effort; caller checks via Validate
+}
+
 // ComputeStruct resolves a google.protobuf.Struct.
 func (s *Schema) ComputeStruct(st *structpb.Struct) (map[string]any, []*FieldError) {
 	m := map[string]any{}
