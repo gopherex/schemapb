@@ -13,15 +13,33 @@ import (
 	"github.com/stroppy-io/schemapb/schemapb"
 )
 
-// FromGoCode compiles+runs the user's module at dir, calling the exported symbol
-// (a func returning *schemapb.Schema or []*schemapb.Schema), and returns the
-// schemas. The user's code must compile.
+// FromGoCode runs the exported provider symbol in the package at dir (a func
+// returning *schemapb.Schema or []*schemapb.Schema) and returns the schemas.
+//
+// dir may be any package directory, not a module root — it is resolved to its
+// enclosing module (the nearest ancestor with a go.mod) and to the package's
+// full import path. A temporary runner is written under the module root (so it
+// can import internal/ packages) and executed with `go run`, resolving deps via
+// the user module's own go.mod. The user's code must compile.
 func FromGoCode(dir, symbol string) ([]*schemapb.Schema, error) {
-	pkgPath, err := modulePath(dir)
+	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
 	}
-	runnerDir, err := os.MkdirTemp(dir, "schemapbgen-runner-")
+	modRoot, modPath, err := findModule(abs)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := filepath.Rel(modRoot, abs)
+	if err != nil {
+		return nil, err
+	}
+	pkgImport := modPath
+	if rel != "." {
+		pkgImport = modPath + "/" + filepath.ToSlash(rel)
+	}
+
+	runnerDir, err := os.MkdirTemp(modRoot, ".schemapbgen-runner-")
 	if err != nil {
 		return nil, err
 	}
@@ -56,17 +74,10 @@ func main() {
 		fmt.Printf("%%s\n", b)
 	}
 }
-`, pkgPath, symbol)
+`, pkgImport, symbol)
 
 	if err := os.WriteFile(filepath.Join(runnerDir, "main.go"), []byte(runner), 0o644); err != nil {
 		return nil, err
-	}
-
-	// Run `go mod tidy` in the parent (user) directory so the runner can resolve deps.
-	tidyCmd := exec.Command("go", "mod", "tidy")
-	tidyCmd.Dir = dir
-	if out, err := tidyCmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("go mod tidy: %w\n%s", err, out)
 	}
 
 	cmd := exec.Command("go", "run", ".")
@@ -74,18 +85,18 @@ func main() {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("run provider: %w\n%s", err, stderr.String())
+		return nil, fmt.Errorf("run provider %s.%s: %w\n%s", pkgImport, symbol, err, stderr.String())
 	}
 
 	var schemas []*schemapb.Schema
 	dec := json.NewDecoder(&stdout)
 	for dec.More() {
-		var rawObj json.RawMessage
-		if err := dec.Decode(&rawObj); err != nil {
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
 			return nil, err
 		}
 		var s schemapb.Schema
-		if err := protojson.Unmarshal(rawObj, &s); err != nil {
+		if err := protojson.Unmarshal(raw, &s); err != nil {
 			return nil, err
 		}
 		schemas = append(schemas, &s)
@@ -93,18 +104,24 @@ func main() {
 	return schemas, nil
 }
 
-// modulePath returns the module path declared in dir/go.mod so the runner can
-// import the user package.
-func modulePath(dir string) (string, error) {
-	b, err := os.ReadFile(filepath.Join(dir, "go.mod"))
-	if err != nil {
-		return "", err
-	}
-	for _, line := range bytes.Split(b, []byte("\n")) {
-		line = bytes.TrimSpace(line)
-		if bytes.HasPrefix(line, []byte("module ")) {
-			return string(bytes.TrimSpace(line[len("module "):])), nil
+// findModule walks up from dir to the nearest go.mod, returning its directory
+// and declared module path.
+func findModule(dir string) (root, modPath string, err error) {
+	for d := dir; ; {
+		b, rerr := os.ReadFile(filepath.Join(d, "go.mod"))
+		if rerr == nil {
+			for _, line := range bytes.Split(b, []byte("\n")) {
+				line = bytes.TrimSpace(line)
+				if bytes.HasPrefix(line, []byte("module ")) {
+					return d, string(bytes.TrimSpace(line[len("module "):])), nil
+				}
+			}
+			return "", "", fmt.Errorf("no module path in %s", filepath.Join(d, "go.mod"))
 		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return "", "", fmt.Errorf("no go.mod found in %s or any parent directory", dir)
+		}
+		d = parent
 	}
-	return "", fmt.Errorf("no module path in %s/go.mod", dir)
 }
