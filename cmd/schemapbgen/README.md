@@ -5,16 +5,23 @@ typed Go struct with full roundtrip/validation/sugar, losing no dynamic rule.
 
 ## Installation
 
+Download a prebuilt binary for your platform from the
+[latest release](https://github.com/stroppy-io/schemapb/releases) (archives named
+`schemapbgen_<tag>_<os>_<arch>`).
+
+Or build from a clone:
+
 ```bash
-go install github.com/stroppy-io/schemapb/cmd/schemapbgen@latest
+git clone https://github.com/stroppy-io/schemapb
+cd schemapb
+go build -o schemapbgen ./cmd/schemapbgen
+# or run directly:
+go run ./cmd/schemapbgen -in schema.json -out config_gen.go -pkg myconfig
 ```
 
-Or build locally:
-
-```bash
-cd cmd/schemapbgen
-go build .
-```
+> `go install github.com/stroppy-io/schemapb/cmd/schemapbgen@latest` is **not**
+> supported: this is a separate module that builds against the in-tree library
+> through the repo's `go.work`, and `go install` ignores workspaces.
 
 ## Phase 1: Generate from protojson files
 

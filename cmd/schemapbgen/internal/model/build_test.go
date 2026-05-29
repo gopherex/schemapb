@@ -70,8 +70,8 @@ func TestBuildKinds(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := findType(f, "InfraDiskV1")
-	assertField(t, root, "Level", "InfraDiskV1_Level", false)     // enum named type
-	assertField(t, root, "Tags", "[]string", false)               // list of scalar
+	assertField(t, root, "Level", "InfraDiskV1_Level", false) // enum named type
+	assertField(t, root, "Tags", "[]string", false)           // list of scalar
 	assertField(t, root, "Ttl", "time.Duration", false)
 	assertField(t, root, "At", "time.Time", false)
 	assertField(t, root, "Parent", "*InfraDiskV1_Node", true)     // ref -> pointer to def
@@ -131,7 +131,7 @@ func TestBuildListOfObject(t *testing.T) {
 	if item == nil {
 		t.Fatal("element struct InfraNodeV1_PeersItem missing")
 	}
-	assertField(t, item, "Host", "string", false) // required scalar
+	assertField(t, item, "Host", "string", false)  // required scalar
 	assertField(t, item, "Weight", "*int32", true) // optional scalar
 }
 

@@ -19,6 +19,28 @@ jobs:
       # sanity: the wasm entrypoint still compiles for js/wasm
       - run: GOOS=js GOARCH=wasm go build -o /dev/null ./wasm
 
+  schemapbgen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: cmd/schemapbgen/go.mod
+          cache-dependency-path: cmd/schemapbgen/go.sum
+      # The CLI module depends on unreleased library code, so it builds against
+      # the in-tree schemapb via the root go.work (workspace stays on).
+      - name: gofmt
+        working-directory: cmd/schemapbgen
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then echo "::error::gofmt needed:"; echo "$out"; exit 1; fi
+      - working-directory: cmd/schemapbgen
+        run: go vet ./...
+      - working-directory: cmd/schemapbgen
+        run: go build ./...
+      - working-directory: cmd/schemapbgen
+        run: go test ./...
+
   ts:
     runs-on: ubuntu-latest
     steps:

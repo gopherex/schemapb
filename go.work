@@ -1,0 +1,11 @@
+// Local development workspace: builds the schemapbgen CLI (its own module)
+// against the in-tree schemapb library instead of a published version. This
+// replaces the per-module `replace` directive. `go install` ignores the
+// workspace, so it never affects consumers; release binaries are built here
+// (workspace on) so they compile against the current library code.
+go 1.25.0
+
+use (
+	.
+	./cmd/schemapbgen
+)
