@@ -627,16 +627,19 @@ Code against `cfg.SharedBuffers` instead of `map[string]any`.
 # from a protojson schema file
 schemapbgen --in disk.json --out disk_gen.go --pkg myconfig
 
-# or from a Go builder provider, via go:generate
-//go:generate go run github.com/stroppy-io/schemapb/cmd/schemapbgen@latest --from-go-code . --symbol BuildDiskSchema --pkg config
+# or from Go builder providers — auto-discovers every exported func() *schemapb.Schema
+# in the package and writes one <source>_gen.go per source file:
+//go:generate go run github.com/stroppy-io/schemapb/cmd/schemapbgen@latest --from-go-code .
 ```
 
-Generated per schema: identity-named structs (protobuf-style `_`-nested), enums
-with `String()`, OneOf as interface + variants, `ToValues`/`FromValues`,
+Generated per schema: typed structs (protobuf-style `_`-nested), enums with
+`String()`, OneOf as interface + variants, `ToValues`/`FromValues`,
 `ToFilled`/`ToBaked`, `Validate()` (through the embedded schema), `Default()`,
 nil-safe getters, builders, and `Clone()`. The struct layer stays simple; dynamic
 logic (`when`/`expr` rules/computed) is preserved as comments plus the embedded
-schema wire bytes and runs through the schemapb engine at runtime.
+schema wire bytes and runs through the schemapb engine at runtime. Type names
+come from the provider func (`--names func`, default) or the schema identity
+(`--names identity`); `--recursive` walks sub-packages.
 
 Full docs, naming scheme, and type mapping: **[`cmd/schemapbgen/README.md`](cmd/schemapbgen/README.md)**.
 

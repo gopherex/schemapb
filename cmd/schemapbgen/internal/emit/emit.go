@@ -9,23 +9,39 @@ import (
 	"github.com/stroppy-io/schemapb/cmd/schemapbgen/internal/model"
 )
 
-// Emit renders the file and runs it through gofmt.
+// Emit renders one file (header + body) and runs it through gofmt.
 func Emit(f *model.File) ([]byte, error) {
-	var b bytes.Buffer
-	writeHeader(&b, f)
-	writeStructs(&b, f)
-	writeEnums(&b, f)
-	// sugar/roundtrip/schemawrap appended by later tasks:
-	writeSchemaWrap(&b, f)
-	writeRoundtrip(&b, f)
-	writeSugar(&b, f)
-	writeCustomJSON(&b, f)
+	return EmitMulti([]*model.File{f})
+}
 
+// EmitMulti renders several schemas into a single Go file: one shared header
+// (package + imports) followed by each schema's body. All bodies share the same
+// fixed import set, and every generated identifier is root-prefixed, so distinct
+// roots never collide. Files must share the same package.
+func EmitMulti(files []*model.File) ([]byte, error) {
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no schemas to emit")
+	}
+	var b bytes.Buffer
+	writeHeader(&b, files[0])
+	for _, f := range files {
+		writeBody(&b, f)
+	}
 	src, err := format.Source(b.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("gofmt failed: %w\n--- raw ---\n%s", err, b.String())
 	}
 	return src, nil
+}
+
+// writeBody renders everything for one schema except the file header.
+func writeBody(b *bytes.Buffer, f *model.File) {
+	writeStructs(b, f)
+	writeEnums(b, f)
+	writeSchemaWrap(b, f)
+	writeRoundtrip(b, f)
+	writeSugar(b, f)
+	writeCustomJSON(b, f)
 }
 
 func writeHeader(b *bytes.Buffer, f *model.File) {

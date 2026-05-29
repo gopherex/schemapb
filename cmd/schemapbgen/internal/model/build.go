@@ -9,15 +9,25 @@ import (
 	"github.com/stroppy-io/schemapb/schemapb"
 )
 
-// Build walks a schema into a File. It returns an error on a name collision
-// (two generated types resolving to the same Go identifier).
+// Build walks a schema into a File, naming the root type from the schema
+// identity. It returns an error on a name collision.
 func Build(s *schemapb.Schema, pkg string) (*File, error) {
+	return BuildNamed(s, pkg, "")
+}
+
+// BuildNamed is Build with an explicit root type name. When root is empty it
+// falls back to the identity-derived name (RootName). Nested type names are
+// always derived from the root, so a custom root cascades through the subtree.
+func BuildNamed(s *schemapb.Schema, pkg, root string) (*File, error) {
 	wire, err := proto.Marshal(s)
 	if err != nil {
 		return nil, fmt.Errorf("marshal schema: %w", err)
 	}
+	if root == "" {
+		root = RootName(s.GetId())
+	}
 	b := &builder{
-		file: &File{Package: pkg, Root: RootName(s.GetId()), Identity: s.GetId(), Wire: wire},
+		file: &File{Package: pkg, Root: root, Identity: s.GetId(), Wire: wire},
 		seen: map[string]bool{},
 		defs: s.GetDefs(),
 	}

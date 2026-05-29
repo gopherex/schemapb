@@ -48,42 +48,57 @@ schemapbgen --in configs/disk.json --pkg gen
 
 ## Phase 2: Generate from Go builder code
 
-Use a `//go:generate` directive to capture schemas built with the Go builder API:
+Write **provider functions** — exported, zero-arg, returning `*schemapb.Schema` or
+`[]*schemapb.Schema` — and let the CLI discover and run them. One `//go:generate`
+line per package generates for every provider in it:
 
 ```go
-//go:generate go run github.com/stroppy-io/schemapb/cmd/schemapbgen@latest --from-go-code . --symbol BuildDiskSchema --pkg config
+//go:generate go run github.com/stroppy-io/schemapb/cmd/schemapbgen@latest --from-go-code .
 
-package config
+package databases
 
 import "github.com/stroppy-io/schemapb/schemapb"
 
-// BuildDiskSchema is called by schemapbgen during code generation.
-func BuildDiskSchema() *schemapb.Schema {
-	return schemapb.NewSchema("infra", "disk", "v1").Fields(
-		schemapb.Int64("shared_buffers").Required(),
-		schemapb.Str("wal_level"),
+func PostgresSchema() *schemapb.Schema {
+	return schemapb.NewSchema("databases", "postgres", "v1").Fields(
+		schemapb.Int64("port").Default(5432),
+	).MustBuild()
+}
+
+func MysqlSchema() *schemapb.Schema {
+	return schemapb.NewSchema("databases", "mysql", "v1").Fields(
+		schemapb.Int64("port").Default(3306),
 	).MustBuild()
 }
 ```
 
-Then run:
-
-```bash
-go generate ./...
-```
+`go generate ./...` then writes one `<source>_gen.go` next to each source file (here
+`postgres_gen.go`, `mysql_gen.go` if the funcs were in separate files, or both in one
+file if they share a source file).
 
 Flags (cobra long flags use **two** dashes):
-- `--from-go-code <dir>`: the package directory holding the provider func. May be any
-  package (including a nested `internal/...` one), not a module root — the CLI walks
-  up to the enclosing `go.mod` and imports the package by its full path. The provider
-  may import other packages (e.g. shared schema helpers); they resolve normally.
-- `--symbol <Func>`: exported provider returning `*schemapb.Schema` or `[]*schemapb.Schema`
-- `--pkg <name>`: package clause of the generated file. Set it to the **provider's own
-  package name** so the generated type lands in the same package.
-- `--out <dir>`: (optional) output directory. Defaults to the `--from-go-code` directory,
-  so the generated `<Root>_gen.go` sits next to the schema, in the same package.
+- `--from-go-code <dir>`: the package directory to scan. May be any package (including a
+  nested `internal/...` one), not a module root — the CLI walks up to the enclosing
+  `go.mod` and imports packages by their full path. Providers may import other packages
+  (e.g. shared schema helpers); they resolve normally.
+- `--symbol <Func>`: (optional) generate for one specific provider; omit to **auto-discover**
+  every provider in the package.
+- `--recursive`: also scan and generate for sub-packages (each gets its own files, in its
+  own package).
+- `--names func|identity` (default `func`): how to name the generated Go type —
+  `func` = provider name + `Schema` (e.g. `PostgresSchema` → type `PostgresSchemaSchema`;
+  name the func `Postgres` to get `PostgresSchema`), or `identity` = from the schema
+  identity (e.g. `DatabasesPostgresV1`).
+- `--pkg <name>`: (optional) package clause of the generated files. Defaults to the source
+  package, so generated code joins the same package.
+- `--out <dir>`: (optional) output directory; defaults to the source directory.
 
-Provider modules must compile; the CLI builds and runs them to capture the schemas.
+**Per-function markers** (doc comments on the provider):
+- `//schemapbgen:skip` — exclude this function from auto-discovery.
+- `//schemapbgen:name <GoTypeName>` — set an explicit generated type name, overriding `--names`.
+
+Provider code must compile; the CLI builds and runs it to capture the schemas. Generated
+files (`*_gen.go`) and test files are ignored by discovery.
 
 ## Naming scheme
 

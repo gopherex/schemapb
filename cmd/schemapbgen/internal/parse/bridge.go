@@ -13,15 +13,28 @@ import (
 	"github.com/stroppy-io/schemapb/schemapb"
 )
 
-// FromGoCode runs the exported provider symbol in the package at dir (a func
-// returning *schemapb.Schema or []*schemapb.Schema) and returns the schemas.
+// FromGoCode runs a single provider symbol and returns its schemas.
+func FromGoCode(dir, symbol string) ([]*schemapb.Schema, error) {
+	byFunc, err := RunProviders(dir, []string{symbol})
+	if err != nil {
+		return nil, err
+	}
+	return byFunc[symbol], nil
+}
+
+// RunProviders compiles and runs the named provider functions in the package at
+// dir, returning each function's schemas keyed by function name. Order within a
+// function is preserved.
 //
 // dir may be any package directory, not a module root — it is resolved to its
 // enclosing module (the nearest ancestor with a go.mod) and to the package's
 // full import path. A temporary runner is written under the module root (so it
 // can import internal/ packages) and executed with `go run`, resolving deps via
 // the user module's own go.mod. The user's code must compile.
-func FromGoCode(dir, symbol string) ([]*schemapb.Schema, error) {
+func RunProviders(dir string, funcs []string) (map[string][]*schemapb.Schema, error) {
+	if len(funcs) == 0 {
+		return map[string][]*schemapb.Schema{}, nil
+	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
@@ -48,9 +61,15 @@ func FromGoCode(dir, symbol string) ([]*schemapb.Schema, error) {
 	}
 	defer os.RemoveAll(runnerDir)
 
+	var calls bytes.Buffer
+	for _, fn := range funcs {
+		fmt.Fprintf(&calls, "\t\t{%q, func() []*schemapb.Schema { return norm(userpkg.%s()) }},\n", fn, fn)
+	}
+
 	runner := fmt.Sprintf(`package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -59,25 +78,41 @@ import (
 	userpkg %q
 )
 
-func main() {
-	out := []*schemapb.Schema{}
-	switch v := any(userpkg.%s()).(type) {
+func norm(v any) []*schemapb.Schema {
+	switch x := v.(type) {
 	case *schemapb.Schema:
-		out = append(out, v)
+		return []*schemapb.Schema{x}
 	case []*schemapb.Schema:
-		out = append(out, v...)
+		return x
 	default:
-		panic("symbol must return *schemapb.Schema or []*schemapb.Schema")
-	}
-	for _, s := range out {
-		b, err := protojson.Marshal(s)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("%%s\n", b)
+		panic("provider must return *schemapb.Schema or []*schemapb.Schema")
 	}
 }
-`, pkgImport, symbol)
+
+func main() {
+	providers := []struct {
+		name string
+		fn   func() []*schemapb.Schema
+	}{
+%s	}
+	for _, p := range providers {
+		for _, s := range p.fn() {
+			b, err := protojson.Marshal(s)
+			if err != nil {
+				panic(err)
+			}
+			line, err := json.Marshal(struct {
+				F string          %sjson:"f"%s
+				S json.RawMessage %sjson:"s"%s
+			}{p.name, b})
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println(string(line))
+		}
+	}
+}
+`, pkgImport, calls.String(), "`", "`", "`", "`")
 
 	if err := os.WriteFile(filepath.Join(runnerDir, "main.go"), []byte(runner), 0o644); err != nil {
 		return nil, err
@@ -88,23 +123,26 @@ func main() {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("run provider %s.%s: %w\n%s", pkgImport, symbol, err, stderr.String())
+		return nil, fmt.Errorf("run providers in %s: %w\n%s", pkgImport, err, stderr.String())
 	}
 
-	var schemas []*schemapb.Schema
+	out := map[string][]*schemapb.Schema{}
 	dec := json.NewDecoder(&stdout)
 	for dec.More() {
-		var raw json.RawMessage
-		if err := dec.Decode(&raw); err != nil {
+		var rec struct {
+			F string          `json:"f"`
+			S json.RawMessage `json:"s"`
+		}
+		if err := dec.Decode(&rec); err != nil {
 			return nil, err
 		}
 		var s schemapb.Schema
-		if err := protojson.Unmarshal(raw, &s); err != nil {
+		if err := protojson.Unmarshal(rec.S, &s); err != nil {
 			return nil, err
 		}
-		schemas = append(schemas, &s)
+		out[rec.F] = append(out[rec.F], &s)
 	}
-	return schemas, nil
+	return out, nil
 }
 
 // findModule walks up from dir to the nearest go.mod, returning its directory
