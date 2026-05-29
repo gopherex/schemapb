@@ -26,6 +26,14 @@ test:
 schemapbgen-test:
 	cd cmd/schemapbgen && go test ./...
 
+# Create a local-only go.work so the CLI builds against the in-tree library
+# (for hacking on schemapb + schemapbgen together before a release). Gitignored:
+# CI and `go install` build the CLI against its pinned library version instead.
+.PHONY: dev-workspace
+dev-workspace:
+	go work init . ./cmd/schemapbgen
+	@echo "✓ go.work created (gitignored)."
+
 # Interactive release: recreate the latest tag on HEAD, or bump major/minor/patch.
 # Pushing the vX.Y.Z tag triggers .github/workflows/publish-npm.yml.
 .PHONY: release
@@ -55,7 +63,7 @@ release:
 	  git push origin ":refs/tags/v$$cur" 2>/dev/null || true
 	  git tag -a "v$$cur" -m "v$$cur"
 	  git push origin --force "v$$cur"
-	  echo "✓ Recreated v$$cur on $$head."
+	  echo "✓ Recreated v$$cur on $$head (library tag only; cmd/schemapbgen tag untouched)."
 	  ;;
 	2)
 	  IFS=. read -r MA MI PA <<< "$$cur"
@@ -76,12 +84,29 @@ release:
 	  fi
 	  new="$$MA.$$MI.$$PA"
 	  echo
-	  echo "Release v$$new — create tag v$$new on $$head and push."
+	  echo "Release v$$new:"
+	  echo "  1. tag v$$new on $$head (library; triggers npm + release binaries)"
+	  echo "  2. pin cmd/schemapbgen to library v$$new (new commit on this branch)"
+	  echo "  3. tag cmd/schemapbgen/v$$new (so 'go install .../cmd/schemapbgen@v$$new' works)"
 	  read -r -p "Type 'yes' to proceed: " ok
 	  [ "$$ok" = "yes" ] || { echo "Aborted."; exit 0; }
+	  # 1. Release the library tag.
 	  git tag -a "v$$new" -m "v$$new"
 	  git push origin "v$$new"
-	  echo "✓ Released v$$new — the Release workflow will publish it."
+	  # 2. Pin the CLI to the freshly released library (proxy may lag; retry).
+	  ( cd cmd/schemapbgen
+	    for i in 1 2 3 4 5 6; do
+	      GOPROXY=direct go get "github.com/stroppy-io/schemapb@v$$new" && break
+	      echo "library v$$new not fetchable yet, retrying ($$i)…"; sleep 5
+	    done
+	    GOPROXY=direct go mod tidy )
+	  git add cmd/schemapbgen/go.mod cmd/schemapbgen/go.sum
+	  git commit -m "release: pin schemapbgen to library v$$new"
+	  git push origin HEAD
+	  # 3. Tag the CLI submodule on the pin commit.
+	  git tag -a "cmd/schemapbgen/v$$new" -m "schemapbgen v$$new"
+	  git push origin "cmd/schemapbgen/v$$new"
+	  echo "✓ Released v$$new (library) + cmd/schemapbgen/v$$new (CLI)."
 	  ;;
 	*)
 	  echo "Cancelled."

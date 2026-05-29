@@ -5,25 +5,26 @@ typed Go struct with full roundtrip/validation/sugar, losing no dynamic rule.
 
 ## Installation
 
-Download a prebuilt binary for your platform from the
+```bash
+go install github.com/stroppy-io/schemapb/cmd/schemapbgen@latest
+```
+
+Or download a prebuilt binary for your platform from the
 [latest release](https://github.com/stroppy-io/schemapb/releases) (archives named
 `schemapbgen_<tag>_<os>_<arch>`).
 
-Or install from a clone — the repo's `go.work` makes the CLI build against the
-in-tree library, so the bare `go install` (no `@version`) works:
+This CLI is a **separate Go module** pinned to a published `schemapb` library
+version, so `go install ...@latest` builds cleanly (and `...@vX.Y.Z` once a
+release tags `cmd/schemapbgen/vX.Y.Z`). The library and CLI are tagged together
+by `make release`.
+
+**Developing on both at once?** The CLI is pinned to a *released* library, so it
+won't see unreleased library changes by default. Create a local (gitignored)
+workspace:
 
 ```bash
-git clone https://github.com/stroppy-io/schemapb
-cd schemapb
-go install ./cmd/schemapbgen     # installs `schemapbgen` to $GOBIN
-# or run without installing:
-go run ./cmd/schemapbgen -in schema.json -out config_gen.go -pkg myconfig
+make dev-workspace      # go work init . ./cmd/schemapbgen
 ```
-
-> The **`@version`/`@latest`** form
-> (`go install github.com/stroppy-io/schemapb/cmd/schemapbgen@latest`) is **not**
-> supported: that form ignores the workspace and pins the library to an older
-> release tag, so the build fails. Use a prebuilt binary or the clone above.
 
 ## Phase 1: Generate from protojson files
 

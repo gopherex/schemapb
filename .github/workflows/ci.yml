@@ -27,8 +27,8 @@ jobs:
         with:
           go-version-file: cmd/schemapbgen/go.mod
           cache-dependency-path: cmd/schemapbgen/go.sum
-      # The CLI module depends on unreleased library code, so it builds against
-      # the in-tree schemapb via the root go.work (workspace stays on).
+      # No workspace here: the CLI builds against its pinned schemapb version
+      # from the module proxy, exactly as `go install` would for a consumer.
       - name: gofmt
         working-directory: cmd/schemapbgen
         run: |
