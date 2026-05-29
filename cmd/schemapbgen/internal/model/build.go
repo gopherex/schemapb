@@ -83,6 +83,19 @@ func (b *builder) field(f *schemapb.Schema_Filed, parent string) *Field {
 		fld.GoType = name
 		b.applyPtr(fld, ptr)
 
+	case *schemapb.Schema_Filed_String_:
+		// A String with a fixed `in` set is a string enum: emit a named string
+		// alias + consts and type the field as it. Without `in` it stays a plain
+		// string.
+		if in := k.String_.GetIn(); len(in) > 0 {
+			name := Child(parent, f.GetName())
+			b.file.StrEnums = append(b.file.StrEnums, &StrEnumDef{Name: name, Values: in})
+			fld.GoType = name
+		} else {
+			fld.GoType = "string"
+		}
+		b.applyPtr(fld, ptr)
+
 	case *schemapb.Schema_Filed_Duration_:
 		fld.GoType = "time.Duration"
 		b.applyPtr(fld, ptr)

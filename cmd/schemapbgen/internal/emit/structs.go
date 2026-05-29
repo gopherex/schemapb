@@ -84,6 +84,22 @@ func writeEnums(b *bytes.Buffer, f *model.File) {
 	}
 }
 
+// writeStrEnums emits a `type <Name> = string` alias plus a const per allowed
+// value for each String field that carried an `in` set. The alias keeps the
+// field assignable from a plain string (backward compatible) while giving the
+// allowed values typed names.
+func writeStrEnums(b *bytes.Buffer, f *model.File) {
+	for _, e := range f.StrEnums {
+		fmt.Fprintf(b, "// %s enumerates the allowed values of this string field.\n", e.Name)
+		fmt.Fprintf(b, "type %s = string\n\n", e.Name)
+		fmt.Fprintf(b, "const (\n")
+		for _, v := range e.Values {
+			fmt.Fprintf(b, "\t%s%s %s = %q\n", e.Name, pascalLabel(v), e.Name, v)
+		}
+		fmt.Fprintf(b, ")\n\n")
+	}
+}
+
 func splitLines(s string) []string {
 	res := []string{}
 	start := 0

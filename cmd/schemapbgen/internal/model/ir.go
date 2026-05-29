@@ -10,6 +10,14 @@ type File struct {
 	Wire     []byte                   // proto.Marshal of the original schema
 	Types    []*Type                  // root + all nested structs, in declaration order
 	Enums    []*EnumDef
+	StrEnums []*StrEnumDef
+}
+
+// StrEnumDef is a generated string-enum: a `type <Name> = string` alias plus a
+// const for each allowed value, produced from a String field's `in` set.
+type StrEnumDef struct {
+	Name   string   // e.g. PgHbaV1_ConnType
+	Values []string // allowed string values, in schema order
 }
 
 // Type is one generated struct (root, nested object, oneof variant, or def).

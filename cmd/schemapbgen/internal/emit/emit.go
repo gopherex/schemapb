@@ -38,6 +38,7 @@ func EmitMulti(files []*model.File) ([]byte, error) {
 func writeBody(b *bytes.Buffer, f *model.File) {
 	writeStructs(b, f)
 	writeEnums(b, f)
+	writeStrEnums(b, f)
 	writeSchemaWrap(b, f)
 	writeRoundtrip(b, f)
 	writeSugar(b, f)

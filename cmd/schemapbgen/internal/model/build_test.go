@@ -135,6 +135,36 @@ func TestBuildListOfObject(t *testing.T) {
 	assertField(t, item, "Weight", "*int32", true) // optional scalar
 }
 
+// TestBuildStrEnum locks that a String field with an `in` set becomes a typed
+// string alias + a StrEnumDef, while a plain String stays "string".
+func TestBuildStrEnum(t *testing.T) {
+	s := schemapb.NewSchema("pg", "hba", "v1").Fields(
+		schemapb.Str("conn_type").In("local", "host", "hostssl"),
+		schemapb.Str("comment"), // no In -> plain string
+	).MustBuild()
+
+	f, err := Build(s, "p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := findType(f, "PgHbaV1")
+	assertField(t, root, "ConnType", "*PgHbaV1_ConnType", true) // optional -> pointer
+	assertField(t, root, "Comment", "*string", true)            // plain string, optional
+
+	var se *StrEnumDef
+	for _, e := range f.StrEnums {
+		if e.Name == "PgHbaV1_ConnType" {
+			se = e
+		}
+	}
+	if se == nil {
+		t.Fatal("StrEnumDef PgHbaV1_ConnType not registered")
+	}
+	if len(se.Values) != 3 || se.Values[0] != "local" || se.Values[2] != "hostssl" {
+		t.Errorf("values=%v", se.Values)
+	}
+}
+
 func assertField(t *testing.T, typ *Type, name, goType string, ptr bool) {
 	t.Helper()
 	for _, fld := range typ.Fields {

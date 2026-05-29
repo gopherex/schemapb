@@ -217,7 +217,7 @@ func main() {
 | Int32/Int64  | `int32`/`int64` |
 | UInt32/UInt64 | `uint32`/`uint64` |
 | Bool         | `bool` |
-| String       | `string` |
+| String       | `string`; with `.In(...)` → a `type <Root>_<Field> = string` alias + a const per value (string enum) |
 | Enum         | named `int32` type + const block + `String()` |
 | Duration     | `time.Duration` |
 | Timestamp    | `time.Time` |
