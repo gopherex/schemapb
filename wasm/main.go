@@ -12,14 +12,19 @@
 //	schemapbBake(schemaJSON, valuesJSON)     -> {"baked":{schema,values},"errors":[...]}
 //	schemapbMerge(bakedJSON, overridesJSON, replaceLists) -> {"baked":{...},"errors":[...]}
 //	schemapbLink(schemaJSON, registrySchemasJSON)         -> {"schema":{...}}
+//	schemapbHash(bakedJSON)                               -> {"hash":"<64-hex-char sha256>"}
 //	   ("values" = the fully resolved form; "baked" = the sealed Baked, omitted
-//	    when errors block sealing; "schema" = the linked, self-contained schema)
+//	    when errors block sealing; "schema" = the linked, self-contained schema;
+//	    "hash" = the same schemapb.Hash/HashPB digest the Go server computes —
+//	    hex-encoded SHA-256 — so a browser-baked and server-baked snapshot of
+//	    the same schema+values are byte-comparable.)
 //
 // On a malformed schema or bad JSON, the result is {"error":"..."}.
 package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"syscall/js"
@@ -40,6 +45,7 @@ func main() {
 	js.Global().Set("schemapbEnumOptions", js.FuncOf(enumOptions))
 	js.Global().Set("schemapbListCount", js.FuncOf(listCount))
 	js.Global().Set("schemapbRender", js.FuncOf(render))
+	js.Global().Set("schemapbHash", js.FuncOf(hashBaked))
 	select {} // keep the Go runtime alive for the registered callbacks
 }
 
@@ -233,6 +239,22 @@ func merge(_ js.Value, args []js.Value) any {
 	replace := len(args) > 2 && args[2].Bool()
 	baked, fes := b.Merge(overrides, replace)
 	return bakeResult(baked, fes)
+}
+
+// hashBaked: schemapbHash(bakedJSON) -> {"hash":"<hex>"} or {"error":"..."}.
+// Hashes a Baked via the same schemapb.Hash (HashPB-based) code path the Go
+// server uses, so a browser-baked and server-baked snapshot of the same
+// schema+values are byte-comparable. No hashing logic is reimplemented here.
+func hashBaked(_ js.Value, args []js.Value) any {
+	if len(args) < 1 {
+		return fail("expected (bakedJSON)")
+	}
+	var b schemapb.Baked
+	if err := protojson.Unmarshal([]byte(args[0].String()), &b); err != nil {
+		return fail("parse baked: " + err.Error())
+	}
+	sum := schemapb.Hash(&b)
+	return result(map[string]any{"hash": hex.EncodeToString(sum[:])})
 }
 
 type fieldError struct {

@@ -68,6 +68,8 @@ declare global {
   var schemapbListCount: (schemaJSON: string, field: string, rootJSON: string) => string;
   // eslint-disable-next-line no-var
   var schemapbRender: (schemaJSON: string, valuesJSON: string, template: string) => string;
+  // eslint-disable-next-line no-var
+  var schemapbHash: (bakedJSON: string) => string;
 }
 
 const isNode =
@@ -199,6 +201,17 @@ export class Schemapb {
     const out = JSON.parse(globalThis.schemapbRender(schemaJSON, JSON.stringify(values ?? {}), template));
     if (out.error) throw new Error(out.error);
     return out.text as string;
+  }
+
+  /** SHA-256 content hash of `baked`, hex-encoded. Uses the exact same
+   *  schemapb.Hash/HashPB code path the Go server runs (no reimplementation),
+   *  so a browser-baked and server-baked snapshot of the same schema+values
+   *  hash identically — use it to prove a launch-form snapshot is unchanged. */
+  hash(baked: Baked): string {
+    const bakedJSON = JSON.stringify(toJson(BakedSchema, baked));
+    const out = JSON.parse(globalThis.schemapbHash(bakedJSON));
+    if (out.error) throw new Error(out.error);
+    return out.hash as string;
   }
 
   private call(

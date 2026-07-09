@@ -2,6 +2,7 @@ package schemapb_test
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"slices"
 	"strconv"
@@ -742,6 +743,43 @@ func TestHash(t *testing.T) {
 	if schemapb.Hash(a) == schemapb.Hash(c) {
 		t.Error("different schemas hash equally")
 	}
+}
+
+func TestHashBaked(t *testing.T) {
+	// Mirrors packages/schemapb/schemapb.test.ts "bake / merge" > sizing(): the
+	// TS parity test hardcodes the Go-computed digest logged below, proving the
+	// WASM-exposed schemapbHash and this Go Hash produce byte-identical output
+	// for the same schema+values (same HashPB code path, not a reimplementation).
+	sizing := func() *schemapb.Schema {
+		return schemapb.NewSchema("infra", "sizing", "v1").Fields(
+			schemapb.Int32("size").Gte(1).Default(20),
+			schemapb.Computed("iops", "root.size * 50").Result(schemapb.ResultInt64),
+		).MustBuild()
+	}
+
+	baked, errs := sizing().Bake(map[string]any{})
+	if len(errs) != 0 || baked == nil {
+		t.Fatalf("bake: %v", msgs(errs))
+	}
+	h1 := schemapb.Hash(baked)
+
+	baked2, errs2 := sizing().Bake(map[string]any{})
+	if len(errs2) != 0 || baked2 == nil {
+		t.Fatalf("bake2: %v", msgs(errs2))
+	}
+	if h2 := schemapb.Hash(baked2); h1 != h2 {
+		t.Error("equal Baked snapshots hash differently")
+	}
+
+	baked3, errs3 := sizing().Bake(map[string]any{"size": float64(100)})
+	if len(errs3) != 0 || baked3 == nil {
+		t.Fatalf("bake3: %v", msgs(errs3))
+	}
+	if h3 := schemapb.Hash(baked3); h1 == h3 {
+		t.Error("different Baked snapshots hash equally")
+	}
+
+	t.Logf("hash(sizing default)=%s", hex.EncodeToString(h1[:]))
 }
 
 func TestBakeMerge(t *testing.T) {

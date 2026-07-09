@@ -230,6 +230,16 @@ describe("bake / merge", () => {
     expect(r.baked).toBeUndefined();
     expect(r.errors.some((e) => e.field === "size")).toBe(true);
   });
+
+  it("hashes equal Baked snapshots equally and different ones differently", () => {
+    const a = fromJson(BakedSchema, sp.bake(sizing(), {}).baked!);
+    const a2 = fromJson(BakedSchema, sp.bake(sizing(), {}).baked!);
+    const b = fromJson(BakedSchema, sp.bake(sizing(), { size: 100 }).baked!);
+    const ha = sp.hash(a);
+    expect(ha).toBe(sp.hash(a2));
+    expect(ha).not.toBe(sp.hash(b));
+    expect(ha).toMatch(/^[0-9a-f]{64}$/);
+  });
 });
 
 describe("schema errors", () => {
@@ -1070,5 +1080,29 @@ describe("render (Go text/template via WASM)", () => {
 
   it("throws on an unknown template", () => {
     expect(() => sp.render(confSchema(), {}, "nope")).toThrow();
+  });
+});
+
+describe("parity: Hash (Go schemapb.Hash via WASM)", () => {
+  // Mirrors schemapb_test.go TestHashBaked's sizing() fixture exactly. This
+  // hex digest was captured from `go test -run TestHashBaked -v` (Go side)
+  // and hardcoded here to prove the browser (WASM) and server (Go) compute
+  // the byte-identical Baked hash for the same schema+values — not just a
+  // hand-rolled canonical-JSON hash that would only test itself.
+  const wantHex = "6b12f508b6dde59ea06a0521b298517789d155e5f2997a39bbbd0dfd56094290";
+
+  function sizing(): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "infra", name: "sizing", version: "v1" },
+      fields: [
+        { name: "size", kind: { case: "int32", value: { gte: 1, default: 20 } } },
+        { name: "iops", kind: { case: "computed", value: { expr: "root.size * 50", result: RT.INT64 } } },
+      ],
+    });
+  }
+
+  it("matches the Go-computed digest byte-for-byte", () => {
+    const baked = fromJson(BakedSchema, sp.bake(sizing(), {}).baked!);
+    expect(sp.hash(baked)).toBe(wantHex);
   });
 });
