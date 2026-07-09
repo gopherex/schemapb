@@ -618,6 +618,20 @@ func schemapb_Schema_Filed_List_hashpb_sum(m *Schema_Filed_List, hasher hash.Has
 	}
 }
 
+func schemapb_Schema_Filed_Map_hashpb_sum(m *Schema_Filed_Map, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {
+	if _, ok := ignore["schemapb.Schema.Filed.Map.value_schema"]; !ok {
+		if m.GetValueSchema() != nil {
+			schemapb_Schema_hashpb_sum(m.GetValueSchema(), hasher, ignore, b)
+		}
+	}
+	if _, ok := ignore["schemapb.Schema.Filed.Map.min_entries"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], m.GetMinEntries()))
+	}
+	if _, ok := ignore["schemapb.Schema.Filed.Map.max_entries"]; !ok {
+		_, _ = hasher.Write(protowire.AppendVarint(b[:0], m.GetMaxEntries()))
+	}
+}
+
 func schemapb_Schema_Filed_Object_hashpb_sum(m *Schema_Filed_Object, hasher hash.Hash, ignore map[string]struct{}, b *[10]byte) {
 	if _, ok := ignore["schemapb.Schema.Filed.Object.schema"]; !ok {
 		if m.GetSchema() != nil {
@@ -931,6 +945,10 @@ func schemapb_Schema_Filed_hashpb_sum(m *Schema_Filed, hasher hash.Hash, ignore 
 			case *Schema_Filed_Ref_:
 				if t.Ref != nil {
 					schemapb_Schema_Filed_Ref_hashpb_sum(t.Ref, hasher, ignore, b)
+				}
+			case *Schema_Filed_Map_:
+				if t.Map != nil {
+					schemapb_Schema_Filed_Map_hashpb_sum(t.Map, hasher, ignore, b)
 				}
 			}
 		}

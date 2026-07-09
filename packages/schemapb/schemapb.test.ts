@@ -858,6 +858,75 @@ describe("parity: list constraints", () => {
   });
 });
 
+describe("parity: map constraints (free keys, typed+validated values)", () => {
+  // Mirrors Go's TestValidateMap_* — a terraform-style map(object({zone,cidr}))
+  // modeled with a Strict value schema: arbitrary map keys are never rejected,
+  // but an unknown key INSIDE a value is, with the field path naming the map key.
+  const s = create(SchemaSchema, {
+    id: { namespace: "t", name: "netmap", version: "v1" },
+    fields: [
+      {
+        name: "subnets",
+        kind: {
+          case: "map",
+          value: {
+            valueSchema: {
+              strict: true,
+              fields: [
+                { name: "zone", required: true, kind: { case: "string", value: {} } },
+                { name: "cidr", required: true, kind: { case: "string", value: {} } },
+              ],
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  it("accepts arbitrary keys with valid values", () => {
+    const r = sp.validate(s, {
+      subnets: {
+        "my-subnet-a": { zone: "ru-a", cidr: "10.0.0.0/24" },
+        "weird key / name!": { zone: "ru-b", cidr: "10.0.1.0/24" },
+      },
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it("accepts an empty map", () => {
+    expect(sp.validate(s, { subnets: {} }).ok).toBe(true);
+  });
+
+  it("rejects an unknown key inside a value, path names the map key", () => {
+    const r = sp.validate(s, {
+      subnets: { "my-subnet-a": { zone: "ru-a", cidr: "10.0.0.0/24", evil_key: "pwn" } },
+    });
+    expect(r.ok).toBe(false);
+    const e = r.errors.find((e) => e.field === "subnets.my-subnet-a.evil_key");
+    expect(e?.code).toBe("unknown_field");
+  });
+
+  it("rejects a missing required field inside a value", () => {
+    const r = sp.validate(s, { subnets: { a: { zone: "ru-a" } } });
+    expect(r.errors.find((e) => e.field === "subnets.a.cidr")?.code).toBe("required");
+  });
+
+  it("min/max entries bound the map, not the keys", () => {
+    const bounded = create(SchemaSchema, {
+      id: { namespace: "t", name: "netmap2", version: "v1" },
+      fields: [
+        {
+          name: "subnets",
+          kind: { case: "map", value: { minEntries: 1n, maxEntries: 2n, valueSchema: {} } },
+        },
+      ],
+    });
+    expect(sp.validate(bounded, { subnets: {} }).ok).toBe(false);
+    expect(sp.validate(bounded, { subnets: { a: {} } }).ok).toBe(true);
+    expect(sp.validate(bounded, { subnets: { a: {}, b: {}, c: {} } }).ok).toBe(false);
+  });
+});
+
 describe("parity: bool + enum", () => {
   const s = create(SchemaSchema, {
     id: { namespace: "t", name: "be", version: "v1" },
@@ -1103,6 +1172,46 @@ describe("parity: Hash (Go schemapb.Hash via WASM)", () => {
 
   it("matches the Go-computed digest byte-for-byte", () => {
     const baked = fromJson(BakedSchema, sp.bake(sizing(), {}).baked!);
+    expect(sp.hash(baked)).toBe(wantHex);
+  });
+});
+
+describe("parity: Hash (Map, Go schemapb.Hash via WASM)", () => {
+  // Mirrors schemapb_test.go TestHashBakedMap's netmap() fixture exactly. This
+  // hex digest was captured from `go test -run TestHashBakedMap -v` (Go side)
+  // and hardcoded here to prove the browser (WASM) and server (Go) compute the
+  // byte-identical Baked hash for a map-bearing schema+values — the load-bearing
+  // guarantee the launch-form design (client/server hash parity) rests on.
+  const wantHex = "b1c0ec447c5ba1c10687cf55bea687f3b6f636fb6cbe41651c99cb4f27e46867";
+
+  function netmap(): Schema {
+    return create(SchemaSchema, {
+      id: { namespace: "infra", name: "netmap", version: "v1" },
+      fields: [
+        {
+          name: "subnets",
+          kind: {
+            case: "map",
+            value: {
+              valueSchema: {
+                strict: true,
+                fields: [
+                  { name: "zone", required: true, kind: { case: "string", value: {} } },
+                  { name: "cidr", required: true, kind: { case: "string", value: {} } },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  it("matches the Go-computed digest byte-for-byte", () => {
+    const baked = fromJson(
+      BakedSchema,
+      sp.bake(netmap(), { subnets: { a: { zone: "ru-a", cidr: "10.0.0.0/24" } } }).baked!,
+    );
     expect(sp.hash(baked)).toBe(wantHex);
   });
 });

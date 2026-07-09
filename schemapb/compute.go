@@ -306,6 +306,16 @@ func (v *validator) runNormalize(schema *Schema, scope, root map[string]any) {
 				}
 			}
 		}
+		// Recurse into map values (every value shares the same value_schema).
+		if mp := f.GetMap(); mp != nil && mp.GetValueSchema() != nil {
+			if mm, ok := cur.(map[string]any); ok {
+				for _, el := range mm {
+					if m, ok := el.(map[string]any); ok {
+						v.runNormalize(mp.GetValueSchema(), m, root)
+					}
+				}
+			}
+		}
 		// Recurse into OneOf values: select the variant by discriminator.
 		if oo := f.GetOneOf(); oo != nil {
 			if m, ok := cur.(map[string]any); ok {
@@ -388,6 +398,14 @@ func (v *validator) seed(schema *Schema, scope map[string]any, prefix string, ta
 						if m, ok := el.(map[string]any); ok {
 							v.seed(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks, root)
 						}
+					}
+				}
+			}
+		case f.GetMap() != nil && f.GetMap().GetValueSchema() != nil:
+			if mm, ok := scope[name].(map[string]any); ok {
+				for k, el := range mm {
+					if m, ok := el.(map[string]any); ok {
+						v.seed(f.GetMap().GetValueSchema(), m, join(path, k), tasks, root)
 					}
 				}
 			}

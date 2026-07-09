@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -170,6 +171,11 @@ func (v *validator) compileField(f *Schema_Filed) error {
 			return err
 		}
 	}
+	if mp := f.GetMap(); mp != nil && mp.GetValueSchema() != nil {
+		if err := v.compileSchema(mp.GetValueSchema()); err != nil {
+			return err
+		}
+	}
 	if oo := f.GetOneOf(); oo != nil {
 		for _, variant := range oo.GetVariants() {
 			if err := v.compileSchema(variant); err != nil {
@@ -268,6 +274,15 @@ func (v *validator) checkImmutable(fields []*Schema_Filed, scope map[string]any,
 						if m, ok := el.(map[string]any); ok {
 							out = append(out, v.checkImmutable(o.GetSchema().GetFields(), m, fmt.Sprintf("%s[%d]", path, i), root)...)
 						}
+					}
+				}
+			}
+		}
+		if mp := f.GetMap(); mp != nil && mp.GetValueSchema() != nil {
+			if mm, ok := scope[name].(map[string]any); ok {
+				for k, el := range mm {
+					if m, ok := el.(map[string]any); ok {
+						out = append(out, v.checkImmutable(mp.GetValueSchema().GetFields(), m, join(path, k), root)...)
 					}
 				}
 			}
@@ -421,6 +436,12 @@ func (v *validator) checkKind(f *Schema_Filed, val any, path string, root map[st
 			return typeErr(path, "object")
 		}
 		return v.checkObject(path, m, f.GetObject(), root)
+	case f.GetMap() != nil:
+		m, ok := val.(map[string]any)
+		if !ok {
+			return typeErr(path, "object (map)")
+		}
+		return v.checkMap(path, m, f.GetMap(), root)
 	case f.GetComputed() != nil:
 		// Derived value: no structured constraints. Its Rules (if any) run in
 		// validateOne as sanity checks.
@@ -465,6 +486,44 @@ func (v *validator) checkObject(path string, m map[string]any, o *Schema_Filed_O
 	out := v.validateFields(s, m, root, path)
 	for _, r := range s.GetRules() {
 		out = append(out, v.evalRule(r, path, m, root, nil)...)
+	}
+	return out
+}
+
+// checkMap validates a Map field: entry-count bounds, then each value against
+// the shared value_schema (nil value_schema => values accepted unvalidated).
+// Keys are never rejected — only what's inside each value can be. Keys are
+// visited in sorted order so error output is deterministic; the field path
+// for a rejected key names the map key, e.g. "subnets.my-subnet-a.evil_key".
+func (v *validator) checkMap(path string, m map[string]any, mk *Schema_Filed_Map, root map[string]any) []*FieldError {
+	var out []*FieldError
+	n := uint64(len(m))
+	if mk.MinEntries != nil && n < *mk.MinEntries {
+		out = append(out, codeErr(path, fmt.Sprintf("must have at least %d entries", *mk.MinEntries), "min_entries", map[string]string{"min": fmt.Sprintf("%d", *mk.MinEntries)}))
+	}
+	if mk.MaxEntries != nil && n > *mk.MaxEntries {
+		out = append(out, codeErr(path, fmt.Sprintf("must have at most %d entries", *mk.MaxEntries), "max_entries", map[string]string{"max": fmt.Sprintf("%d", *mk.MaxEntries)}))
+	}
+	vs := mk.GetValueSchema()
+	if vs == nil {
+		return out
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	for _, k := range keys {
+		vpath := join(path, k)
+		vm, ok := m[k].(map[string]any)
+		if !ok {
+			out = append(out, typeErr(vpath, "object")...)
+			continue
+		}
+		out = append(out, v.validateFields(vs, vm, root, vpath)...)
+		for _, r := range vs.GetRules() {
+			out = append(out, v.evalRule(r, vpath, vm, root, nil)...)
+		}
 	}
 	return out
 }
@@ -952,6 +1011,8 @@ func collectRefErrors(fields []*Schema_Filed, rootDefs map[string]*Schema, prefi
 			out = append(out, collectRefErrors(f.GetList().GetItems(), rootDefs, path+"[]")...)
 		case f.GetObject() != nil && f.GetObject().GetSchema() != nil:
 			out = append(out, collectRefErrors(f.GetObject().GetSchema().GetFields(), rootDefs, path)...)
+		case f.GetMap() != nil && f.GetMap().GetValueSchema() != nil:
+			out = append(out, collectRefErrors(f.GetMap().GetValueSchema().GetFields(), rootDefs, path)...)
 		case f.GetOneOf() != nil:
 			for vkey, variant := range f.GetOneOf().GetVariants() {
 				vpath := fmt.Sprintf("%s[variant=%s]", path, vkey)
@@ -1033,6 +1094,20 @@ func validateSchemaFields(fields []*Schema_Filed, prefix string) []*FieldError {
 				out = append(out, validateSchemaFields(o.GetSchema().GetFields(), path)...)
 				for j, r := range o.GetSchema().GetRules() {
 					out = append(out, validateRuleDef(r, fmt.Sprintf("%s.rules[%d]", path, j))...)
+				}
+			}
+		}
+		if mp := f.GetMap(); mp != nil {
+			if mp.MinEntries != nil && mp.MaxEntries != nil && *mp.MinEntries > *mp.MaxEntries {
+				out = append(out, schemaErr(path, "map min_entries must be <= max_entries"))
+			}
+			if vs := mp.GetValueSchema(); vs != nil {
+				out = append(out, validateSchemaFields(vs.GetFields(), path)...)
+				for j, r := range vs.GetRules() {
+					out = append(out, validateRuleDef(r, fmt.Sprintf("%s.rules[%d]", path, j))...)
+				}
+				if _, err := buildComputeOrder(vs.GetFields()); err != nil {
+					out = append(out, schemaErr(path, err.Error()))
 				}
 			}
 		}

@@ -321,6 +321,26 @@ message Schema {
             optional Schema schema = 1;
         }
         /*
+         * Map field kind: free-form string keys (never rejected — e.g. user-chosen
+         * subnet/VM names) with values validated against a single shared Schema.
+         * Unlike Object (fixed, named fields), a Map's key set is arbitrary and
+         * runtime-supplied; every value is validated against the same
+         * `value_schema`, so if that schema is `Strict` an unknown key INSIDE a
+         * value is rejected while the map's own keys stay unconstrained. The
+         * rejected field path names the map key, e.g. "subnets.my-subnet-a.evil_key".
+         * Hashing/ordering: map entries hash by sorted key (see (*Schema).HashPB /
+         * the generated HashPB), matching google.protobuf.Struct's field hashing.
+         */
+        message Map {
+            /* Schema every map value must satisfy. Absent => values are accepted
+             * unvalidated (any object). */
+            optional Schema value_schema = 1;
+            /* Minimum number of entries. */
+            optional uint64 min_entries = 2;
+            /* Maximum number of entries. */
+            optional uint64 max_entries = 3;
+        }
+        /*
          * Computed field kind: a value derived from other values, not entered by
          * the user. The server (and the client, for live UX) evaluates `expr`
          * and writes the result under this field's name, so other expressions
@@ -490,6 +510,8 @@ message Schema {
             OneOf one_of = 28;
             /* Reference to a named definition in the root schema's defs. */
             Ref ref = 29;
+            /* Free-key, typed-value map field. */
+            Map map = 31;
         }
 
         /*

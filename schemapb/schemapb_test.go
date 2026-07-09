@@ -2050,3 +2050,196 @@ func TestServer_BakeAndMergeRPC(t *testing.T) {
 		t.Error("merge without base must error")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Map kind: free keys, typed+validated values (e.g. terraform map(object({...})))
+// ---------------------------------------------------------------------------
+
+func TestValidateMap_Basic(t *testing.T) {
+	v := build(t, schemapb.Map("subnets",
+		schemapb.Str("zone").Required(),
+		schemapb.Str("cidr").Required(),
+	))
+
+	// arbitrary keys are never rejected.
+	if g := validateJSON(t, v, `{"subnets":{"my-subnet-a":{"zone":"ru-a","cidr":"10.0.0.0/24"},"another_one":{"zone":"ru-b","cidr":"10.0.1.0/24"}}}`); len(g) != 0 {
+		t.Errorf("valid map: %v", g)
+	}
+	// empty map is fine (no min_entries set).
+	if g := validateJSON(t, v, `{"subnets":{}}`); len(g) != 0 {
+		t.Errorf("empty map: %v", g)
+	}
+	// a value missing a required field is rejected under the map-key path.
+	if g := validateJSON(t, v, `{"subnets":{"my-subnet-a":{"zone":"ru-a"}}}`); g["subnets.my-subnet-a.cidr"] != "required" {
+		t.Errorf("want subnets.my-subnet-a.cidr required, got %v", g)
+	}
+	// wrong shape for the map field itself.
+	if g := validateJSON(t, v, `{"subnets":"not-a-map"}`); !has(g, "subnets") {
+		t.Errorf("want type error on subnets, got %v", g)
+	}
+}
+
+func TestValidateMap_StrictValueRejectsUnknownKey(t *testing.T) {
+	// Mirrors the downstream gap: map(object({zone,cidr})) modeled as a
+	// non-strict object couldn't reject an unknown key inside a map entry's
+	// value. A Map kind with a Strict value_schema closes it, without
+	// constraining the map's own (arbitrary) keys.
+	v := build(t, schemapb.Map("subnets",
+		schemapb.Str("zone").Required(),
+		schemapb.Str("cidr").Required(),
+	).Strict())
+
+	if g := validateJSON(t, v, `{"subnets":{"my-subnet-a":{"zone":"ru-a","cidr":"10.0.0.0/24"}}}`); len(g) != 0 {
+		t.Errorf("valid strict map: %v", g)
+	}
+	// the injected key is scoped under the map key, not a top-level field.
+	g := validateJSON(t, v, `{"subnets":{"my-subnet-a":{"zone":"ru-a","cidr":"10.0.0.0/24","evil_key":"pwn"}}}`)
+	if g["subnets.my-subnet-a.evil_key"] == "" {
+		t.Errorf("want subnets.my-subnet-a.evil_key unknown_field, got %v", g)
+	}
+	if codeFor(mustErrs(t, v, `{"subnets":{"my-subnet-a":{"zone":"ru-a","cidr":"10.0.0.0/24","evil_key":"pwn"}}}`), "subnets.my-subnet-a.evil_key") != "unknown_field" {
+		t.Errorf("want code unknown_field")
+	}
+	// the map KEY itself is never rejected, however unusual.
+	if g := validateJSON(t, v, `{"subnets":{"weird key / name!":{"zone":"ru-a","cidr":"10.0.0.0/24"}}}`); len(g) != 0 {
+		t.Errorf("map key must never be rejected: %v", g)
+	}
+}
+
+func TestValidateMap_MinMaxEntries(t *testing.T) {
+	v := build(t, schemapb.Map("subnets", schemapb.Str("zone")).MinEntries(1).MaxEntries(2))
+
+	if g := validateJSON(t, v, `{"subnets":{}}`); codeFor(mustErrs(t, v, `{"subnets":{}}`), "subnets") != "min_entries" {
+		t.Errorf("want min_entries, got %v", g)
+	}
+	if g := validateJSON(t, v, `{"subnets":{"a":{},"b":{},"c":{}}}`); codeFor(mustErrs(t, v, `{"subnets":{"a":{},"b":{},"c":{}}}`), "subnets") != "max_entries" {
+		t.Errorf("want max_entries, got %v", g)
+	}
+	if g := validateJSON(t, v, `{"subnets":{"a":{}}}`); len(g) != 0 {
+		t.Errorf("valid: %v", g)
+	}
+}
+
+func TestValidateMap_NoValueSchemaAcceptsAny(t *testing.T) {
+	v := build(t, schemapb.Map("tags"))
+	if g := validateJSON(t, v, `{"tags":{"env":{"whatever":"goes"},"team":{}}}`); len(g) != 0 {
+		t.Errorf("unconstrained map value: %v", g)
+	}
+}
+
+func TestComputeMap_DefaultsAndComputedPerValue(t *testing.T) {
+	v := mustValidator(t, schemapb.NewSchema("test", "s", "v1").Fields(
+		schemapb.Map("machines",
+			schemapb.Int32("cpu").Default(2),
+			schemapb.Computed("cpu_x2", "root.machines.m1.cpu * 2").Result(schemapb.ResultInt64),
+		),
+	).MustBuild())
+
+	out, errs := v.Compute(map[string]any{"machines": map[string]any{"m1": map[string]any{}}})
+	if len(errs) != 0 {
+		t.Fatalf("compute errors: %v", msgs(errs))
+	}
+	m1, ok := out["machines"].(map[string]any)["m1"].(map[string]any)
+	if !ok {
+		t.Fatalf("machines.m1 missing: %v", out)
+	}
+	if m1["cpu"] != float64(2) {
+		t.Errorf("cpu default not seeded: %v", m1)
+	}
+}
+
+func TestValidateSchema_MapValueSchemaChecked(t *testing.T) {
+	// A map's value_schema participates in the same self-schema checks as any
+	// nested schema (here: duplicate field names inside it).
+	s := schemapb.NewSchema("test", "s", "v1").Fields(
+		schemapb.Map("m", schemapb.Str("dup"), schemapb.Str("dup")),
+	)
+	_, err := s.Build()
+	if err == nil {
+		t.Error("want build error for duplicate field name inside map value_schema")
+	}
+}
+
+// mustErrs is validateJSON's error-list counterpart (keeps the message-map
+// helper above intact for existing callers while giving Map tests access to
+// FieldError.Code).
+func mustErrs(t *testing.T, v *schemapb.Schema, body string) []*schemapb.FieldError {
+	t.Helper()
+	errs, err := v.ValidateJSON(json.RawMessage(body))
+	if err != nil {
+		t.Fatalf("validate json: %v", err)
+	}
+	return errs
+}
+
+func TestHashMap_SortedKeysDeterministic(t *testing.T) {
+	s := schemapb.NewSchema("infra", "netmap", "v1").Fields(
+		schemapb.Map("subnets",
+			schemapb.Str("zone").Required(),
+			schemapb.Str("cidr").Required(),
+		),
+	).MustBuild()
+
+	// Build the same logical map contents via different insertion orders; Go
+	// map iteration order is randomized per-run, so this also incidentally
+	// exercises that randomization doesn't leak into the hash.
+	valuesA := map[string]any{"subnets": map[string]any{
+		"a": map[string]any{"zone": "ru-a", "cidr": "10.0.0.0/24"},
+		"b": map[string]any{"zone": "ru-b", "cidr": "10.0.1.0/24"},
+		"c": map[string]any{"zone": "ru-c", "cidr": "10.0.2.0/24"},
+	}}
+	valuesB := map[string]any{"subnets": map[string]any{
+		"c": map[string]any{"cidr": "10.0.2.0/24", "zone": "ru-c"},
+		"a": map[string]any{"cidr": "10.0.0.0/24", "zone": "ru-a"},
+		"b": map[string]any{"cidr": "10.0.1.0/24", "zone": "ru-b"},
+	}}
+
+	bakedA, errsA := s.Bake(valuesA)
+	if len(errsA) != 0 || bakedA == nil {
+		t.Fatalf("bake A: %v", msgs(errsA))
+	}
+	bakedB, errsB := s.Bake(valuesB)
+	if len(errsB) != 0 || bakedB == nil {
+		t.Fatalf("bake B: %v", msgs(errsB))
+	}
+	if schemapb.Hash(bakedA) != schemapb.Hash(bakedB) {
+		t.Error("same map contents in different key/field order hash differently — sorted-key hashing broken")
+	}
+
+	// A different map (extra key) must hash differently.
+	valuesC := map[string]any{"subnets": map[string]any{
+		"a": map[string]any{"zone": "ru-a", "cidr": "10.0.0.0/24"},
+	}}
+	bakedC, errsC := s.Bake(valuesC)
+	if len(errsC) != 0 || bakedC == nil {
+		t.Fatalf("bake C: %v", msgs(errsC))
+	}
+	if schemapb.Hash(bakedA) == schemapb.Hash(bakedC) {
+		t.Error("different map contents hash equally")
+	}
+}
+
+func TestHashBakedMap(t *testing.T) {
+	// Mirrors packages/schemapb/schemapb.test.ts "parity: Hash (Map)" — the
+	// digest logged below is hardcoded there to prove WASM (browser) and this
+	// Go Hash produce a byte-identical digest for a map-bearing Baked.
+	netmap := func() *schemapb.Schema {
+		return schemapb.NewSchema("infra", "netmap", "v1").Fields(
+			schemapb.Map("subnets",
+				schemapb.Str("zone").Required(),
+				schemapb.Str("cidr").Required(),
+			).Strict(),
+		).MustBuild()
+	}
+
+	baked, errs := netmap().Bake(map[string]any{
+		"subnets": map[string]any{
+			"a": map[string]any{"zone": "ru-a", "cidr": "10.0.0.0/24"},
+		},
+	})
+	if len(errs) != 0 || baked == nil {
+		t.Fatalf("bake: %v", msgs(errs))
+	}
+	h := schemapb.Hash(baked)
+	t.Logf("hash(netmap subnets.a)=%s", hex.EncodeToString(h[:]))
+}

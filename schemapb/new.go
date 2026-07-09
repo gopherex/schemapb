@@ -573,6 +573,52 @@ func (b *ObjectB) MinProps(n uint64) *ObjectB { b.k.Schema.MinProperties = &n; r
 // MaxProps sets the maximum number of properties on the nested object schema.
 func (b *ObjectB) MaxProps(n uint64) *ObjectB { b.k.Schema.MaxProperties = &n; return b }
 
+// MapB builds a map field: free-form string keys (never rejected), values
+// validated against a shared schema.
+type MapB struct {
+	fieldBase[*MapB]
+	k *Schema_Filed_Map
+}
+
+// Map builds a map field; valueFields describe the schema every map value
+// must satisfy (like Object, an inline schema with no identity needed). A
+// map with no valueFields still gets an (unconstrained, non-strict) value
+// schema, so keys stay free and values are accepted as any object.
+func Map(name string, valueFields ...FieldDef) *MapB {
+	sub := &Schema{}
+	for _, d := range valueFields {
+		sub.Fields = append(sub.Fields, d.Done())
+	}
+	b := &MapB{k: &Schema_Filed_Map{ValueSchema: sub}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Filed_Map_{Map: b.k}
+	return b
+}
+
+// Strict enables strict mode on the map's value schema: an unknown key
+// inside a map VALUE is rejected (the map's own keys are always free).
+func (b *MapB) Strict() *MapB { b.k.ValueSchema.Strict = true; return b }
+
+// MinEntries sets the minimum number of map entries.
+func (b *MapB) MinEntries(n uint64) *MapB { b.k.MinEntries = &n; return b }
+
+// MaxEntries sets the maximum number of map entries.
+func (b *MapB) MaxEntries(n uint64) *MapB { b.k.MaxEntries = &n; return b }
+
+// Rule adds a form-wide rule to the map's value schema.
+func (b *MapB) Rule(rules ...RuleDef) *MapB {
+	for _, r := range rules {
+		b.k.ValueSchema.Rules = append(b.k.ValueSchema.Rules, r.Done())
+	}
+	return b
+}
+
+// MinProps sets the minimum number of properties on the map's value schema.
+func (b *MapB) MinProps(n uint64) *MapB { b.k.ValueSchema.MinProperties = &n; return b }
+
+// MaxProps sets the maximum number of properties on the map's value schema.
+func (b *MapB) MaxProps(n uint64) *MapB { b.k.ValueSchema.MaxProperties = &n; return b }
+
 // ComputedB builds a derived field.
 type ComputedB struct {
 	fieldBase[*ComputedB]
