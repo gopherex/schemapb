@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package schemapb.v1;
+package schemapb;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
@@ -223,6 +223,38 @@ message Schema {
         STRING_FORMAT_DATETIME = 10;
       }
     }
+    /* Bytes field kind and its single-field constraints. Values travel as
+     * protobuf bytes (base64 in protoJSON) and are CEL-native `bytes`. */
+    message Bytes {
+      /* Default value used when the field is unset. */
+      optional bytes default = 1;
+      /* Value must equal exactly this. */
+      optional bytes const = 2;
+      /* Exact byte length required. */
+      optional uint64 len = 3;
+      /* Minimum byte length. */
+      optional uint64 min_len = 4;
+      /* Maximum byte length. */
+      optional uint64 max_len = 5;
+      /* Value must start with this prefix. */
+      optional bytes prefix = 6;
+      /* Value must end with this suffix. */
+      optional bytes suffix = 7;
+      /* Value must be one of these. */
+      repeated bytes in = 8;
+      /* Value must not be any of these. */
+      repeated bytes not_in = 9;
+    }
+    /*
+     * Json field kind: a free-form value accepted WITHOUT structural
+     * validation — any Value variant (scalar, list, struct, null) passes.
+     * Use for passthrough configuration blobs, annotations, extension data.
+     * CEL sees the value as `dyn`; Field.rules still apply if authored.
+     */
+    message Json {
+      /* Default value used when the field is unset. */
+      optional Value default = 1;
+    }
     /* Enum field kind: an integer value with human labels. */
     message Enum {
       /* Default value used when the field is unset. */
@@ -353,6 +385,9 @@ message Schema {
       RESULT_TYPE_STRING = 5;
       RESULT_TYPE_DURATION = 6;
       RESULT_TYPE_TIMESTAMP = 7;
+      RESULT_TYPE_BYTES = 8;
+      /* Arbitrary Value: the expression result is stored as-is (dyn). */
+      RESULT_TYPE_JSON = 9;
     }
 
     /* Severity of a failed rule. */
@@ -463,6 +498,10 @@ message Schema {
       Ref ref = 29;
       /* Free-key, typed-value map field. */
       Map map = 31;
+      /* Bytes field. */
+      Bytes bytes = 32;
+      /* Free-form JSON value field. */
+      Json json = 33;
     }
 
     /*

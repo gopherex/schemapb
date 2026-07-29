@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package schemapb.v1;
+package schemapb;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
@@ -18,7 +18,7 @@ option go_package = "github.com/gopherex/schemapb/go/schemapb";
  *   string        -> string     duration      -> google.protobuf.Duration
  *   timestamp     -> google.protobuf.Timestamp
  *   list          -> list       struct        -> map
- *   null          -> null
+ *   null          -> null       bytes         -> bytes
  *
  * In protoJSON, int64/uint64 serialise as strings (standard protobuf JSON
  * mapping), so JavaScript clients keep precision via bigint.
@@ -42,6 +42,7 @@ message Value {
     google.protobuf.Timestamp timestamp_value = 11;
     ListValue list_value = 12;
     StructValue struct_value = 13;
+    bytes bytes_value = 14;
   }
 }
 
