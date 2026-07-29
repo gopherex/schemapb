@@ -1,0 +1,575 @@
+syntax = "proto3";
+
+package schemapb.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "schemapb/value.proto";
+
+option go_package = "github.com/gopherex/schemapb/go/schemapb";
+
+/*
+ * Schema is a runtime, dynamic form/config descriptor. A producer builds a
+ * Schema and ships it (as a protobuf message) to any consumer — Go, TypeScript,
+ * Python or Rust — which validates values, computes derived fields and renders
+ * text output natively. Cross-implementation agreement is guaranteed by the
+ * schemapb spec and its conformance suite, not by sharing a runtime.
+ *
+ * Validation has two layers:
+ *   - per-kind structured rules (gt/gte/lt/lte/in/pattern/...) for the common,
+ *     single-field cases. Ergonomic to author and introspectable by renderers
+ *     (e.g. slider bounds).
+ *   - Field.rules / Schema.rules: CEL expressions (https://cel.dev) for
+ *     cross-field and conditional validation.
+ *
+ * Expression language: full CEL spec plus the `strings` extension. Expressions
+ * must be pure and deterministic (no now()/rand, no implicit timezones) so all
+ * implementations agree. Variables bound by the engine:
+ *   `this` — the current field's value (field-level rules/normalize only)
+ *   `root` — the whole form as a map (inputs + already-computed values)
+ *
+ * Render templates are Mustache (https://mustache.github.io); see
+ * Schema.templates.
+ */
+message Schema {
+  /*
+   * Field is one field of the form.
+   *
+   * Per-field evaluation order (each stage reads the form as resolved by the
+   * previous one):
+   *   1. when         — gate: if false the field is INACTIVE and every stage
+   *                     below is skipped; the field is treated as ABSENT (its
+   *                     value, if any, is preserved but ignored). For a
+   *                     container kind (Object/OneOf/List/Map/Ref) the WHOLE
+   *                     subtree is gated.
+   *   2. normalize    — map the field's own value.
+   *   3. Computed     — derive the value from `root`.
+   *   4. options_expr / count_expr — dynamic Enum options / List length.
+   *   5. rules + kind constraints — required/nullable, gt/lt/in/pattern, ...
+   *
+   * Renderer contract: an inactive field (when=false) MUST NOT be rendered.
+   */
+  message Field {
+    /*
+     * Float field kind and its single-field constraints.
+     * gt = exclusive min (> 0), gte = inclusive min (>= 1).
+     * lt = exclusive max, lte = inclusive max.
+     */
+    message Float {
+      /* Default value used when the field is unset. */
+      optional float default = 1;
+      /* Value must equal exactly this. */
+      optional float const = 2;
+      /* Exclusive minimum: value > gt. */
+      optional float gt = 3;
+      /* Inclusive minimum: value >= gte. */
+      optional float gte = 4;
+      /* Exclusive maximum: value < lt. */
+      optional float lt = 5;
+      /* Inclusive maximum: value <= lte. */
+      optional float lte = 6;
+      /* Value must be one of these. */
+      repeated float in = 7;
+      /* Value must not be any of these. */
+      repeated float not_in = 8;
+      /* Divisibility: quotient value/multiple_of must be whole. */
+      optional float multiple_of = 9;
+    }
+    /* Double field kind and its single-field constraints. */
+    message Double {
+      /* Default value used when the field is unset. */
+      optional double default = 1;
+      /* Value must equal exactly this. */
+      optional double const = 2;
+      /* Exclusive minimum: value > gt. */
+      optional double gt = 3;
+      /* Inclusive minimum: value >= gte. */
+      optional double gte = 4;
+      /* Exclusive maximum: value < lt. */
+      optional double lt = 5;
+      /* Inclusive maximum: value <= lte. */
+      optional double lte = 6;
+      /* Value must be one of these. */
+      repeated double in = 7;
+      /* Value must not be any of these. */
+      repeated double not_in = 8;
+      /* Divisibility: quotient value/multiple_of must be whole. */
+      optional double multiple_of = 9;
+    }
+    /* Int32 field kind and its single-field constraints. */
+    message Int32 {
+      /* Default value used when the field is unset. */
+      optional int32 default = 1;
+      /* Value must equal exactly this. */
+      optional int32 const = 2;
+      /* Exclusive minimum: value > gt. */
+      optional int32 gt = 3;
+      /* Inclusive minimum: value >= gte. */
+      optional int32 gte = 4;
+      /* Exclusive maximum: value < lt. */
+      optional int32 lt = 5;
+      /* Inclusive maximum: value <= lte. */
+      optional int32 lte = 6;
+      /* Value must be one of these. */
+      repeated int32 in = 7;
+      /* Value must not be any of these. */
+      repeated int32 not_in = 8;
+      /* Divisibility: value % multiple_of must be 0. */
+      optional int32 multiple_of = 9;
+    }
+    /* Int64 field kind and its single-field constraints. */
+    message Int64 {
+      /* Default value used when the field is unset. */
+      optional int64 default = 1;
+      /* Value must equal exactly this. */
+      optional int64 const = 2;
+      /* Exclusive minimum: value > gt. */
+      optional int64 gt = 3;
+      /* Inclusive minimum: value >= gte. */
+      optional int64 gte = 4;
+      /* Exclusive maximum: value < lt. */
+      optional int64 lt = 5;
+      /* Inclusive maximum: value <= lte. */
+      optional int64 lte = 6;
+      /* Value must be one of these. */
+      repeated int64 in = 7;
+      /* Value must not be any of these. */
+      repeated int64 not_in = 8;
+      /* Divisibility: value % multiple_of must be 0. */
+      optional int64 multiple_of = 9;
+    }
+    /* UInt32 field kind and its single-field constraints. */
+    message UInt32 {
+      /* Default value used when the field is unset. */
+      optional uint32 default = 1;
+      /* Value must equal exactly this. */
+      optional uint32 const = 2;
+      /* Exclusive minimum: value > gt. */
+      optional uint32 gt = 3;
+      /* Inclusive minimum: value >= gte. */
+      optional uint32 gte = 4;
+      /* Exclusive maximum: value < lt. */
+      optional uint32 lt = 5;
+      /* Inclusive maximum: value <= lte. */
+      optional uint32 lte = 6;
+      /* Value must be one of these. */
+      repeated uint32 in = 7;
+      /* Value must not be any of these. */
+      repeated uint32 not_in = 8;
+      /* Divisibility: value % multiple_of must be 0. */
+      optional uint32 multiple_of = 9;
+    }
+    /* UInt64 field kind and its single-field constraints. */
+    message UInt64 {
+      /* Default value used when the field is unset. */
+      optional uint64 default = 1;
+      /* Value must equal exactly this. */
+      optional uint64 const = 2;
+      /* Exclusive minimum: value > gt. */
+      optional uint64 gt = 3;
+      /* Inclusive minimum: value >= gte. */
+      optional uint64 gte = 4;
+      /* Exclusive maximum: value < lt. */
+      optional uint64 lt = 5;
+      /* Inclusive maximum: value <= lte. */
+      optional uint64 lte = 6;
+      /* Value must be one of these. */
+      repeated uint64 in = 7;
+      /* Value must not be any of these. */
+      repeated uint64 not_in = 8;
+      /* Divisibility: value % multiple_of must be 0. */
+      optional uint64 multiple_of = 9;
+    }
+    /* Bool field kind. */
+    message Bool {
+      /* Default value used when the field is unset. */
+      optional bool default = 1;
+      /* Value must equal exactly this. */
+      optional bool const = 2;
+    }
+    /* String field kind and its single-field constraints. */
+    message String {
+      /* Default value used when the field is unset. */
+      optional string default = 1;
+      /* Value must equal exactly this. */
+      optional string const = 2;
+      /* Exact character (Unicode code point) length required. */
+      optional uint64 len = 3;
+      /* Minimum character length. */
+      optional uint64 min_len = 4;
+      /* Maximum character length. */
+      optional uint64 max_len = 5;
+      /* RE2 regular expression the value must match. */
+      optional string pattern = 6;
+      /* Value must be one of these. */
+      repeated string in = 7;
+      /* Value must not be any of these. */
+      repeated string not_in = 8;
+      /* Semantic format the value must conform to. */
+      optional StringFormat format = 9;
+
+      /* StringFormat enumerates well-known semantic string formats. */
+      enum StringFormat {
+        STRING_FORMAT_UNSPECIFIED = 0;
+        STRING_FORMAT_EMAIL = 1;
+        STRING_FORMAT_URL = 2;
+        STRING_FORMAT_UUID = 3;
+        STRING_FORMAT_IPV4 = 4;
+        STRING_FORMAT_IPV6 = 5;
+        STRING_FORMAT_IP = 6;
+        STRING_FORMAT_HOSTNAME = 7;
+        STRING_FORMAT_DATE = 8;
+        STRING_FORMAT_TIME = 9;
+        STRING_FORMAT_DATETIME = 10;
+      }
+    }
+    /* Enum field kind: an integer value with human labels. */
+    message Enum {
+      /* Default value used when the field is unset. */
+      optional int32 default = 1;
+      /* Allowed enum values: integer -> human label. */
+      map<int32, string> values = 2;
+      /* If true, value must be one of the keys in values. */
+      bool defined_only = 3;
+      /* Value must be one of these. */
+      repeated int32 in = 4;
+      /* Value must not be any of these. */
+      repeated int32 not_in = 5;
+      /*
+       * CEL expression over `root` returning a list of allowed integer
+       * values. When set it REPLACES the static allowed set (values/in/
+       * not_in/defined_only) for validation and supplies the option list to
+       * renderers. The submitted value must be a member of the result, else
+       * ERROR_CODE_ENUM_NOT_ALLOWED. Empty/absent => use the static values.
+       * A non-list result is a runtime error. Use cases: db versions by
+       * kind, zones by region.
+       */
+      optional string options_expr = 6;
+    }
+    /* Duration field kind with optional range bounds. */
+    message Duration {
+      /* Default value used when the field is unset. */
+      optional google.protobuf.Duration default = 1;
+      /* Exclusive minimum: value > gt. */
+      optional google.protobuf.Duration gt = 2;
+      /* Inclusive minimum: value >= gte. */
+      optional google.protobuf.Duration gte = 3;
+      /* Exclusive maximum: value < lt. */
+      optional google.protobuf.Duration lt = 4;
+      /* Inclusive maximum: value <= lte. */
+      optional google.protobuf.Duration lte = 5;
+    }
+    /* Timestamp field kind with optional range bounds. */
+    message Timestamp {
+      /* Default value used when the field is unset. */
+      optional google.protobuf.Timestamp default = 1;
+      /* Exclusive minimum: value > gt. */
+      optional google.protobuf.Timestamp gt = 2;
+      /* Inclusive minimum: value >= gte. */
+      optional google.protobuf.Timestamp gte = 3;
+      /* Exclusive maximum: value < lt. */
+      optional google.protobuf.Timestamp lt = 4;
+      /* Inclusive maximum: value <= lte. */
+      optional google.protobuf.Timestamp lte = 5;
+    }
+    /* List field kind: a repeated value described by its element field(s). */
+    message List {
+      /* Element field definition(s) describing list items. */
+      repeated Field items = 1;
+      /* Minimum number of items. */
+      optional uint64 min_items = 2;
+      /* Maximum number of items. */
+      optional uint64 max_items = 3;
+      /* If true, items must be unique. */
+      bool unique = 4;
+      /*
+       * CEL expression over `root` returning a non-negative int: the exact
+       * number of items the list must have. Renderers generate that many
+       * item slots. The list length must equal the result, else
+       * ERROR_CODE_LIST_COUNT_MISMATCH. Empty/absent => length bounded only
+       * by min_items/max_items. A non-int or negative result is a runtime
+       * error. Each item is still validated by the item schema; inside an
+       * item's rules the item's zero-based position is bound as `index`.
+       * Use case: per-machine settings where N = replicas + 1.
+       */
+      optional string count_expr = 5;
+    }
+    /* Object field kind: a nested sub-form described by its own Schema. */
+    message Object {
+      /* Nested object schema. */
+      optional Schema schema = 1;
+    }
+    /*
+     * Map field kind: free-form string keys (never rejected — e.g. user-chosen
+     * subnet/VM names) with values validated against a single shared Schema.
+     * Unlike Object (fixed, named fields), a Map's key set is arbitrary and
+     * runtime-supplied; every value is validated against the same
+     * `value_schema`, so if that schema is `strict` an unknown key INSIDE a
+     * value is rejected while the map's own keys stay unconstrained. The
+     * rejected field path names the map key, e.g.
+     * "subnets.my-subnet-a.evil_key".
+     */
+    message Map {
+      /* Schema every map value must satisfy. Absent => values are accepted
+       * unvalidated (any object). */
+      optional Schema value_schema = 1;
+      /* Minimum number of entries. */
+      optional uint64 min_entries = 2;
+      /* Maximum number of entries. */
+      optional uint64 max_entries = 3;
+    }
+    /*
+     * Computed field kind: a value derived from other values, not entered by
+     * the user. Every implementation evaluates `expr` and writes the result
+     * under this field's name, so other expressions and validation rules can
+     * read it via `root`.
+     *
+     * Evaluation is dependency-ordered: a Computed field may reference inputs
+     * and other Computed fields. Cycles are rejected at schema-validation
+     * time. Referencing a value that is absent at evaluation time is an error
+     * (surfaced as a ValidationError on this field's path).
+     *
+     * `expr` must be a pure, deterministic CEL expression (no now()/rand) so
+     * all implementations agree.
+     */
+    message Computed {
+      /* CEL expression producing the value. Reads `root` (inputs + already
+       * computed values). Bound the same way as Rule expressions. */
+      string expr = 1;
+      /* Result type, used to marshal the value back into the form as a
+       * canonical Value variant. Optional: if unset the implementation
+       * infers the type from the type-checked expression. */
+      optional ResultType result = 2;
+    }
+
+    /* ResultType is the value type a Computed expression yields. */
+    enum ResultType {
+      /* Unset: infer from the expression. */
+      RESULT_TYPE_UNSPECIFIED = 0;
+      RESULT_TYPE_DOUBLE = 1;
+      RESULT_TYPE_INT64 = 2;
+      RESULT_TYPE_UINT64 = 3;
+      RESULT_TYPE_BOOL = 4;
+      RESULT_TYPE_STRING = 5;
+      RESULT_TYPE_DURATION = 6;
+      RESULT_TYPE_TIMESTAMP = 7;
+    }
+
+    /* Severity of a failed rule. */
+    enum Severity {
+      /* Unset: treated as ERROR. */
+      SEVERITY_UNSPECIFIED = 0;
+      /* Blocks submit. */
+      SEVERITY_ERROR = 1;
+      /* Surfaced to the user but does not block submit. */
+      SEVERITY_WARNING = 2;
+    }
+
+    /*
+     * Rule is a CEL validation expression for cross-field / conditional
+     * checks.
+     * Context: `this` = this field's value (field-level rules only);
+     *          `root` = whole form as a map, any field reachable.
+     * expr must evaluate to bool; true means VALID.
+     */
+    message Rule {
+      /* CEL boolean expression; true means the value is valid. */
+      string expr = 1;
+      /* Message shown to the user when expr is false. */
+      string message = 2;
+      /* Stable rule id, for mapping errors back to rules. */
+      optional string id = 3;
+      /* Severity; defaults to ERROR. */
+      optional Severity severity = 4;
+    }
+
+    /*
+     * OneOf field kind: a discriminated union. The value must be an object
+     * whose discriminator property selects a variant schema.
+     */
+    message OneOf {
+      /* Property name in the value object that selects the variant. */
+      string discriminator = 1;
+      /* Variant schemas keyed by the discriminator value. */
+      map<string, Schema> variants = 2;
+    }
+
+    /*
+     * Ref field kind: the value is an object validated against another
+     * schema. The target is selected one of two ways:
+     *   - name: a key in the root schema's defs map (local composition;
+     *     enables recursion — a def may Ref back to itself, terminating on
+     *     the finite data).
+     *   - id:   the SchemaIdentity of a separately-registered schema. The
+     *     identity is PRESERVED on the node (renderers can show/link the
+     *     target), and the referenced schema must be made resolvable —
+     *     either present in the root defs under its identity key, or pulled
+     *     in by Link(resolver) before validation. An id-ref to a schema not
+     *     present in defs is ERROR_CODE_UNKNOWN_REF at validate time.
+     */
+    message Ref {
+      oneof target {
+        /* Name of the def in the root schema's defs map. */
+        string name = 1;
+        /* Identity of a registered schema (resolved via defs / Link). */
+        SchemaIdentity id = 2;
+      }
+    }
+
+    /* Field name; the key under which the value lives in the form. */
+    string name = 1;
+    /* Human description of the field. */
+    optional string description = 2;
+    /* If true, the value may be null/empty. */
+    bool nullable = 3;
+    /* If true, the value must be present. */
+    bool required = 4;
+    /* Cross-field CEL validation rules (`this` is bound to this field). */
+    repeated Rule rules = 5;
+
+    /* The field kind; exactly one must be set. */
+    oneof kind {
+      /* Float field. */
+      Float float = 6;
+      /* Double field. */
+      Double double = 7;
+      /* Int32 field. */
+      Int32 int32 = 8;
+      /* Int64 field. */
+      Int64 int64 = 9;
+      /* UInt32 field. */
+      UInt32 uint32 = 10;
+      /* UInt64 field. */
+      UInt64 uint64 = 11;
+      /* Bool field. */
+      Bool bool = 12;
+      /* String field. */
+      String string = 13;
+      /* Enum field. */
+      Enum enum = 14;
+      /* Duration field. */
+      Duration duration = 15;
+      /* Timestamp field. */
+      Timestamp timestamp = 16;
+      /* List field. */
+      List list = 17;
+      /* Nested object field. */
+      Object object = 18;
+      /* Computed (derived) field. */
+      Computed computed = 19;
+      /* Discriminated union field. */
+      OneOf one_of = 28;
+      /* Reference to a named definition in the root schema's defs. */
+      Ref ref = 29;
+      /* Free-key, typed-value map field. */
+      Map map = 31;
+    }
+
+    /*
+     * If true, the value is system-fixed: it equals `default` and cannot be
+     * changed. The validator forces it to `default` and rejects any
+     * different submitted value; renderers show it disabled. A "system
+     * value" is therefore immutable + default.
+     */
+    bool immutable = 20;
+    /*
+     * Informative section label for grouping fields (e.g. "WAL"). Purely
+     * informative — the validation/compute engine ignores it.
+     */
+    optional string group = 21;
+    /*
+     * Informative unit of the value, e.g. "MB" or "ms". Purely informative —
+     * the engine ignores it; it is for renderers/serializers.
+     */
+    optional string unit = 22;
+    /* Informative human title for the field. Engine ignores it. */
+    optional string title = 23;
+    /* If true, this field is deprecated; renderers may warn. Informative. */
+    bool deprecated = 24;
+    /* Example values for documentation/rendering. Purely informative. */
+    repeated Value examples = 25;
+    /* If true, the value is sensitive (e.g. a password). Informative. */
+    bool secret = 26;
+    /*
+     * Normalize expression: a CEL expression mapping the field's own value
+     * before validation. `this` = current value, `root` = whole form.
+     * Returns the new value. Applied after defaults/coercion and before
+     * Computed evaluation and validation.
+     */
+    optional string normalize = 27;
+    /*
+     * Conditional gate: a CEL boolean expression over `root` (the whole form
+     * as a map). When it evaluates to false the field is INACTIVE — the
+     * validator skips it ENTIRELY (no required/nullable, no rules, no kind
+     * constraints, no Computed/normalize) and treats it as ABSENT regardless
+     * of any value present in `values`. For a container kind the whole
+     * subtree is gated. Inactive fields do not count toward
+     * min/max_properties and their value key never raises a strict
+     * ERROR_CODE_UNKNOWN_FIELD. Their value is NOT deleted, so it reappears
+     * if the field becomes active again. Renderers MUST hide an inactive
+     * field. `this` is NOT bound (a field's own value must not gate its
+     * existence). Empty/absent => always active. A non-bool result is a
+     * runtime error.
+     */
+    optional string when = 30;
+  }
+
+  /* Stable identity of this schema. Required: the validator rejects a schema
+   * whose id is unset or whose name is empty. */
+  SchemaIdentity id = 1;
+  /* Human description of the schema. */
+  optional string description = 2;
+  /* The fields that make up the form. */
+  repeated Field fields = 3;
+  /* Form-wide invariant rules (`root` only, no `this`). */
+  repeated Field.Rule rules = 4;
+  /*
+   * If true, any key in the values map that is not a declared field name is
+   * an error (ERROR_CODE_UNKNOWN_FIELD).
+   */
+  bool strict = 5;
+  /* Minimum number of properties that must be present in the values map. */
+  optional uint64 min_properties = 6;
+  /* Maximum number of properties allowed in the values map. */
+  optional uint64 max_properties = 7;
+  /*
+   * If true, scalar string inputs are coerced to the field's kind before
+   * validation (numeric kinds parse the string as a number; bool parses
+   * "true"/"false"; enum parses an integer string). Only applied when the
+   * current value is a string but the field's kind expects a different type
+   * and parsing succeeds; unparseable strings are left as-is so the type
+   * error is reported normally.
+   */
+  bool coerce = 8;
+  /*
+   * Named reusable sub-schemas ($defs). Fields of kind Ref resolve their
+   * value against the named def found here. Meaningful only on the root
+   * schema; defs inside nested schemas are ignored by the engine.
+   */
+  map<string, Schema> defs = 9;
+  /*
+   * Named render templates (Mustache syntax, https://mustache.github.io) for
+   * serialising resolved values into a target text format, e.g. "conf" -> a
+   * postgresql.conf template. Portable data: every implementation renders
+   * them identically (per the Mustache spec and the schemapb render-context
+   * spec). The template executes against a context exposing the ordered
+   * fields, fields grouped by `group`, and the raw values; formatting
+   * helpers (on/off, yes/no, quoted, upper/lower) are precomputed context
+   * fields, not template functions. Complex logic belongs in Computed
+   * fields, not in templates. The validation/compute engine ignores these.
+   */
+  map<string, string> templates = 10;
+}
+
+/*
+ * SchemaIdentity is the stable, system-assigned identity of a Schema. A Schema
+ * is addressed by this identity rather than a free-form name.
+ */
+message SchemaIdentity {
+  /* Grouping namespace, e.g. a product or team. Optional. */
+  string namespace = 1;
+  /* Schema name, unique within its namespace. Required. */
+  string name = 2;
+  /* Schema version, e.g. "v1" or a semver string. Optional. */
+  string version = 3;
+}

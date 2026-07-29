@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package schemapb.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gopherex/schemapb/go/schemapb";
+
+/*
+ * Value is the typed value container for schemapb. It replaces
+ * google.protobuf.Value (a JSON model where every number is a double) so that
+ * integer kinds keep full 64-bit precision across languages.
+ *
+ * Mapping to CEL types is 1:1 and defined by the spec:
+ *   int32/int64   -> int        uint32/uint64 -> uint
+ *   float/double  -> double     bool          -> bool
+ *   string        -> string     duration      -> google.protobuf.Duration
+ *   timestamp     -> google.protobuf.Timestamp
+ *   list          -> list       struct        -> map
+ *   null          -> null
+ *
+ * In protoJSON, int64/uint64 serialise as strings (standard protobuf JSON
+ * mapping), so JavaScript clients keep precision via bigint.
+ *
+ * Canonical form (REQUIRED for conformance): a value stored for a field MUST
+ * use the variant matching the field's declared kind — e.g. an Int64 field's
+ * value is always `int64_value`, never `int32_value`, even when it fits.
+ */
+message Value {
+  oneof kind {
+    NullValue null_value = 1;
+    bool bool_value = 2;
+    int32 int32_value = 3;
+    int64 int64_value = 4;
+    uint32 uint32_value = 5;
+    uint64 uint64_value = 6;
+    float float_value = 7;
+    double double_value = 8;
+    string string_value = 9;
+    google.protobuf.Duration duration_value = 10;
+    google.protobuf.Timestamp timestamp_value = 11;
+    ListValue list_value = 12;
+    StructValue struct_value = 13;
+  }
+}
+
+/* NullValue is the singleton null. */
+enum NullValue {
+  NULL_VALUE = 0;
+}
+
+/* ListValue is an ordered sequence of values. */
+message ListValue {
+  repeated Value items = 1;
+}
+
+/*
+ * StructValue is a string-keyed map of values: the representation of a whole
+ * form, an Object field's value, and a Map field's value.
+ */
+message StructValue {
+  map<string, Value> fields = 1;
+}

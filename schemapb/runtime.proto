@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package schemapb.v1;
+
+import "schemapb/schema.proto";
+import "schemapb/value.proto";
+
+option go_package = "github.com/gopherex/schemapb/go/schemapb";
+
+/*
+ * SchemaRef selects a schema: either inline, or by identity (resolved from a
+ * registry).
+ */
+message SchemaRef {
+  oneof source {
+    /* Resolve a registered schema by identity. */
+    SchemaIdentity id = 1;
+    /* Use this schema directly, without registering it. */
+    Schema schema = 2;
+  }
+}
+
+/*
+ * Filled is a runtime form: a reference to the schema plus the values entered
+ * for it. The schema says what is allowed/derived; the values are what to
+ * check/resolve. It is mutable input (the thing being edited/validated).
+ */
+message Filled {
+  /* Schema this form is filled against (by-id or inline). */
+  SchemaRef schema = 1;
+  /* Form values the expressions read and the validator checks. */
+  StructValue values = 2;
+}
+
+/*
+ * Baked is a sealed result: the final values together with the schema they
+ * were validated and resolved against. It is a self-contained, immutable
+ * snapshot — "these exact values for this exact schema, not to be changed".
+ * Unlike Filled (which only references a schema and is mutable), Baked embeds
+ * the full schema and the frozen values, so it is portable and verifiable on
+ * its own. Whether a Baked still matches a given schema is checked by deep
+ * message equality of the embedded schema.
+ */
+message Baked {
+  /* The schema these values were baked against (embedded, self-contained). */
+  Schema schema = 1;
+  /* The final, resolved values — frozen. */
+  StructValue values = 2;
+}
+
+/*
+ * ErrorCode is the stable, machine-readable reason a validation failed. The
+ * code (plus path and the typed fields on ValidationError) IS the
+ * cross-implementation contract; human-readable text is rendered from a
+ * shared, spec-owned template set and is not part of the contract.
+ */
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+
+  /* Value/type shape. */
+  ERROR_CODE_TYPE_MISMATCH = 1;
+  ERROR_CODE_REQUIRED_MISSING = 2;
+  ERROR_CODE_NOT_NULLABLE = 3;
+  ERROR_CODE_UNKNOWN_FIELD = 4;
+  ERROR_CODE_IMMUTABLE_MODIFIED = 5;
+
+  /* Scalar constraints. */
+  ERROR_CODE_CONST_MISMATCH = 10;
+  ERROR_CODE_GT_VIOLATED = 11;
+  ERROR_CODE_GTE_VIOLATED = 12;
+  ERROR_CODE_LT_VIOLATED = 13;
+  ERROR_CODE_LTE_VIOLATED = 14;
+  ERROR_CODE_NOT_IN_ALLOWED_SET = 15;
+  ERROR_CODE_IN_FORBIDDEN_SET = 16;
+  ERROR_CODE_MULTIPLE_OF_VIOLATED = 17;
+
+  /* String constraints. */
+  ERROR_CODE_LEN_MISMATCH = 20;
+  ERROR_CODE_MIN_LEN_VIOLATED = 21;
+  ERROR_CODE_MAX_LEN_VIOLATED = 22;
+  ERROR_CODE_PATTERN_MISMATCH = 23;
+  ERROR_CODE_FORMAT_MISMATCH = 24;
+
+  /* Enum constraints. */
+  ERROR_CODE_ENUM_NOT_DEFINED = 30;
+  ERROR_CODE_ENUM_NOT_ALLOWED = 31;
+
+  /* List constraints. */
+  ERROR_CODE_MIN_ITEMS_VIOLATED = 40;
+  ERROR_CODE_MAX_ITEMS_VIOLATED = 41;
+  ERROR_CODE_NOT_UNIQUE = 42;
+  ERROR_CODE_LIST_COUNT_MISMATCH = 43;
+
+  /* Map constraints. */
+  ERROR_CODE_MIN_ENTRIES_VIOLATED = 50;
+  ERROR_CODE_MAX_ENTRIES_VIOLATED = 51;
+
+  /* Form-level constraints. */
+  ERROR_CODE_MIN_PROPERTIES_VIOLATED = 60;
+  ERROR_CODE_MAX_PROPERTIES_VIOLATED = 61;
+
+  /* Composition. */
+  ERROR_CODE_DISCRIMINATOR_MISSING = 70;
+  ERROR_CODE_UNKNOWN_VARIANT = 71;
+  ERROR_CODE_UNKNOWN_REF = 72;
+
+  /* CEL layer. */
+  ERROR_CODE_RULE_VIOLATED = 80;
+  ERROR_CODE_EXPR_ERROR = 81;
+
+  /* Schema descriptor itself is malformed (bad identity, no kind chosen,
+   * computed-field cycle, invalid CEL/Mustache/pattern source, ...). */
+  ERROR_CODE_INVALID_SCHEMA = 90;
+}
+
+/*
+ * ValidationError is a single validation failure. The contract fields are
+ * path, code and the typed expected/actual values; ordering of errors in a
+ * ValidationResult is deterministic (schema field order, then constraint
+ * order) as defined by the spec, so conformance can compare results across
+ * implementations byte-for-byte.
+ */
+message ValidationError {
+  /* Path to the failed field, e.g. "max_connections",
+   * "subnets.my-subnet-a.cidr", "replicas[3].name". Empty for form-level
+   * failures. */
+  string path = 1;
+  /* Stable machine code identifying the kind of failure. */
+  ErrorCode code = 2;
+  /* The constraint boundary that was violated (min/max/const/pattern/allowed
+   * set/...), as a canonical Value. Absent when not applicable. */
+  optional Value expected = 3;
+  /* The offending value, canonical form. Absent when not applicable; MASKED
+   * (absent) for fields marked secret. */
+  optional Value actual = 4;
+  /* Name of the structured constraint that failed ("gte", "pattern",
+   * "min_items", ...). Empty for CEL-rule and schema-level failures. */
+  string constraint = 5;
+  /* For CEL failures: the source expression that was violated or errored. */
+  string expr = 6;
+  /* Id of the authored rule that failed, if it declared one. */
+  optional string rule_id = 7;
+  /* Severity; defaults to ERROR. WARNING errors do not block submit. */
+  Schema.Field.Severity severity = 8;
+  /* Human-readable message rendered from the spec's shared template set.
+   * Informative only — NOT part of the conformance contract. */
+  string message = 9;
+}
+
+/*
+ * ValidationResult is the complete outcome of validating a form.
+ */
+message ValidationResult {
+  /* All failures, in the spec's deterministic order. Empty means valid. */
+  repeated ValidationError errors = 1;
+}
