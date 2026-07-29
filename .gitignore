@@ -9,3 +9,7 @@ bin/
 # Local Go workspace
 go.work
 go.work.sum
+
+# Rust build artifacts
+rust/target/
+rust/Cargo.lock

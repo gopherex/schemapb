@@ -19,6 +19,7 @@ EASYP_VERSION                 := v0.16.6
 PROTOC_GEN_GO_VERSION         := v1.36.11
 PROTOC_GEN_ES_VERSION         := 2.11.0
 PROTOC_GEN_PROST_VERSION      := 0.5.0
+PROTOC_GEN_PROST_CRATE_VERSION:= 0.5.0
 BETTERPROTO2_COMPILER_VERSION := 0.10.1
 
 # easyp resolves protoc-gen-* plugins from PATH: put ./bin first. Paths in
@@ -46,6 +47,9 @@ configure: ## Bring environment to working state: fetch all pinned tools into ./
 	echo "--- protoc-gen-prost $(PROTOC_GEN_PROST_VERSION)"
 	cargo install --quiet --locked --root "$(TOOLS)/cargo" protoc-gen-prost --version $(PROTOC_GEN_PROST_VERSION)
 	ln -sf "$(TOOLS)/cargo/bin/protoc-gen-prost" "$(BIN)/protoc-gen-prost"
+	echo "--- protoc-gen-prost-crate $(PROTOC_GEN_PROST_CRATE_VERSION)"
+	cargo install --quiet --locked --root "$(TOOLS)/cargo" protoc-gen-prost-crate --version $(PROTOC_GEN_PROST_CRATE_VERSION)
+	ln -sf "$(TOOLS)/cargo/bin/protoc-gen-prost-crate" "$(BIN)/protoc-gen-prost-crate"
 	echo "--- protoc-gen-python_betterproto2 (compiler $(BETTERPROTO2_COMPILER_VERSION))"
 	python3 -m venv "$(TOOLS)/py"
 	"$(TOOLS)/py/bin/pip" install --quiet betterproto2_compiler==$(BETTERPROTO2_COMPILER_VERSION)
@@ -83,4 +87,4 @@ breaking: ## Check proto files for breaking changes against main
 
 .PHONY: clean
 clean: ## Remove tools and generated code
-	rm -rf "$(BIN)" "$(TOOLS)" go/schemapb ts/src/gen py/src/gen rust/src/gen
+	rm -rf "$(BIN)" "$(TOOLS)" go/schemapb ts/src/gen py/src/gen rust/src rust/Cargo.toml

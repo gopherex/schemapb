@@ -15,6 +15,11 @@ generate:
     - directory: schemapb
   plugins:
     - name: prost
-      out: rust/src/gen
+      out: rust/src
+    - name: prost-crate
+      out: rust
+      opts:
+        gen_crate: rust/Cargo.toml.tmpl
+        no_features: true
 breaking:
   against_git_ref: main
