@@ -1,0 +1,20 @@
+# Rust code generation: protoc-gen-prost (pinned in ./bin via
+# `make configure`). Output: rust/src/gen/schemapb.rs.
+lint:
+  use:
+    - DEFAULT
+  allow_comment_ignores: false
+  except:
+    - PACKAGE_VERSION_SUFFIX
+  ignore_only:
+    ENUM_ZERO_VALUE_SUFFIX:
+      - schemapb/value.proto
+deps: []
+generate:
+  inputs:
+    - directory: schemapb
+  plugins:
+    - name: prost
+      out: rust/src/gen
+breaking:
+  against_git_ref: main

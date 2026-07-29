@@ -1,3 +1,7 @@
+# Local tools (recreate with `make configure`)
+bin/
+.tools/
+
 # IDE
 .idea/
 .vscode/

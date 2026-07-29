@@ -1,0 +1,24 @@
+# TypeScript code generation: protoc-gen-es (pinned in ./bin via
+# `make configure`). Output: ts/src/gen/schemapb/*_pb.ts.
+lint:
+  use:
+    - DEFAULT
+  allow_comment_ignores: false
+  except:
+    - PACKAGE_VERSION_SUFFIX
+  ignore_only:
+    ENUM_ZERO_VALUE_SUFFIX:
+      - schemapb/value.proto
+deps: []
+generate:
+  inputs:
+    - directory: schemapb
+  plugins:
+    - name: es
+      out: ts/src/gen
+      opts:
+        target: ts
+        import_extension: ts
+        json_types: true
+breaking:
+  against_git_ref: main

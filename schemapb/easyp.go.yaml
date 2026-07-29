@@ -1,0 +1,22 @@
+# Go code generation: protoc-gen-go (pinned in ./bin via `make configure`).
+# Output: go/schemapb/*.pb.go (source_relative, go_package points there).
+lint:
+  use:
+    - DEFAULT
+  allow_comment_ignores: false
+  except:
+    - PACKAGE_VERSION_SUFFIX
+  ignore_only:
+    ENUM_ZERO_VALUE_SUFFIX:
+      - schemapb/value.proto
+deps: []
+generate:
+  inputs:
+    - directory: schemapb
+  plugins:
+    - name: go
+      out: go
+      opts:
+        paths: source_relative
+breaking:
+  against_git_ref: main

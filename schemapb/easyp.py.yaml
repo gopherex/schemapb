@@ -1,0 +1,22 @@
+# Python code generation: protoc-gen-python_betterproto2 (pinned in ./bin via
+# `make configure`). Runtime is betterproto2 dataclasses (wire- and
+# protoJSON-compatible with google protobuf).
+# Output: py/src/gen/ (self-contained package tree).
+lint:
+  use:
+    - DEFAULT
+  allow_comment_ignores: false
+  except:
+    - PACKAGE_VERSION_SUFFIX
+  ignore_only:
+    ENUM_ZERO_VALUE_SUFFIX:
+      - schemapb/value.proto
+deps: []
+generate:
+  inputs:
+    - directory: schemapb
+  plugins:
+    - name: python_betterproto2
+      out: py/src/gen
+breaking:
+  against_git_ref: main
