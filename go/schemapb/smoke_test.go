@@ -60,7 +60,6 @@ func TestSmokeValidate(t *testing.T) {
 		"mail":  "not-an-email",
 		"weird": "500Mi",
 		"junk":  int64(1),
-		
 	})
 	if err != nil {
 		t.Fatal(err)

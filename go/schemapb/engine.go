@@ -178,6 +178,7 @@ func schemaExprs(s *Schema) map[string]string {
 			}
 			if l := f.GetList(); l != nil {
 				add(l.GetCountExpr(), path+"#count")
+				walkFields(l.GetItems(), path+"[]")
 			}
 			for _, child := range nestedSchemas(f) {
 				walkSchema(child, path)
@@ -205,6 +206,9 @@ func schemaPatterns(s *Schema) map[string]string {
 				if _, ok := out[str.GetPattern()]; !ok {
 					out[str.GetPattern()] = path + "#pattern"
 				}
+			}
+			if l := f.GetList(); l != nil {
+				walkFields(l.GetItems(), path+"[]")
 			}
 			for _, child := range nestedSchemas(f) {
 				walkFields(child.GetFields(), path)

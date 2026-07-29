@@ -165,13 +165,15 @@ func (b *SchemaB) ForbiddenWhen(field, cond string) *SchemaB {
 	).ID(field))
 }
 
-// Build assembles the schema and validates the descriptor; a malformed
-// descriptor returns a *ValidationResult-carrying error (see SchemaError).
+// Build assembles the schema and fully compiles it (descriptor checks, CEL
+// expressions, patterns, templates, computed cycles): everything a schema can
+// get wrong surfaces here as a *SchemaError. The compiled engine is cached,
+// so the convenience methods on the returned schema pay nothing extra.
 func (b *SchemaB) Build() (*Schema, error) {
 	if err := hoistDefs(b.s); err != nil {
 		return nil, err
 	}
-	if err := b.s.CheckDescriptor(); err != nil {
+	if _, err := b.s.engine(); err != nil {
 		return nil, err
 	}
 	return b.s, nil
