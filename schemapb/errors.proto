@@ -43,6 +43,9 @@ enum ErrorCode {
   /* String/bytes affix constraints. */
   ERROR_CODE_PREFIX_MISMATCH = 25;
   ERROR_CODE_SUFFIX_MISMATCH = 26;
+  /* The schema names a format this implementation does not support. Failing
+   * loudly is mandatory: a format may never be silently skipped. */
+  ERROR_CODE_UNSUPPORTED_FORMAT = 27;
 
   /* Enum constraints. */
   ERROR_CODE_ENUM_NOT_DEFINED = 30;

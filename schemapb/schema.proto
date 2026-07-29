@@ -205,23 +205,21 @@ message Schema {
       repeated string in = 7;
       /* Value must not be any of these. */
       repeated string not_in = 8;
-      /* Semantic format the value must conform to. */
-      optional StringFormat format = 9;
-
-      /* StringFormat enumerates well-known semantic string formats. */
-      enum StringFormat {
-        STRING_FORMAT_UNSPECIFIED = 0;
-        STRING_FORMAT_EMAIL = 1;
-        STRING_FORMAT_URL = 2;
-        STRING_FORMAT_UUID = 3;
-        STRING_FORMAT_IPV4 = 4;
-        STRING_FORMAT_IPV6 = 5;
-        STRING_FORMAT_IP = 6;
-        STRING_FORMAT_HOSTNAME = 7;
-        STRING_FORMAT_DATE = 8;
-        STRING_FORMAT_TIME = 9;
-        STRING_FORMAT_DATETIME = 10;
-      }
+      /*
+       * Semantic format the value must conform to. An OPEN identifier
+       * resolved against the spec's format registry, not a closed enum:
+       * adding a format never changes this contract.
+       *
+       * Core formats (every implementation MUST support): "email", "url",
+       * "uuid", "ipv4", "ipv6", "ip", "hostname", "date", "time",
+       * "datetime". Registry extensions use namespaced ids (e.g.
+       * "k8s.quantity") and each ships with its own spec text and
+       * conformance fixtures; implementations declare which extensions
+       * they support. A format the implementation does not know is a
+       * validation failure (ERROR_CODE_UNSUPPORTED_FORMAT) — never a
+       * silent pass. Empty => no format check.
+       */
+      optional string format = 9;
     }
     /* Bytes field kind and its single-field constraints. Values travel as
      * protobuf bytes (base64 in protoJSON) and are CEL-native `bytes`. */
