@@ -26,7 +26,7 @@ import (
 
 // Render executes the named template (from the schema's templates map)
 // against the given resolved values.
-func (s *Schema) Render(name string, values map[string]any) (string, error) {
+func (s *Schema) Render(name TemplateName, values map[string]any) (string, error) {
 	e, err := s.engine()
 	if err != nil {
 		return "", err
@@ -35,8 +35,8 @@ func (s *Schema) Render(name string, values map[string]any) (string, error) {
 }
 
 // Render is the compiled-engine form of (*Schema).Render.
-func (e *Engine) Render(name string, values map[string]any) (string, error) {
-	tmpl := e.templates[name]
+func (e *Engine) Render(name TemplateName, values map[string]any) (string, error) {
+	tmpl := e.templates[string(name)]
 	if tmpl == nil {
 		return "", fmt.Errorf("schemapb: no template %q in schema", name)
 	}
@@ -45,7 +45,7 @@ func (e *Engine) Render(name string, values map[string]any) (string, error) {
 
 // Render renders a Baked snapshot with the named template of its embedded
 // schema.
-func (b *Baked) Render(name string) (string, error) {
+func (b *Baked) Render(name TemplateName) (string, error) {
 	return b.GetSchema().Render(name, b.GetValues().ToGo())
 }
 

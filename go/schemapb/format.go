@@ -16,7 +16,7 @@ type FormatFunc func(s string) bool
 // checkers. The spec's core formats are always present; extensions are added
 // per engine with WithFormats. A format the engine does not know fails
 // validation with ERROR_CODE_UNSUPPORTED_FORMAT — never a silent pass.
-type FormatRegistry map[string]FormatFunc
+type FormatRegistry map[Format]FormatFunc
 
 var (
 	uuidRE     = regexp.MustCompile(`(?i)^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`)

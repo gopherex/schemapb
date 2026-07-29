@@ -524,7 +524,7 @@ func (e *Engine) checkString(path, s string, k *Schema_Field_String) []*Validati
 		add(ErrorCode_ERROR_CODE_IN_FORBIDDEN_SET, "not_in", listOf(k.NotIn, StrV), fmt.Sprintf("must not be one of %v", k.NotIn))
 	}
 	if k.Format != nil && *k.Format != "" {
-		check, known := e.formats[*k.Format]
+		check, known := e.formats[Format(*k.Format)]
 		switch {
 		case !known:
 			add(ErrorCode_ERROR_CODE_UNSUPPORTED_FORMAT, "format", StrV(*k.Format),

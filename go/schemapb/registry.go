@@ -13,17 +13,18 @@ import (
 // Registry errors. Implementations should return ErrNotFound from Get when a
 // schema is absent.
 var (
-	ErrNotFound        = errors.New("schemapb: schema not found")
-	ErrInvalidIdentity = errors.New("schemapb: schema identity requires a name")
+	ErrNotFound          = errors.New("schemapb: schema not found")
+	ErrInvalidIdentity   = errors.New("schemapb: schema identity requires a name")
+	ErrAlreadyRegistered = errors.New("schemapb: identity already registered with different content")
 )
 
 // ListFilter narrows Registry.List. Empty fields are unconstrained; set
 // fields must all match. NameContains is a case-insensitive substring match
 // on the name. A nil *ListFilter matches everything.
 type ListFilter struct {
-	Namespace    string
-	Name         string
-	Version      string
+	Namespace    Namespace
+	Name         SchemaName
+	Version      Version
 	NameContains string
 }
 
@@ -32,13 +33,13 @@ func (f *ListFilter) Match(id *SchemaIdentity) bool {
 	if f == nil {
 		return true
 	}
-	if f.Namespace != "" && id.GetNamespace() != f.Namespace {
+	if f.Namespace != "" && id.Ns() != f.Namespace {
 		return false
 	}
-	if f.Name != "" && id.GetName() != f.Name {
+	if f.Name != "" && id.SchemaName() != f.Name {
 		return false
 	}
-	if f.Version != "" && id.GetVersion() != f.Version {
+	if !f.Version.IsZero() && id.GetVersion() != f.Version.String() {
 		return false
 	}
 	if f.NameContains != "" && !strings.Contains(strings.ToLower(id.GetName()), strings.ToLower(f.NameContains)) {
@@ -50,8 +51,14 @@ func (f *ListFilter) Match(id *SchemaIdentity) bool {
 // Registry stores schemas addressed by their identity. Implementations must
 // be safe for concurrent use.
 type Registry interface {
-	// Put stores (or replaces) a schema under its own identity.
+	// Put stores a schema under its own identity. Registering a DIFFERENT
+	// schema under an already-taken identity is ErrAlreadyRegistered
+	// (re-putting identical content is idempotent); replace explicitly with
+	// PutReplace.
 	Put(ctx context.Context, s *Schema) error
+	// PutReplace stores the schema unconditionally, replacing any previous
+	// content under the same identity.
+	PutReplace(ctx context.Context, s *Schema) error
 	// Get returns the schema for id, or ErrNotFound.
 	Get(ctx context.Context, id *SchemaIdentity) (*Schema, error)
 	// List returns the schemas matching filter (in unspecified order).
@@ -70,8 +77,24 @@ func NewInMemoryRegistry() *InMemoryRegistry {
 	return &InMemoryRegistry{m: map[string]*Schema{}}
 }
 
-// Put stores (or replaces) a schema under its own identity.
+// Put stores a schema under its own identity; a different schema under a
+// taken identity is rejected (ErrAlreadyRegistered).
 func (r *InMemoryRegistry) Put(_ context.Context, s *Schema) error {
+	if s.GetId().GetName() == "" {
+		return ErrInvalidIdentity
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	key := identityKey(s.GetId())
+	if existing, ok := r.m[key]; ok && !proto.Equal(existing, s) {
+		return fmt.Errorf("%w: %s", ErrAlreadyRegistered, identityString(s.GetId()))
+	}
+	r.m[key] = s
+	return nil
+}
+
+// PutReplace stores the schema unconditionally.
+func (r *InMemoryRegistry) PutReplace(_ context.Context, s *Schema) error {
 	if s.GetId().GetName() == "" {
 		return ErrInvalidIdentity
 	}

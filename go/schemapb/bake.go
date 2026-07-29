@@ -73,10 +73,21 @@ func (e *Engine) canonicalStruct(values map[string]any) (*StructValue, error) {
 // Merge layers overrides onto a baked form and re-seals against the same
 // schema. Nested objects merge recursively; lists append unless replaceLists;
 // immutable fields keep their baked values (a changed immutable is rejected).
+// It compiles the embedded schema with default options; a schema needing
+// custom compile options (format extensions) must merge through its own
+// engine — see (*Engine).Merge.
 func (b *Baked) Merge(overrides *StructValue, replaceLists bool) (*Baked, *ValidationResult, error) {
 	base := b.GetValues().ToGo()
 	ov := overrides.ToGo()
 	return b.GetSchema().Bake(mergeMaps(base, ov, replaceLists))
+}
+
+// Merge is (*Baked).Merge evaluated on this engine (keeping its compile
+// options, e.g. WithFormats extensions).
+func (e *Engine) Merge(b *Baked, overrides *StructValue, replaceLists bool) (*Baked, *ValidationResult, error) {
+	base := b.GetValues().ToGo()
+	ov := overrides.ToGo()
+	return e.Bake(mergeMaps(base, ov, replaceLists))
 }
 
 // Matches reports whether the baked schema is identical in content to s.

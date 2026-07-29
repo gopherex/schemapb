@@ -456,7 +456,7 @@ func defaultValue(f *Schema_Field) (any, bool) {
 // FieldActive reports whether the named top-level field is active for the
 // given form (its `when` gate over root). A field with no `when` is always
 // active.
-func (s *Schema) FieldActive(name string, root map[string]any) (bool, error) {
+func (s *Schema) FieldActive(name FieldName, root map[string]any) (bool, error) {
 	e, err := s.engine()
 	if err != nil {
 		return false, err
@@ -465,8 +465,8 @@ func (s *Schema) FieldActive(name string, root map[string]any) (bool, error) {
 }
 
 // FieldActive is the compiled-engine form of (*Schema).FieldActive.
-func (e *Engine) FieldActive(name string, root map[string]any) (bool, error) {
-	f := findField(e.schema.GetFields(), name)
+func (e *Engine) FieldActive(name FieldName, root map[string]any) (bool, error) {
+	f := findField(e.schema.GetFields(), string(name))
 	if f == nil {
 		return false, fmt.Errorf("schemapb: unknown field %q", name)
 	}
@@ -479,7 +479,7 @@ func (e *Engine) FieldActive(name string, root map[string]any) (bool, error) {
 // EnumOptions returns the allowed integer values for the named top-level enum
 // field given the form: the options_expr result when set, the static enum
 // values otherwise.
-func (s *Schema) EnumOptions(name string, root map[string]any) ([]int32, error) {
+func (s *Schema) EnumOptions(name FieldName, root map[string]any) ([]int32, error) {
 	e, err := s.engine()
 	if err != nil {
 		return nil, err
@@ -488,8 +488,8 @@ func (s *Schema) EnumOptions(name string, root map[string]any) ([]int32, error) 
 }
 
 // EnumOptions is the compiled-engine form of (*Schema).EnumOptions.
-func (e *Engine) EnumOptions(name string, root map[string]any) ([]int32, error) {
-	f := findField(e.schema.GetFields(), name)
+func (e *Engine) EnumOptions(name FieldName, root map[string]any) ([]int32, error) {
+	f := findField(e.schema.GetFields(), string(name))
 	if f == nil || f.GetEnum() == nil {
 		return nil, fmt.Errorf("schemapb: field %q is not an enum", name)
 	}
@@ -527,7 +527,7 @@ func (e *Engine) evalEnumOptions(src string, root map[string]any) ([]int32, erro
 
 // ListCount returns the required length of the named top-level list field as
 // derived from its count_expr over root.
-func (s *Schema) ListCount(name string, root map[string]any) (int64, error) {
+func (s *Schema) ListCount(name FieldName, root map[string]any) (int64, error) {
 	e, err := s.engine()
 	if err != nil {
 		return 0, err
@@ -536,8 +536,8 @@ func (s *Schema) ListCount(name string, root map[string]any) (int64, error) {
 }
 
 // ListCount is the compiled-engine form of (*Schema).ListCount.
-func (e *Engine) ListCount(name string, root map[string]any) (int64, error) {
-	f := findField(e.schema.GetFields(), name)
+func (e *Engine) ListCount(name FieldName, root map[string]any) (int64, error) {
+	f := findField(e.schema.GetFields(), string(name))
 	if f == nil || f.GetList() == nil {
 		return 0, fmt.Errorf("schemapb: field %q is not a list", name)
 	}

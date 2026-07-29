@@ -8,7 +8,7 @@ import (
 )
 
 func TestSmokeResolve(t *testing.T) {
-	s := schemapb.NewSchema("infra", "pg", "v1").
+	s := schemapb.NewSchema(schemapb.ID("infra", "pg", schemapb.MustVersion("v1"))).
 		Fields(
 			schemapb.Int64("shared_buffers").Gte(16).Default(128),
 			schemapb.Computed("cache", "root.shared_buffers * 3").Result(schemapb.ResultInt64),
@@ -43,7 +43,7 @@ func TestSmokeResolve(t *testing.T) {
 }
 
 func TestSmokeValidate(t *testing.T) {
-	s := schemapb.NewSchema("infra", "pg", "v1").
+	s := schemapb.NewSchema(schemapb.ID("infra", "pg", schemapb.MustVersion("v1"))).
 		Strict().
 		Fields(
 			schemapb.Int64("conns").Gte(16).Lte(100).Required(),
@@ -114,7 +114,7 @@ func TestSmokeValidate(t *testing.T) {
 }
 
 func TestSmokeRender(t *testing.T) {
-	s := schemapb.NewSchema("infra", "pg", "v1").
+	s := schemapb.NewSchema(schemapb.ID("infra", "pg", schemapb.MustVersion("v1"))).
 		Fields(
 			schemapb.Int64("shared_buffers").Default(128).Unit("MB").Group("Memory"),
 			schemapb.Bool("autovacuum").Default(true).Group("Vacuum"),

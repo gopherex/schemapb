@@ -59,7 +59,7 @@ func refDefKey(ref *Schema_Field_Ref) string {
 // identity is informational only — the engine validates by structure. Use
 // RefID when you need an identity-preserving reference instead of a value
 // copy.
-func ObjectOf(name string, s *Schema) *ObjectB {
+func ObjectOf(name FieldName, s *Schema) *ObjectB {
 	b := &ObjectB{k: &Schema_Field_Object{Schema: proto.Clone(s).(*Schema)}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Object_{Object: b.k}
@@ -67,19 +67,19 @@ func ObjectOf(name string, s *Schema) *ObjectB {
 }
 
 // VariantOf adds an already-built schema as a oneof variant (cloned).
-func (b *OneOfB) VariantOf(key string, s *Schema) *OneOfB {
-	b.k.Variants[key] = proto.Clone(s).(*Schema)
+func (b *OneOfB) VariantOf(key VariantKey, s *Schema) *OneOfB {
+	b.k.Variants[string(key)] = proto.Clone(s).(*Schema)
 	return b
 }
 
 // DefSchema registers an already-built schema as a named def (cloned).
 // Combine with Ref(field, name) to reference it. The schema's own $defs are
 // hoisted into the root at Build time so its internal Refs resolve.
-func (b *SchemaB) DefSchema(name string, s *Schema) *SchemaB {
+func (b *SchemaB) DefSchema(name DefName, s *Schema) *SchemaB {
 	if b.s.Defs == nil {
 		b.s.Defs = map[string]*Schema{}
 	}
-	b.s.Defs[name] = proto.Clone(s).(*Schema)
+	b.s.Defs[string(name)] = proto.Clone(s).(*Schema)
 	return b
 }
 

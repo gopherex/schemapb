@@ -43,7 +43,7 @@ func mustValidate(t *testing.T, s *schemapb.Schema, values map[string]any) *sche
 // =============================================================================
 
 func TestNumericConstraints(t *testing.T) {
-	s := schemapb.NewSchema("t", "num", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "num", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("i").Gt(0).Lte(100).MultipleOf(5),
 		schemapb.Double("d").Gte(0.5).Lt(2.5),
 		schemapb.UInt32("u").In(1, 2, 3),
@@ -78,7 +78,7 @@ func TestNumericConstraints(t *testing.T) {
 }
 
 func TestNumericTypeMismatch(t *testing.T) {
-	s := schemapb.NewSchema("t", "num2", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "num2", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("i"),
 		schemapb.UInt64("u"),
 		schemapb.Int32("small"),
@@ -99,7 +99,7 @@ func TestNumericTypeMismatch(t *testing.T) {
 // Big int64 values survive exactly (the v0 float64 model lost them).
 func TestBigInt64Precision(t *testing.T) {
 	big := int64(1<<62) + 12345
-	s := schemapb.NewSchema("t", "big", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "big", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("x").Gte(big - 1).Lte(big + 1),
 	).MustBuild()
 	if res := mustValidate(t, s, map[string]any{"x": big}); !res.Ok() {
@@ -127,7 +127,7 @@ func TestBigInt64Precision(t *testing.T) {
 // =============================================================================
 
 func TestStringConstraints(t *testing.T) {
-	s := schemapb.NewSchema("t", "str", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "str", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Str("host").MinLen(2).MaxLen(10).Pattern(`^[a-z-]+$`),
 		schemapb.Str("mode").In("fast", "slow"),
 		schemapb.Str("mail").Format(schemapb.FormatEmail),
@@ -157,7 +157,7 @@ func TestStringConstraints(t *testing.T) {
 }
 
 func TestBytesConstraints(t *testing.T) {
-	s := schemapb.NewSchema("t", "byt", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "byt", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Bytes("b").MinLen(2).MaxLen(4).Prefix([]byte{0xDE}),
 	).MustBuild()
 	if res := mustValidate(t, s, map[string]any{"b": []byte{0xDE, 0xAD}}); !res.Ok() {
@@ -171,7 +171,7 @@ func TestBytesConstraints(t *testing.T) {
 }
 
 func TestEnum(t *testing.T) {
-	s := schemapb.NewSchema("t", "enum", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "enum", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Enum("lvl").Values(map[int32]string{0: "min", 1: "replica", 2: "logical"}).DefinedOnly(),
 		schemapb.Str("kind").Default("a"),
 		schemapb.Enum("dyn").Options(`root.kind == "a" ? [1, 2] : [3]`),
@@ -200,7 +200,7 @@ func TestEnum(t *testing.T) {
 
 func TestDurationTimestamp(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	s := schemapb.NewSchema("t", "dt", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "dt", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Duration("d").Gte(time.Second).Lte(time.Minute),
 		schemapb.Timestamp("ts").Gte(now),
 	).MustBuild()
@@ -226,7 +226,7 @@ func TestDurationTimestamp(t *testing.T) {
 // =============================================================================
 
 func TestPresence(t *testing.T) {
-	s := schemapb.NewSchema("t", "pres", "v1").Strict().MinProps(1).MaxProps(3).Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "pres", schemapb.MustVersion("v1"))).Strict().MinProps(1).MaxProps(3).Fields(
 		schemapb.Str("req").Required(),
 		schemapb.Str("opt"),
 		schemapb.Str("nul").Nullable(),
@@ -252,7 +252,7 @@ func TestPresence(t *testing.T) {
 // =============================================================================
 
 func TestCoerce(t *testing.T) {
-	s := schemapb.NewSchema("t", "coerce", "v1").Coerce().Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "coerce", schemapb.MustVersion("v1"))).Coerce().Fields(
 		schemapb.Int64("i").Gte(10),
 		schemapb.Bool("b"),
 		schemapb.Double("d"),
@@ -271,7 +271,7 @@ func TestCoerce(t *testing.T) {
 // =============================================================================
 
 func TestComputedDependencyOrder(t *testing.T) {
-	s := schemapb.NewSchema("t", "comp", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "comp", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("base").Default(10),
 		schemapb.Computed("double", "root.base * 2").Result(schemapb.ResultInt64),
 		schemapb.Computed("quad", "root.double * 2").Result(schemapb.ResultInt64),
@@ -286,7 +286,7 @@ func TestComputedDependencyOrder(t *testing.T) {
 }
 
 func TestComputedCycleRejectedAtCompile(t *testing.T) {
-	_, err := schemapb.NewSchema("t", "cycle", "v1").Fields(
+	_, err := schemapb.NewSchema(schemapb.ID("t", "cycle", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Computed("a", "root.b + 1"),
 		schemapb.Computed("b", "root.a + 1"),
 	).Build()
@@ -315,7 +315,7 @@ func errorsAs[T error](err error, target *T) bool {
 }
 
 func TestWhenGate(t *testing.T) {
-	s := schemapb.NewSchema("t", "when", "v1").Strict().Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "when", schemapb.MustVersion("v1"))).Strict().Fields(
 		schemapb.Bool("advanced").Default(false),
 		schemapb.Int64("tuning").When("root.advanced == true").Required().Gte(1),
 	).MustBuild()
@@ -336,7 +336,7 @@ func TestWhenGate(t *testing.T) {
 }
 
 func TestNormalize(t *testing.T) {
-	s := schemapb.NewSchema("t", "norm", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "norm", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Str("host").Normalize("this.lowerAscii()").In("db-1"),
 	).MustBuild()
 	vals := map[string]any{"host": "DB-1"}
@@ -353,7 +353,7 @@ func TestNormalize(t *testing.T) {
 // =============================================================================
 
 func TestImmutable(t *testing.T) {
-	s := schemapb.NewSchema("t", "imm", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "imm", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Str("sys").Immutable().Default("fixed"),
 	).MustBuild()
 	res := mustValidate(t, s, map[string]any{"sys": "changed"})
@@ -369,7 +369,7 @@ func TestImmutable(t *testing.T) {
 }
 
 func TestRulesAndSeverity(t *testing.T) {
-	s := schemapb.NewSchema("t", "rules", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "rules", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("work_mem").Default(64),
 		schemapb.Int64("conns").Default(10).Rules(
 			schemapb.Rule("int(this) * int(root.work_mem) <= 1024", "memory budget").ID("budget"),
@@ -401,7 +401,7 @@ func TestRulesAndSeverity(t *testing.T) {
 // =============================================================================
 
 func TestList(t *testing.T) {
-	s := schemapb.NewSchema("t", "list", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "list", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("replicas").Default(2),
 		schemapb.List("names", schemapb.Str("").MinLen(1)).MinItems(1).Unique().Count("int(root.replicas)"),
 	).MustBuild()
@@ -425,7 +425,7 @@ func TestList(t *testing.T) {
 }
 
 func TestListItemIndexBinding(t *testing.T) {
-	s := schemapb.NewSchema("t", "idx", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "idx", schemapb.MustVersion("v1"))).Fields(
 		schemapb.List("ports",
 			schemapb.Int64("").Rules(schemapb.Rule("int(this) == 8000 + index", "port must follow index")),
 		),
@@ -440,7 +440,7 @@ func TestListItemIndexBinding(t *testing.T) {
 }
 
 func TestNestedObject(t *testing.T) {
-	s := schemapb.NewSchema("t", "obj", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "obj", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Object("db",
 			schemapb.Str("host").Required(),
 			schemapb.Int64("port").Default(5432).Gte(1).Lte(65535),
@@ -465,7 +465,7 @@ func TestNestedObject(t *testing.T) {
 }
 
 func TestMapKind(t *testing.T) {
-	s := schemapb.NewSchema("t", "map", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "map", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Map("subnets",
 			schemapb.Str("cidr").Required().Format("ipv4"),
 		).Strict().MinEntries(1),
@@ -501,7 +501,7 @@ func TestMapKind(t *testing.T) {
 }
 
 func TestOneOf(t *testing.T) {
-	s := schemapb.NewSchema("t", "oneof", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "oneof", schemapb.MustVersion("v1"))).Fields(
 		schemapb.OneOf("store", "type").
 			Variant("s3", schemapb.Str("bucket").Required()).
 			Variant("disk", schemapb.Str("path").Required()),
@@ -521,7 +521,7 @@ func TestOneOf(t *testing.T) {
 }
 
 func TestRefAndDefs(t *testing.T) {
-	s := schemapb.NewSchema("t", "ref", "v1").
+	s := schemapb.NewSchema(schemapb.ID("t", "ref", schemapb.MustVersion("v1"))).
 		Def("endpoint",
 			schemapb.Str("host").Required(),
 			schemapb.Int64("port").Default(80),
@@ -535,7 +535,7 @@ func TestRefAndDefs(t *testing.T) {
 		t.Errorf("ref: %v", codes(res))
 	}
 	// Unknown def is a build-time error.
-	if _, err := schemapb.NewSchema("t", "bad", "v1").Fields(schemapb.Ref("x", "nope")).Build(); err == nil {
+	if _, err := schemapb.NewSchema(schemapb.ID("t", "bad", schemapb.MustVersion("v1"))).Fields(schemapb.Ref("x", "nope")).Build(); err == nil {
 		t.Error("unknown def must fail Build")
 	}
 }
@@ -543,15 +543,16 @@ func TestRefAndDefs(t *testing.T) {
 func TestLink(t *testing.T) {
 	ctx := context.Background()
 	reg := schemapb.NewInMemoryRegistry()
-	shared := schemapb.NewSchema("infra", "endpoint", "v1").Fields(
+	epID := schemapb.ID("infra", "endpoint", schemapb.MustVersion("v1"))
+	shared := schemapb.NewSchema(epID).Fields(
 		schemapb.Str("host").Required(),
 	).MustBuild()
 	if err := reg.Put(ctx, shared); err != nil {
 		t.Fatal(err)
 	}
 
-	s := schemapb.NewSchema("t", "linked", "v1").Fields(
-		schemapb.RefIdentity("ep", "infra", "endpoint", "v1"),
+	s := schemapb.NewSchema(schemapb.ID("t", "linked", schemapb.MustVersion("v1"))).Fields(
+		schemapb.RefID("ep", epID),
 	).MustBuild()
 
 	// Unlinked: identity-ref reports UNKNOWN_REF.
@@ -578,7 +579,7 @@ func TestLink(t *testing.T) {
 // =============================================================================
 
 func TestBakeMerge(t *testing.T) {
-	s := schemapb.NewSchema("t", "bake", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "bake", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Str("name").Required(),
 		schemapb.Object("res",
 			schemapb.Int64("cpu").Default(1),
@@ -600,13 +601,13 @@ func TestBakeMerge(t *testing.T) {
 	if rm["cpu"] != int64(2) || rm["mem"] != int64(512) {
 		t.Errorf("merge: %#v", got)
 	}
-	if !merged.Matches(s) || merged.Matches(schemapb.NewSchema("x", "y", "z").MustBuild()) {
+	if !merged.Matches(s) || merged.Matches(schemapb.NewSchema(schemapb.ID("x", "y", schemapb.Ver(9, 9, 9))).MustBuild()) {
 		t.Error("Matches broken")
 	}
 }
 
 func TestFilledBake(t *testing.T) {
-	s := schemapb.NewSchema("t", "filled", "v1").Fields(
+	s := schemapb.NewSchema(schemapb.ID("t", "filled", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("x").Default(7),
 	).MustBuild()
 	vals, _ := schemapb.StructFromGo(map[string]any{})
@@ -628,7 +629,7 @@ func TestFilledBake(t *testing.T) {
 // =============================================================================
 
 func TestSchemaProtoRoundTrip(t *testing.T) {
-	s := schemapb.NewSchema("infra", "pg", "v1").Strict().Fields(
+	s := schemapb.NewSchema(schemapb.ID("infra", "pg", schemapb.MustVersion("v1"))).Strict().Fields(
 		schemapb.Int64("conns").Gte(1).Default(10),
 		schemapb.Enum("lvl").Values(map[int32]string{0: "a"}).DefinedOnly(),
 		schemapb.List("xs", schemapb.Str("").MinLen(1)),
@@ -660,14 +661,14 @@ func TestSchemaProtoRoundTrip(t *testing.T) {
 // =============================================================================
 
 func TestInlineComposition(t *testing.T) {
-	inner := schemapb.NewSchema("lib", "endpoint", "v1").
+	inner := schemapb.NewSchema(schemapb.ID("lib", "endpoint", schemapb.MustVersion("v1"))).
 		Def("port", schemapb.Int64("value").Gte(1).Lte(65535)).
 		Fields(
 			schemapb.Str("host").Required(),
 			schemapb.Ref("port", "port"),
 		).MustBuild()
 
-	outer := schemapb.NewSchema("t", "compose", "v1").
+	outer := schemapb.NewSchema(schemapb.ID("t", "compose", schemapb.MustVersion("v1"))).
 		Fields(schemapb.ObjectOf("ep", inner)).
 		MustBuild()
 
