@@ -366,12 +366,10 @@ func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
 			return nil, fmt.Errorf("field %s: %T is not bytes", f.GetName(), x)
 		}
 		return BytesV(b), nil
-	case *Schema_Field_Enum_:
-		n, ok := asInt64(x)
-		if !ok || n < math.MinInt32 || n > math.MaxInt32 {
-			return nil, fmt.Errorf("field %s: %v is not an enum value", f.GetName(), x)
-		}
-		return Int32V(int32(n)), nil
+	case *Schema_Field_Choice_:
+		// Choice values are typed by their options; canonical form is the
+		// best-fit variant of the native value.
+		return FromGo(x)
 	case *Schema_Field_Duration_:
 		d, ok := x.(time.Duration)
 		if !ok {

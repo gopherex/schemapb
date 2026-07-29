@@ -373,10 +373,7 @@ func coerceInput(f *Schema_Field, val any) (any, bool) {
 		case "false":
 			return false, true
 		}
-	case f.GetEnum() != nil:
-		if n, err := strconv.ParseInt(s, 10, 32); err == nil {
-			return n, true
-		}
+
 	case f.GetDuration() != nil:
 		if d, err := time.ParseDuration(s); err == nil {
 			return d, true
@@ -429,9 +426,9 @@ func defaultValue(f *Schema_Field) (any, bool) {
 		if d := f.GetBytes().GetDefault(); d != nil {
 			return append([]byte(nil), d...), true
 		}
-	case f.GetEnum() != nil:
-		if d := f.GetEnum().Default; d != nil {
-			return int64(*d), true
+	case f.GetChoice() != nil:
+		if d := f.GetChoice().GetDefault(); d != nil {
+			return d.ToGo(), true
 		}
 	case f.GetDuration() != nil:
 		if d := f.GetDuration().GetDefault(); d != nil {
@@ -476,53 +473,57 @@ func (e *Engine) FieldActive(name FieldName, root map[string]any) (bool, error) 
 	return e.evalBool(f.GetWhen(), map[string]any{"this": nil, "root": root})
 }
 
-// EnumOptions returns the allowed integer values for the named top-level enum
-// field given the form: the options_expr result when set, the static enum
-// values otherwise.
-func (s *Schema) EnumOptions(name FieldName, root map[string]any) ([]int32, error) {
+// ChoiceOptions returns the allowed values for the named top-level choice
+// field given the form: the options_expr result when set, the static option
+// values otherwise (in declaration order).
+func (s *Schema) ChoiceOptions(name FieldName, root map[string]any) ([]*Value, error) {
 	e, err := s.engine()
 	if err != nil {
 		return nil, err
 	}
-	return e.EnumOptions(name, root)
+	return e.ChoiceOptions(name, root)
 }
 
-// EnumOptions is the compiled-engine form of (*Schema).EnumOptions.
-func (e *Engine) EnumOptions(name FieldName, root map[string]any) ([]int32, error) {
+// ChoiceOptions is the compiled-engine form of (*Schema).ChoiceOptions.
+func (e *Engine) ChoiceOptions(name FieldName, root map[string]any) ([]*Value, error) {
 	f := findField(e.schema.GetFields(), string(name))
-	if f == nil || f.GetEnum() == nil {
-		return nil, fmt.Errorf("schemapb: field %q is not an enum", name)
+	if f == nil || f.GetChoice() == nil {
+		return nil, fmt.Errorf("schemapb: field %q is not a choice", name)
 	}
-	en := f.GetEnum()
-	if en.GetOptionsExpr() == "" {
-		out := make([]int32, 0, len(en.GetValues()))
-		for k := range en.GetValues() {
-			out = append(out, k)
+	ch := f.GetChoice()
+	if ch.GetOptionsExpr() == "" {
+		out := make([]*Value, 0, len(ch.GetOptions()))
+		for _, o := range ch.GetOptions() {
+			out = append(out, o.GetValue())
 		}
 		return out, nil
 	}
-	return e.evalEnumOptions(en.GetOptionsExpr(), root)
+	natives, err := e.evalChoiceOptions(ch.GetOptionsExpr(), root)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Value, 0, len(natives))
+	for _, el := range natives {
+		v, err := FromGo(el)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, nil
 }
 
-// evalEnumOptions evaluates an options_expr into the allowed enum values.
-func (e *Engine) evalEnumOptions(src string, root map[string]any) ([]int32, error) {
+// evalChoiceOptions evaluates an options_expr into the allowed native values.
+func (e *Engine) evalChoiceOptions(src string, root map[string]any) ([]any, error) {
 	res, err := e.eval(src, map[string]any{"this": nil, "root": root})
 	if err != nil {
 		return nil, err
 	}
 	arr, ok := res.([]any)
 	if !ok {
-		return nil, fmt.Errorf("options_expr yields %T, want a list of ints", res)
+		return nil, fmt.Errorf("options_expr yields %T, want a list", res)
 	}
-	out := make([]int32, 0, len(arr))
-	for _, el := range arr {
-		n, ok := asInt64(el)
-		if !ok {
-			return nil, fmt.Errorf("options_expr element %v is not an int", el)
-		}
-		out = append(out, int32(n))
-	}
-	return out, nil
+	return arr, nil
 }
 
 // ListCount returns the required length of the named top-level list field as

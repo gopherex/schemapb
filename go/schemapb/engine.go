@@ -173,8 +173,8 @@ func schemaExprs(s *Schema) map[string]string {
 			if c := f.GetComputed(); c != nil {
 				add(c.GetExpr(), path+"#computed")
 			}
-			if en := f.GetEnum(); en != nil {
-				add(en.GetOptionsExpr(), path+"#options")
+			if ch := f.GetChoice(); ch != nil {
+				add(ch.GetOptionsExpr(), path+"#options")
 			}
 			if l := f.GetList(); l != nil {
 				add(l.GetCountExpr(), path+"#count")

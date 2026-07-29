@@ -47,9 +47,8 @@ enum ErrorCode {
    * loudly is mandatory: a format may never be silently skipped. */
   ERROR_CODE_UNSUPPORTED_FORMAT = 27;
 
-  /* Enum constraints. */
-  ERROR_CODE_ENUM_NOT_DEFINED = 30;
-  ERROR_CODE_ENUM_NOT_ALLOWED = 31;
+  /* Choice constraints. */
+  ERROR_CODE_CHOICE_NOT_ALLOWED = 30;
 
   /* List constraints. */
   ERROR_CODE_MIN_ITEMS_VIOLATED = 40;

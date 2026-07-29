@@ -71,9 +71,12 @@ func (e *Engine) renderContext(values map[string]any) map[string]any {
 			display = displayString(val)
 		}
 		label := ""
-		if en := f.GetEnum(); en != nil && set {
-			if n, ok := asInt64(val); ok {
-				label = en.GetValues()[int32(n)]
+		if ch := f.GetChoice(); ch != nil && set {
+			for _, o := range ch.GetOptions() {
+				if nativeEqual(val, o.GetValue().ToGo()) {
+					label = o.GetLabel()
+					break
+				}
 			}
 		}
 		b, _ := val.(bool)
@@ -240,8 +243,8 @@ func kindName(f *Schema_Field) string {
 		return "string"
 	case *Schema_Field_Bytes_:
 		return "bytes"
-	case *Schema_Field_Enum_:
-		return "enum"
+	case *Schema_Field_Choice_:
+		return "choice"
 	case *Schema_Field_Duration_:
 		return "duration"
 	case *Schema_Field_Timestamp_:

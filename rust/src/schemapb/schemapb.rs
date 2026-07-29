@@ -186,7 +186,7 @@ pub mod schema {
     ///                      subtree is gated.
     ///    2. normalize    — map the field's own value.
     ///    3. Computed     — derive the value from `root`.
-    ///    4. options_expr / count_expr — dynamic Enum options / List length.
+    ///    4. options_expr / count_expr — dynamic Choice options / List length.
     ///    5. rules + kind constraints — required/nullable, gt/lt/in/pattern, ...
     ///
     /// Renderer contract: an inactive field (when=false) MUST NOT be rendered.
@@ -549,34 +549,54 @@ pub mod schema {
             #[prost(message, optional, tag="1")]
             pub default: ::core::option::Option<super::super::Value>,
         }
-        /// Enum field kind: an integer value with human labels. 
+        ///
+        /// Choice field kind: a closed (or advisory) set of allowed values with
+        /// optional human labels — the "enum" of schemapb, generalised. Options
+        /// carry typed Values, so string-valued domains ("ssd"/"hdd",
+        /// "minimal"/"replica"/"logical") are first-class: no artificial integer
+        /// codes. Renderers draw a select/dropdown from options (label falls
+        /// back to the value's display form).
         #[derive(Clone, PartialEq, ::prost::Message)]
-        pub struct Enum {
+        pub struct Choice {
+            /// The static allowed set (and the renderer's option list). 
+            #[prost(message, repeated, tag="1")]
+            pub options: ::prost::alloc::vec::Vec<choice::Option>,
             /// Default value used when the field is unset. 
-            #[prost(int32, optional, tag="1")]
-            pub default: ::core::option::Option<i32>,
-            /// Allowed enum values: integer -> human label. 
-            #[prost(map="int32, string", tag="2")]
-            pub values: ::std::collections::HashMap<i32, ::prost::alloc::string::String>,
-            /// If true, value must be one of the keys in values. 
-            #[prost(bool, tag="3")]
-            pub defined_only: bool,
-            /// Value must be one of these. 
-            #[prost(int32, repeated, tag="4")]
-            pub r#in: ::prost::alloc::vec::Vec<i32>,
-            /// Value must not be any of these. 
-            #[prost(int32, repeated, tag="5")]
-            pub not_in: ::prost::alloc::vec::Vec<i32>,
+            #[prost(message, optional, tag="2")]
+            pub default: ::core::option::Option<super::super::Value>,
             ///
-            /// CEL expression over `root` returning a list of allowed integer
-            /// values. When set it REPLACES the static allowed set (values/in/
-            /// not_in/defined_only) for validation and supplies the option list to
-            /// renderers. The submitted value must be a member of the result, else
-            /// ERROR_CODE_ENUM_NOT_ALLOWED. Empty/absent => use the static values.
-            /// A non-list result is a runtime error. Use cases: db versions by
-            /// kind, zones by region.
-            #[prost(string, optional, tag="6")]
+            /// If true the set is advisory: values outside options validate fine
+            /// (options become suggestions). If false (default) a value not in the
+            /// allowed set is ERROR_CODE_CHOICE_NOT_ALLOWED.
+            #[prost(bool, tag="3")]
+            pub open: bool,
+            ///
+            /// CEL expression over `root` returning the list of allowed values.
+            /// When set it REPLACES the static options for validation and supplies
+            /// the option list to renderers. Empty/absent => use options. A
+            /// non-list result is a runtime error. Use cases: db versions by kind,
+            /// zones by region.
+            #[prost(string, optional, tag="4")]
             pub options_expr: ::core::option::Option<::prost::alloc::string::String>,
+        }
+        /// Nested message and enum types in `Choice`.
+        pub mod choice {
+            /// One selectable option. 
+            #[derive(Clone, PartialEq, ::prost::Message)]
+            pub struct Option {
+                /// The value this option stands for (typed). 
+                #[prost(message, optional, tag="1")]
+                pub value: ::core::option::Option<super::super::super::Value>,
+                /// Human label for renderers; empty => display the value itself. 
+                #[prost(string, tag="2")]
+                pub label: ::prost::alloc::string::String,
+                /// Human description of the option. 
+                #[prost(string, tag="3")]
+                pub description: ::prost::alloc::string::String,
+                /// Renderers may hide or warn on deprecated options. 
+                #[prost(bool, tag="4")]
+                pub deprecated: bool,
+            }
         }
         /// Duration field kind with optional range bounds. 
         #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
@@ -872,9 +892,9 @@ pub mod schema {
             /// String field. 
             #[prost(message, tag="13")]
             String(String),
-            /// Enum field. 
+            /// Choice (closed value set) field. 
             #[prost(message, tag="14")]
-            Enum(Enum),
+            Choice(Choice),
             /// Duration field. 
             #[prost(message, tag="15")]
             Duration(Duration),
@@ -1009,9 +1029,8 @@ pub enum ErrorCode {
     /// The schema names a format this implementation does not support. Failing
     /// loudly is mandatory: a format may never be silently skipped. 
     UnsupportedFormat = 27,
-    /// Enum constraints. 
-    EnumNotDefined = 30,
-    EnumNotAllowed = 31,
+    /// Choice constraints. 
+    ChoiceNotAllowed = 30,
     /// List constraints. 
     MinItemsViolated = 40,
     MaxItemsViolated = 41,
@@ -1063,8 +1082,7 @@ impl ErrorCode {
             Self::PrefixMismatch => "ERROR_CODE_PREFIX_MISMATCH",
             Self::SuffixMismatch => "ERROR_CODE_SUFFIX_MISMATCH",
             Self::UnsupportedFormat => "ERROR_CODE_UNSUPPORTED_FORMAT",
-            Self::EnumNotDefined => "ERROR_CODE_ENUM_NOT_DEFINED",
-            Self::EnumNotAllowed => "ERROR_CODE_ENUM_NOT_ALLOWED",
+            Self::ChoiceNotAllowed => "ERROR_CODE_CHOICE_NOT_ALLOWED",
             Self::MinItemsViolated => "ERROR_CODE_MIN_ITEMS_VIOLATED",
             Self::MaxItemsViolated => "ERROR_CODE_MAX_ITEMS_VIOLATED",
             Self::NotUnique => "ERROR_CODE_NOT_UNIQUE",
@@ -1106,8 +1124,7 @@ impl ErrorCode {
             "ERROR_CODE_PREFIX_MISMATCH" => Some(Self::PrefixMismatch),
             "ERROR_CODE_SUFFIX_MISMATCH" => Some(Self::SuffixMismatch),
             "ERROR_CODE_UNSUPPORTED_FORMAT" => Some(Self::UnsupportedFormat),
-            "ERROR_CODE_ENUM_NOT_DEFINED" => Some(Self::EnumNotDefined),
-            "ERROR_CODE_ENUM_NOT_ALLOWED" => Some(Self::EnumNotAllowed),
+            "ERROR_CODE_CHOICE_NOT_ALLOWED" => Some(Self::ChoiceNotAllowed),
             "ERROR_CODE_MIN_ITEMS_VIOLATED" => Some(Self::MinItemsViolated),
             "ERROR_CODE_MAX_ITEMS_VIOLATED" => Some(Self::MaxItemsViolated),
             "ERROR_CODE_NOT_UNIQUE" => Some(Self::NotUnique),

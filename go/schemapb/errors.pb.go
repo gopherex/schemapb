@@ -56,9 +56,8 @@ const (
 	// The schema names a format this implementation does not support. Failing
 	// loudly is mandatory: a format may never be silently skipped.
 	ErrorCode_ERROR_CODE_UNSUPPORTED_FORMAT ErrorCode = 27
-	// Enum constraints.
-	ErrorCode_ERROR_CODE_ENUM_NOT_DEFINED ErrorCode = 30
-	ErrorCode_ERROR_CODE_ENUM_NOT_ALLOWED ErrorCode = 31
+	// Choice constraints.
+	ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED ErrorCode = 30
 	// List constraints.
 	ErrorCode_ERROR_CODE_MIN_ITEMS_VIOLATED  ErrorCode = 40
 	ErrorCode_ERROR_CODE_MAX_ITEMS_VIOLATED  ErrorCode = 41
@@ -107,8 +106,7 @@ var (
 		25: "ERROR_CODE_PREFIX_MISMATCH",
 		26: "ERROR_CODE_SUFFIX_MISMATCH",
 		27: "ERROR_CODE_UNSUPPORTED_FORMAT",
-		30: "ERROR_CODE_ENUM_NOT_DEFINED",
-		31: "ERROR_CODE_ENUM_NOT_ALLOWED",
+		30: "ERROR_CODE_CHOICE_NOT_ALLOWED",
 		40: "ERROR_CODE_MIN_ITEMS_VIOLATED",
 		41: "ERROR_CODE_MAX_ITEMS_VIOLATED",
 		42: "ERROR_CODE_NOT_UNIQUE",
@@ -147,8 +145,7 @@ var (
 		"ERROR_CODE_PREFIX_MISMATCH":         25,
 		"ERROR_CODE_SUFFIX_MISMATCH":         26,
 		"ERROR_CODE_UNSUPPORTED_FORMAT":      27,
-		"ERROR_CODE_ENUM_NOT_DEFINED":        30,
-		"ERROR_CODE_ENUM_NOT_ALLOWED":        31,
+		"ERROR_CODE_CHOICE_NOT_ALLOWED":      30,
 		"ERROR_CODE_MIN_ITEMS_VIOLATED":      40,
 		"ERROR_CODE_MAX_ITEMS_VIOLATED":      41,
 		"ERROR_CODE_NOT_UNIQUE":              42,
@@ -389,7 +386,7 @@ const file_schemapb_errors_proto_rawDesc = "" +
 	"\n" +
 	"\b_rule_id\"E\n" +
 	"\x10ValidationResult\x121\n" +
-	"\x06errors\x18\x01 \x03(\v2\x19.schemapb.ValidationErrorR\x06errors*\xdc\t\n" +
+	"\x06errors\x18\x01 \x03(\v2\x19.schemapb.ValidationErrorR\x06errors*\xbd\t\n" +
 	"\tErrorCode\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18ERROR_CODE_TYPE_MISMATCH\x10\x01\x12\x1f\n" +
@@ -413,9 +410,8 @@ const file_schemapb_errors_proto_rawDesc = "" +
 	"\x1aERROR_CODE_FORMAT_MISMATCH\x10\x18\x12\x1e\n" +
 	"\x1aERROR_CODE_PREFIX_MISMATCH\x10\x19\x12\x1e\n" +
 	"\x1aERROR_CODE_SUFFIX_MISMATCH\x10\x1a\x12!\n" +
-	"\x1dERROR_CODE_UNSUPPORTED_FORMAT\x10\x1b\x12\x1f\n" +
-	"\x1bERROR_CODE_ENUM_NOT_DEFINED\x10\x1e\x12\x1f\n" +
-	"\x1bERROR_CODE_ENUM_NOT_ALLOWED\x10\x1f\x12!\n" +
+	"\x1dERROR_CODE_UNSUPPORTED_FORMAT\x10\x1b\x12!\n" +
+	"\x1dERROR_CODE_CHOICE_NOT_ALLOWED\x10\x1e\x12!\n" +
 	"\x1dERROR_CODE_MIN_ITEMS_VIOLATED\x10(\x12!\n" +
 	"\x1dERROR_CODE_MAX_ITEMS_VIOLATED\x10)\x12\x19\n" +
 	"\x15ERROR_CODE_NOT_UNIQUE\x10*\x12\"\n" +

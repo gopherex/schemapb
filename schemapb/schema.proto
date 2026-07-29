@@ -44,7 +44,7 @@ message Schema {
    *                     subtree is gated.
    *   2. normalize    — map the field's own value.
    *   3. Computed     — derive the value from `root`.
-   *   4. options_expr / count_expr — dynamic Enum options / List length.
+   *   4. options_expr / count_expr — dynamic Choice options / List length.
    *   5. rules + kind constraints — required/nullable, gt/lt/in/pattern, ...
    *
    * Renderer contract: an inactive field (when=false) MUST NOT be rendered.
@@ -253,28 +253,44 @@ message Schema {
       /* Default value used when the field is unset. */
       optional Value default = 1;
     }
-    /* Enum field kind: an integer value with human labels. */
-    message Enum {
+    /*
+     * Choice field kind: a closed (or advisory) set of allowed values with
+     * optional human labels — the "enum" of schemapb, generalised. Options
+     * carry typed Values, so string-valued domains ("ssd"/"hdd",
+     * "minimal"/"replica"/"logical") are first-class: no artificial integer
+     * codes. Renderers draw a select/dropdown from options (label falls
+     * back to the value's display form).
+     */
+    message Choice {
+      /* One selectable option. */
+      message Option {
+        /* The value this option stands for (typed). */
+        Value value = 1;
+        /* Human label for renderers; empty => display the value itself. */
+        string label = 2;
+        /* Human description of the option. */
+        string description = 3;
+        /* Renderers may hide or warn on deprecated options. */
+        bool deprecated = 4;
+      }
+      /* The static allowed set (and the renderer's option list). */
+      repeated Option options = 1;
       /* Default value used when the field is unset. */
-      optional int32 default = 1;
-      /* Allowed enum values: integer -> human label. */
-      map<int32, string> values = 2;
-      /* If true, value must be one of the keys in values. */
-      bool defined_only = 3;
-      /* Value must be one of these. */
-      repeated int32 in = 4;
-      /* Value must not be any of these. */
-      repeated int32 not_in = 5;
+      optional Value default = 2;
       /*
-       * CEL expression over `root` returning a list of allowed integer
-       * values. When set it REPLACES the static allowed set (values/in/
-       * not_in/defined_only) for validation and supplies the option list to
-       * renderers. The submitted value must be a member of the result, else
-       * ERROR_CODE_ENUM_NOT_ALLOWED. Empty/absent => use the static values.
-       * A non-list result is a runtime error. Use cases: db versions by
-       * kind, zones by region.
+       * If true the set is advisory: values outside options validate fine
+       * (options become suggestions). If false (default) a value not in the
+       * allowed set is ERROR_CODE_CHOICE_NOT_ALLOWED.
        */
-      optional string options_expr = 6;
+      bool open = 3;
+      /*
+       * CEL expression over `root` returning the list of allowed values.
+       * When set it REPLACES the static options for validation and supplies
+       * the option list to renderers. Empty/absent => use options. A
+       * non-list result is a runtime error. Use cases: db versions by kind,
+       * zones by region.
+       */
+      optional string options_expr = 4;
     }
     /* Duration field kind with optional range bounds. */
     message Duration {
@@ -478,8 +494,8 @@ message Schema {
       Bool bool = 12;
       /* String field. */
       String string = 13;
-      /* Enum field. */
-      Enum enum = 14;
+      /* Choice (closed value set) field. */
+      Choice choice = 14;
       /* Duration field. */
       Duration duration = 15;
       /* Timestamp field. */

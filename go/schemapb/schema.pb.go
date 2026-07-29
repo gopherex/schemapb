@@ -390,7 +390,7 @@ func (x *SchemaIdentity) GetVersion() string {
 //     subtree is gated.
 //  2. normalize    — map the field's own value.
 //  3. Computed     — derive the value from `root`.
-//  4. options_expr / count_expr — dynamic Enum options / List length.
+//  4. options_expr / count_expr — dynamic Choice options / List length.
 //  5. rules + kind constraints — required/nullable, gt/lt/in/pattern, ...
 //
 // Renderer contract: an inactive field (when=false) MUST NOT be rendered.
@@ -417,7 +417,7 @@ type Schema_Field struct {
 	//	*Schema_Field_Uint64
 	//	*Schema_Field_Bool_
 	//	*Schema_Field_String_
-	//	*Schema_Field_Enum_
+	//	*Schema_Field_Choice_
 	//	*Schema_Field_Duration_
 	//	*Schema_Field_Timestamp_
 	//	*Schema_Field_List_
@@ -614,10 +614,10 @@ func (x *Schema_Field) GetString_() *Schema_Field_String {
 	return nil
 }
 
-func (x *Schema_Field) GetEnum() *Schema_Field_Enum {
+func (x *Schema_Field) GetChoice() *Schema_Field_Choice {
 	if x != nil {
-		if x, ok := x.Kind.(*Schema_Field_Enum_); ok {
-			return x.Enum
+		if x, ok := x.Kind.(*Schema_Field_Choice_); ok {
+			return x.Choice
 		}
 	}
 	return nil
@@ -820,9 +820,9 @@ type Schema_Field_String_ struct {
 	String_ *Schema_Field_String `protobuf:"bytes,13,opt,name=string,proto3,oneof"`
 }
 
-type Schema_Field_Enum_ struct {
-	// Enum field.
-	Enum *Schema_Field_Enum `protobuf:"bytes,14,opt,name=enum,proto3,oneof"`
+type Schema_Field_Choice_ struct {
+	// Choice (closed value set) field.
+	Choice *Schema_Field_Choice `protobuf:"bytes,14,opt,name=choice,proto3,oneof"`
 }
 
 type Schema_Field_Duration_ struct {
@@ -891,7 +891,7 @@ func (*Schema_Field_Bool_) isSchema_Field_Kind() {}
 
 func (*Schema_Field_String_) isSchema_Field_Kind() {}
 
-func (*Schema_Field_Enum_) isSchema_Field_Kind() {}
+func (*Schema_Field_Choice_) isSchema_Field_Kind() {}
 
 func (*Schema_Field_Duration_) isSchema_Field_Kind() {}
 
@@ -1975,45 +1975,46 @@ func (x *Schema_Field_Json) GetDefault() *Value {
 	return nil
 }
 
-// Enum field kind: an integer value with human labels.
-type Schema_Field_Enum struct {
+// Choice field kind: a closed (or advisory) set of allowed values with
+// optional human labels — the "enum" of schemapb, generalised. Options
+// carry typed Values, so string-valued domains ("ssd"/"hdd",
+// "minimal"/"replica"/"logical") are first-class: no artificial integer
+// codes. Renderers draw a select/dropdown from options (label falls
+// back to the value's display form).
+type Schema_Field_Choice struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// The static allowed set (and the renderer's option list).
+	Options []*Schema_Field_Choice_Option `protobuf:"bytes,1,rep,name=options,proto3" json:"options,omitempty"`
 	// Default value used when the field is unset.
-	Default *int32 `protobuf:"varint,1,opt,name=default,proto3,oneof" json:"default,omitempty"`
-	// Allowed enum values: integer -> human label.
-	Values map[int32]string `protobuf:"bytes,2,rep,name=values,proto3" json:"values,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// If true, value must be one of the keys in values.
-	DefinedOnly bool `protobuf:"varint,3,opt,name=defined_only,json=definedOnly,proto3" json:"defined_only,omitempty"`
-	// Value must be one of these.
-	In []int32 `protobuf:"varint,4,rep,packed,name=in,proto3" json:"in,omitempty"`
-	// Value must not be any of these.
-	NotIn []int32 `protobuf:"varint,5,rep,packed,name=not_in,json=notIn,proto3" json:"not_in,omitempty"`
-	// CEL expression over `root` returning a list of allowed integer
-	// values. When set it REPLACES the static allowed set (values/in/
-	// not_in/defined_only) for validation and supplies the option list to
-	// renderers. The submitted value must be a member of the result, else
-	// ERROR_CODE_ENUM_NOT_ALLOWED. Empty/absent => use the static values.
-	// A non-list result is a runtime error. Use cases: db versions by
-	// kind, zones by region.
-	OptionsExpr   *string `protobuf:"bytes,6,opt,name=options_expr,json=optionsExpr,proto3,oneof" json:"options_expr,omitempty"`
+	Default *Value `protobuf:"bytes,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	// If true the set is advisory: values outside options validate fine
+	// (options become suggestions). If false (default) a value not in the
+	// allowed set is ERROR_CODE_CHOICE_NOT_ALLOWED.
+	Open bool `protobuf:"varint,3,opt,name=open,proto3" json:"open,omitempty"`
+	// CEL expression over `root` returning the list of allowed values.
+	// When set it REPLACES the static options for validation and supplies
+	// the option list to renderers. Empty/absent => use options. A
+	// non-list result is a runtime error. Use cases: db versions by kind,
+	// zones by region.
+	OptionsExpr   *string `protobuf:"bytes,4,opt,name=options_expr,json=optionsExpr,proto3,oneof" json:"options_expr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Schema_Field_Enum) Reset() {
-	*x = Schema_Field_Enum{}
+func (x *Schema_Field_Choice) Reset() {
+	*x = Schema_Field_Choice{}
 	mi := &file_schemapb_schema_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Schema_Field_Enum) String() string {
+func (x *Schema_Field_Choice) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Schema_Field_Enum) ProtoMessage() {}
+func (*Schema_Field_Choice) ProtoMessage() {}
 
-func (x *Schema_Field_Enum) ProtoReflect() protoreflect.Message {
+func (x *Schema_Field_Choice) ProtoReflect() protoreflect.Message {
 	mi := &file_schemapb_schema_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2025,47 +2026,33 @@ func (x *Schema_Field_Enum) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Schema_Field_Enum.ProtoReflect.Descriptor instead.
-func (*Schema_Field_Enum) Descriptor() ([]byte, []int) {
+// Deprecated: Use Schema_Field_Choice.ProtoReflect.Descriptor instead.
+func (*Schema_Field_Choice) Descriptor() ([]byte, []int) {
 	return file_schemapb_schema_proto_rawDescGZIP(), []int{0, 0, 10}
 }
 
-func (x *Schema_Field_Enum) GetDefault() int32 {
-	if x != nil && x.Default != nil {
-		return *x.Default
-	}
-	return 0
-}
-
-func (x *Schema_Field_Enum) GetValues() map[int32]string {
+func (x *Schema_Field_Choice) GetOptions() []*Schema_Field_Choice_Option {
 	if x != nil {
-		return x.Values
+		return x.Options
 	}
 	return nil
 }
 
-func (x *Schema_Field_Enum) GetDefinedOnly() bool {
+func (x *Schema_Field_Choice) GetDefault() *Value {
 	if x != nil {
-		return x.DefinedOnly
+		return x.Default
+	}
+	return nil
+}
+
+func (x *Schema_Field_Choice) GetOpen() bool {
+	if x != nil {
+		return x.Open
 	}
 	return false
 }
 
-func (x *Schema_Field_Enum) GetIn() []int32 {
-	if x != nil {
-		return x.In
-	}
-	return nil
-}
-
-func (x *Schema_Field_Enum) GetNotIn() []int32 {
-	if x != nil {
-		return x.NotIn
-	}
-	return nil
-}
-
-func (x *Schema_Field_Enum) GetOptionsExpr() string {
+func (x *Schema_Field_Choice) GetOptionsExpr() string {
 	if x != nil && x.OptionsExpr != nil {
 		return *x.OptionsExpr
 	}
@@ -2742,11 +2729,84 @@ func (*Schema_Field_Ref_Name) isSchema_Field_Ref_Target() {}
 
 func (*Schema_Field_Ref_Id) isSchema_Field_Ref_Target() {}
 
+// One selectable option.
+type Schema_Field_Choice_Option struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The value this option stands for (typed).
+	Value *Value `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	// Human label for renderers; empty => display the value itself.
+	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	// Human description of the option.
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// Renderers may hide or warn on deprecated options.
+	Deprecated    bool `protobuf:"varint,4,opt,name=deprecated,proto3" json:"deprecated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Schema_Field_Choice_Option) Reset() {
+	*x = Schema_Field_Choice_Option{}
+	mi := &file_schemapb_schema_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Schema_Field_Choice_Option) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Schema_Field_Choice_Option) ProtoMessage() {}
+
+func (x *Schema_Field_Choice_Option) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_schema_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Schema_Field_Choice_Option.ProtoReflect.Descriptor instead.
+func (*Schema_Field_Choice_Option) Descriptor() ([]byte, []int) {
+	return file_schemapb_schema_proto_rawDescGZIP(), []int{0, 0, 10, 0}
+}
+
+func (x *Schema_Field_Choice_Option) GetValue() *Value {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+func (x *Schema_Field_Choice_Option) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *Schema_Field_Choice_Option) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Schema_Field_Choice_Option) GetDeprecated() bool {
+	if x != nil {
+		return x.Deprecated
+	}
+	return false
+}
+
 var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xcf7\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\x808\n" +
 	"\x06Schema\x12(\n" +
 	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
@@ -2758,7 +2818,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x06coerce\x18\b \x01(\bR\x06coerce\x12.\n" +
 	"\x04defs\x18\t \x03(\v2\x1a.schemapb.Schema.DefsEntryR\x04defs\x12=\n" +
 	"\ttemplates\x18\n" +
-	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xda2\n" +
+	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\x8b3\n" +
 	"\x05Field\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
@@ -2773,8 +2833,8 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	" \x01(\v2\x1d.schemapb.Schema.Field.UInt32H\x00R\x06uint32\x127\n" +
 	"\x06uint64\x18\v \x01(\v2\x1d.schemapb.Schema.Field.UInt64H\x00R\x06uint64\x121\n" +
 	"\x04bool\x18\f \x01(\v2\x1b.schemapb.Schema.Field.BoolH\x00R\x04bool\x127\n" +
-	"\x06string\x18\r \x01(\v2\x1d.schemapb.Schema.Field.StringH\x00R\x06string\x121\n" +
-	"\x04enum\x18\x0e \x01(\v2\x1b.schemapb.Schema.Field.EnumH\x00R\x04enum\x12=\n" +
+	"\x06string\x18\r \x01(\v2\x1d.schemapb.Schema.Field.StringH\x00R\x06string\x127\n" +
+	"\x06choice\x18\x0e \x01(\v2\x1d.schemapb.Schema.Field.ChoiceH\x00R\x06choice\x12=\n" +
 	"\bduration\x18\x0f \x01(\v2\x1f.schemapb.Schema.Field.DurationH\x00R\bduration\x12@\n" +
 	"\ttimestamp\x18\x10 \x01(\v2 .schemapb.Schema.Field.TimestampH\x00R\ttimestamp\x121\n" +
 	"\x04list\x18\x11 \x01(\v2\x1b.schemapb.Schema.Field.ListH\x00R\x04list\x127\n" +
@@ -2960,17 +3020,19 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x04Json\x12.\n" +
 	"\adefault\x18\x01 \x01(\v2\x0f.schemapb.ValueH\x00R\adefault\x88\x01\x01B\n" +
 	"\n" +
-	"\b_default\x1a\xb0\x02\n" +
-	"\x04Enum\x12\x1d\n" +
-	"\adefault\x18\x01 \x01(\x05H\x00R\adefault\x88\x01\x01\x12?\n" +
-	"\x06values\x18\x02 \x03(\v2'.schemapb.Schema.Field.Enum.ValuesEntryR\x06values\x12!\n" +
-	"\fdefined_only\x18\x03 \x01(\bR\vdefinedOnly\x12\x0e\n" +
-	"\x02in\x18\x04 \x03(\x05R\x02in\x12\x15\n" +
-	"\x06not_in\x18\x05 \x03(\x05R\x05notIn\x12&\n" +
-	"\foptions_expr\x18\x06 \x01(\tH\x01R\voptionsExpr\x88\x01\x01\x1a9\n" +
-	"\vValuesEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\x05R\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\n" +
+	"\b_default\x1a\xdb\x02\n" +
+	"\x06Choice\x12>\n" +
+	"\aoptions\x18\x01 \x03(\v2$.schemapb.Schema.Field.Choice.OptionR\aoptions\x12.\n" +
+	"\adefault\x18\x02 \x01(\v2\x0f.schemapb.ValueH\x00R\adefault\x88\x01\x01\x12\x12\n" +
+	"\x04open\x18\x03 \x01(\bR\x04open\x12&\n" +
+	"\foptions_expr\x18\x04 \x01(\tH\x01R\voptionsExpr\x88\x01\x01\x1a\x87\x01\n" +
+	"\x06Option\x12%\n" +
+	"\x05value\x18\x01 \x01(\v2\x0f.schemapb.ValueR\x05value\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1e\n" +
+	"\n" +
+	"deprecated\x18\x04 \x01(\bR\n" +
+	"deprecatedB\n" +
 	"\n" +
 	"\b_defaultB\x0f\n" +
 	"\r_options_expr\x1a\xb2\x02\n" +
@@ -3096,38 +3158,38 @@ func file_schemapb_schema_proto_rawDescGZIP() []byte {
 var file_schemapb_schema_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_schemapb_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_schemapb_schema_proto_goTypes = []any{
-	(Schema_Field_ResultType)(0),   // 0: schemapb.Schema.Field.ResultType
-	(Schema_Field_Severity)(0),     // 1: schemapb.Schema.Field.Severity
-	(*Schema)(nil),                 // 2: schemapb.Schema
-	(*SchemaIdentity)(nil),         // 3: schemapb.SchemaIdentity
-	(*Schema_Field)(nil),           // 4: schemapb.Schema.Field
-	nil,                            // 5: schemapb.Schema.DefsEntry
-	nil,                            // 6: schemapb.Schema.TemplatesEntry
-	(*Schema_Field_Float)(nil),     // 7: schemapb.Schema.Field.Float
-	(*Schema_Field_Double)(nil),    // 8: schemapb.Schema.Field.Double
-	(*Schema_Field_Int32)(nil),     // 9: schemapb.Schema.Field.Int32
-	(*Schema_Field_Int64)(nil),     // 10: schemapb.Schema.Field.Int64
-	(*Schema_Field_UInt32)(nil),    // 11: schemapb.Schema.Field.UInt32
-	(*Schema_Field_UInt64)(nil),    // 12: schemapb.Schema.Field.UInt64
-	(*Schema_Field_Bool)(nil),      // 13: schemapb.Schema.Field.Bool
-	(*Schema_Field_String)(nil),    // 14: schemapb.Schema.Field.String
-	(*Schema_Field_Bytes)(nil),     // 15: schemapb.Schema.Field.Bytes
-	(*Schema_Field_Json)(nil),      // 16: schemapb.Schema.Field.Json
-	(*Schema_Field_Enum)(nil),      // 17: schemapb.Schema.Field.Enum
-	(*Schema_Field_Duration)(nil),  // 18: schemapb.Schema.Field.Duration
-	(*Schema_Field_Timestamp)(nil), // 19: schemapb.Schema.Field.Timestamp
-	(*Schema_Field_List)(nil),      // 20: schemapb.Schema.Field.List
-	(*Schema_Field_Object)(nil),    // 21: schemapb.Schema.Field.Object
-	(*Schema_Field_Map)(nil),       // 22: schemapb.Schema.Field.Map
-	(*Schema_Field_Computed)(nil),  // 23: schemapb.Schema.Field.Computed
-	(*Schema_Field_Rule)(nil),      // 24: schemapb.Schema.Field.Rule
-	(*Schema_Field_OneOf)(nil),     // 25: schemapb.Schema.Field.OneOf
-	(*Schema_Field_Ref)(nil),       // 26: schemapb.Schema.Field.Ref
-	nil,                            // 27: schemapb.Schema.Field.Enum.ValuesEntry
-	nil,                            // 28: schemapb.Schema.Field.OneOf.VariantsEntry
-	(*Value)(nil),                  // 29: schemapb.Value
-	(*durationpb.Duration)(nil),    // 30: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),  // 31: google.protobuf.Timestamp
+	(Schema_Field_ResultType)(0),       // 0: schemapb.Schema.Field.ResultType
+	(Schema_Field_Severity)(0),         // 1: schemapb.Schema.Field.Severity
+	(*Schema)(nil),                     // 2: schemapb.Schema
+	(*SchemaIdentity)(nil),             // 3: schemapb.SchemaIdentity
+	(*Schema_Field)(nil),               // 4: schemapb.Schema.Field
+	nil,                                // 5: schemapb.Schema.DefsEntry
+	nil,                                // 6: schemapb.Schema.TemplatesEntry
+	(*Schema_Field_Float)(nil),         // 7: schemapb.Schema.Field.Float
+	(*Schema_Field_Double)(nil),        // 8: schemapb.Schema.Field.Double
+	(*Schema_Field_Int32)(nil),         // 9: schemapb.Schema.Field.Int32
+	(*Schema_Field_Int64)(nil),         // 10: schemapb.Schema.Field.Int64
+	(*Schema_Field_UInt32)(nil),        // 11: schemapb.Schema.Field.UInt32
+	(*Schema_Field_UInt64)(nil),        // 12: schemapb.Schema.Field.UInt64
+	(*Schema_Field_Bool)(nil),          // 13: schemapb.Schema.Field.Bool
+	(*Schema_Field_String)(nil),        // 14: schemapb.Schema.Field.String
+	(*Schema_Field_Bytes)(nil),         // 15: schemapb.Schema.Field.Bytes
+	(*Schema_Field_Json)(nil),          // 16: schemapb.Schema.Field.Json
+	(*Schema_Field_Choice)(nil),        // 17: schemapb.Schema.Field.Choice
+	(*Schema_Field_Duration)(nil),      // 18: schemapb.Schema.Field.Duration
+	(*Schema_Field_Timestamp)(nil),     // 19: schemapb.Schema.Field.Timestamp
+	(*Schema_Field_List)(nil),          // 20: schemapb.Schema.Field.List
+	(*Schema_Field_Object)(nil),        // 21: schemapb.Schema.Field.Object
+	(*Schema_Field_Map)(nil),           // 22: schemapb.Schema.Field.Map
+	(*Schema_Field_Computed)(nil),      // 23: schemapb.Schema.Field.Computed
+	(*Schema_Field_Rule)(nil),          // 24: schemapb.Schema.Field.Rule
+	(*Schema_Field_OneOf)(nil),         // 25: schemapb.Schema.Field.OneOf
+	(*Schema_Field_Ref)(nil),           // 26: schemapb.Schema.Field.Ref
+	(*Schema_Field_Choice_Option)(nil), // 27: schemapb.Schema.Field.Choice.Option
+	nil,                                // 28: schemapb.Schema.Field.OneOf.VariantsEntry
+	(*Value)(nil),                      // 29: schemapb.Value
+	(*durationpb.Duration)(nil),        // 30: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),      // 31: google.protobuf.Timestamp
 }
 var file_schemapb_schema_proto_depIdxs = []int32{
 	3,  // 0: schemapb.Schema.id:type_name -> schemapb.SchemaIdentity
@@ -3144,7 +3206,7 @@ var file_schemapb_schema_proto_depIdxs = []int32{
 	12, // 11: schemapb.Schema.Field.uint64:type_name -> schemapb.Schema.Field.UInt64
 	13, // 12: schemapb.Schema.Field.bool:type_name -> schemapb.Schema.Field.Bool
 	14, // 13: schemapb.Schema.Field.string:type_name -> schemapb.Schema.Field.String
-	17, // 14: schemapb.Schema.Field.enum:type_name -> schemapb.Schema.Field.Enum
+	17, // 14: schemapb.Schema.Field.choice:type_name -> schemapb.Schema.Field.Choice
 	18, // 15: schemapb.Schema.Field.duration:type_name -> schemapb.Schema.Field.Duration
 	19, // 16: schemapb.Schema.Field.timestamp:type_name -> schemapb.Schema.Field.Timestamp
 	20, // 17: schemapb.Schema.Field.list:type_name -> schemapb.Schema.Field.List
@@ -3158,30 +3220,32 @@ var file_schemapb_schema_proto_depIdxs = []int32{
 	29, // 25: schemapb.Schema.Field.examples:type_name -> schemapb.Value
 	2,  // 26: schemapb.Schema.DefsEntry.value:type_name -> schemapb.Schema
 	29, // 27: schemapb.Schema.Field.Json.default:type_name -> schemapb.Value
-	27, // 28: schemapb.Schema.Field.Enum.values:type_name -> schemapb.Schema.Field.Enum.ValuesEntry
-	30, // 29: schemapb.Schema.Field.Duration.default:type_name -> google.protobuf.Duration
-	30, // 30: schemapb.Schema.Field.Duration.gt:type_name -> google.protobuf.Duration
-	30, // 31: schemapb.Schema.Field.Duration.gte:type_name -> google.protobuf.Duration
-	30, // 32: schemapb.Schema.Field.Duration.lt:type_name -> google.protobuf.Duration
-	30, // 33: schemapb.Schema.Field.Duration.lte:type_name -> google.protobuf.Duration
-	31, // 34: schemapb.Schema.Field.Timestamp.default:type_name -> google.protobuf.Timestamp
-	31, // 35: schemapb.Schema.Field.Timestamp.gt:type_name -> google.protobuf.Timestamp
-	31, // 36: schemapb.Schema.Field.Timestamp.gte:type_name -> google.protobuf.Timestamp
-	31, // 37: schemapb.Schema.Field.Timestamp.lt:type_name -> google.protobuf.Timestamp
-	31, // 38: schemapb.Schema.Field.Timestamp.lte:type_name -> google.protobuf.Timestamp
-	4,  // 39: schemapb.Schema.Field.List.items:type_name -> schemapb.Schema.Field
-	2,  // 40: schemapb.Schema.Field.Object.schema:type_name -> schemapb.Schema
-	2,  // 41: schemapb.Schema.Field.Map.value_schema:type_name -> schemapb.Schema
-	0,  // 42: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
-	1,  // 43: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
-	28, // 44: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
-	3,  // 45: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
-	2,  // 46: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
-	47, // [47:47] is the sub-list for method output_type
-	47, // [47:47] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	27, // 28: schemapb.Schema.Field.Choice.options:type_name -> schemapb.Schema.Field.Choice.Option
+	29, // 29: schemapb.Schema.Field.Choice.default:type_name -> schemapb.Value
+	30, // 30: schemapb.Schema.Field.Duration.default:type_name -> google.protobuf.Duration
+	30, // 31: schemapb.Schema.Field.Duration.gt:type_name -> google.protobuf.Duration
+	30, // 32: schemapb.Schema.Field.Duration.gte:type_name -> google.protobuf.Duration
+	30, // 33: schemapb.Schema.Field.Duration.lt:type_name -> google.protobuf.Duration
+	30, // 34: schemapb.Schema.Field.Duration.lte:type_name -> google.protobuf.Duration
+	31, // 35: schemapb.Schema.Field.Timestamp.default:type_name -> google.protobuf.Timestamp
+	31, // 36: schemapb.Schema.Field.Timestamp.gt:type_name -> google.protobuf.Timestamp
+	31, // 37: schemapb.Schema.Field.Timestamp.gte:type_name -> google.protobuf.Timestamp
+	31, // 38: schemapb.Schema.Field.Timestamp.lt:type_name -> google.protobuf.Timestamp
+	31, // 39: schemapb.Schema.Field.Timestamp.lte:type_name -> google.protobuf.Timestamp
+	4,  // 40: schemapb.Schema.Field.List.items:type_name -> schemapb.Schema.Field
+	2,  // 41: schemapb.Schema.Field.Object.schema:type_name -> schemapb.Schema
+	2,  // 42: schemapb.Schema.Field.Map.value_schema:type_name -> schemapb.Schema
+	0,  // 43: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
+	1,  // 44: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
+	28, // 45: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
+	3,  // 46: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
+	29, // 47: schemapb.Schema.Field.Choice.Option.value:type_name -> schemapb.Value
+	2,  // 48: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
+	49, // [49:49] is the sub-list for method output_type
+	49, // [49:49] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_schema_proto_init() }
@@ -3200,7 +3264,7 @@ func file_schemapb_schema_proto_init() {
 		(*Schema_Field_Uint64)(nil),
 		(*Schema_Field_Bool_)(nil),
 		(*Schema_Field_String_)(nil),
-		(*Schema_Field_Enum_)(nil),
+		(*Schema_Field_Choice_)(nil),
 		(*Schema_Field_Duration_)(nil),
 		(*Schema_Field_Timestamp_)(nil),
 		(*Schema_Field_List_)(nil),

@@ -81,10 +81,13 @@ func Example() {
 			schemapb.Bytes("license").MinLen(4).MaxLen(64).Prefix([]byte("LIC-")),
 			schemapb.Json("annotations"),
 
-			schemapb.Enum("wal_level").
-				Values(map[int32]string{0: "minimal", 1: "replica", 2: "logical"}).
-				Default(1).DefinedOnly().Group("WAL"),
-			schemapb.Enum("compression").Options(`root.wal_level == 2 ? [1, 2] : [0]`),
+			schemapb.Choice("wal_level").
+				Opt(schemapb.StrV("minimal"), "Minimal").
+				Opt(schemapb.StrV("replica"), "Replica").
+				Opt(schemapb.StrV("logical"), "Logical").
+				Default(schemapb.StrV("replica")).Group("WAL"),
+			schemapb.Choice("compression").
+				Options(`root.wal_level == "logical" ? ["lz4", "zstd"] : ["off"]`),
 
 			schemapb.Duration("checkpoint_timeout").Default(5*time.Minute).
 				Gte(30*time.Second).Lte(time.Hour).Unit("duration"),
@@ -191,8 +194,11 @@ func Example() {
 	// --- 6. UI helpers ------------------------------------------------------
 
 	active, _ := eng.FieldActive("debug_level", map[string]any{"mode": "slow"})
-	opts, _ := eng.EnumOptions("compression", map[string]any{"wal_level": int64(2)})
-	slices.Sort(opts)
+	optVals, _ := eng.ChoiceOptions("compression", map[string]any{"wal_level": "logical"})
+	opts := make([]string, len(optVals))
+	for i, v := range optVals {
+		opts[i] = v.GetStringValue()
+	}
 	count, _ := eng.ListCount("replica_names", map[string]any{"replica_count": int64(4)})
 	fmt.Printf("active=%v options=%v count=%d\n", active, opts, count)
 
@@ -285,11 +291,11 @@ func Example() {
 	//   shared_buffers: GTE_VIOLATED
 	//   tablespaces.t1.junk: UNKNOWN_FIELD
 	//   tablespaces.t1.location: REQUIRED_MISSING
-	//   wal_level: ENUM_NOT_DEFINED
-	// active=true options=[1 2] count=4
+	//   wal_level: CHOICE_NOT_ALLOWED
+	// active=true options=[lz4 zstd] count=4
 	// resolve ok: true buffers: 256 cache: 768 mode: fast timeout: 5m0s
 	// shared_buffers = 256
-	// wal_level = 1
+	// wal_level = replica
 	// merged autovacuum: false matches: true
 	// filled port: 5432
 	// values: native=13 roundtrip=13 canonical=*schemapb.Value_Int32Value

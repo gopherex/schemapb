@@ -170,27 +170,35 @@ func TestBytesConstraints(t *testing.T) {
 	}
 }
 
-func TestEnum(t *testing.T) {
-	s := schemapb.NewSchema(schemapb.ID("t", "enum", schemapb.MustVersion("v1"))).Fields(
-		schemapb.Enum("lvl").Values(map[int32]string{0: "min", 1: "replica", 2: "logical"}).DefinedOnly(),
+func TestChoice(t *testing.T) {
+	s := schemapb.NewSchema(schemapb.ID("t", "choice", schemapb.MustVersion("v1"))).Fields(
+		schemapb.Choice("lvl").StrOpts("min", "replica", "logical"),
+		schemapb.Choice("cpu").IntOpts(2, 4, 8),
+		schemapb.Choice("suggested").StrOpts("a", "b").Open(),
 		schemapb.Str("kind").Default("a"),
-		schemapb.Enum("dyn").Options(`root.kind == "a" ? [1, 2] : [3]`),
+		schemapb.Choice("dyn").Options(`root.kind == "a" ? ["x", "y"] : ["z"]`),
 	).MustBuild()
 
-	if res := mustValidate(t, s, map[string]any{"lvl": int64(2), "dyn": int64(1)}); !res.Ok() {
+	if res := mustValidate(t, s, map[string]any{
+		"lvl": "replica", "cpu": int64(4), "suggested": "anything", "dyn": "x",
+	}); !res.Ok() {
 		t.Fatalf("want valid: %v", res.GetErrors())
 	}
-	res := mustValidate(t, s, map[string]any{"lvl": int64(9), "dyn": int64(3)})
-	if !hasCode(res, "lvl", schemapb.ErrorCode_ERROR_CODE_ENUM_NOT_DEFINED) {
-		t.Errorf("lvl: %v", codes(res)["lvl"])
-	}
-	if !hasCode(res, "dyn", schemapb.ErrorCode_ERROR_CODE_ENUM_NOT_ALLOWED) {
-		t.Errorf("dyn: %v", codes(res)["dyn"])
+	res := mustValidate(t, s, map[string]any{"lvl": "extreme", "cpu": int64(3), "dyn": "z"})
+	for _, path := range []string{"lvl", "cpu", "dyn"} {
+		if !hasCode(res, path, schemapb.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED) {
+			t.Errorf("%s: %v", path, codes(res)[path])
+		}
 	}
 
-	opts, err := s.EnumOptions("dyn", map[string]any{"kind": "b"})
-	if err != nil || len(opts) != 1 || opts[0] != 3 {
-		t.Errorf("EnumOptions: %v %v", opts, err)
+	opts, err := s.ChoiceOptions("dyn", map[string]any{"kind": "b"})
+	if err != nil || len(opts) != 1 || opts[0].GetStringValue() != "z" {
+		t.Errorf("ChoiceOptions: %v %v", opts, err)
+	}
+	// A closed choice with no options is a schema defect.
+	if _, err := schemapb.NewSchema(schemapb.ID("t", "empty", schemapb.Ver(0, 0, 1))).
+		Fields(schemapb.Choice("x")).Build(); err == nil {
+		t.Error("closed empty choice must fail Build")
 	}
 }
 
@@ -631,7 +639,7 @@ func TestFilledBake(t *testing.T) {
 func TestSchemaProtoRoundTrip(t *testing.T) {
 	s := schemapb.NewSchema(schemapb.ID("infra", "pg", schemapb.MustVersion("v1"))).Strict().Fields(
 		schemapb.Int64("conns").Gte(1).Default(10),
-		schemapb.Enum("lvl").Values(map[int32]string{0: "a"}).DefinedOnly(),
+		schemapb.Choice("lvl").StrOpts("a"),
 		schemapb.List("xs", schemapb.Str("").MinLen(1)),
 	).Template("conf", "{{#fields}}{{name}}\n{{/fields}}").MustBuild()
 

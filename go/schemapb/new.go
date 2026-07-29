@@ -506,38 +506,59 @@ func (b *BytesB) In(vs ...[]byte) *BytesB { b.k.In = vs; return b }
 // NotIn forbids the value from being any of vs.
 func (b *BytesB) NotIn(vs ...[]byte) *BytesB { b.k.NotIn = vs; return b }
 
-// EnumB builds an enum field.
-type EnumB struct {
-	fieldBase[*EnumB]
-	k *Schema_Field_Enum
+// ChoiceB builds a choice field: a closed (or advisory) set of allowed
+// typed values with optional human labels.
+type ChoiceB struct {
+	fieldBase[*ChoiceB]
+	k *Schema_Field_Choice
 }
 
-// Enum builds an enum field (integer value with human labels).
-func Enum(name FieldName) *EnumB {
-	b := &EnumB{k: &Schema_Field_Enum{}}
+// Choice builds a choice field. Add options with Opt / StrOpts / IntOpts.
+func Choice(name FieldName) *ChoiceB {
+	b := &ChoiceB{k: &Schema_Field_Choice{}}
 	b.fieldBase = newField(name, b)
-	b.f.Kind = &Schema_Field_Enum_{Enum: b.k}
+	b.f.Kind = &Schema_Field_Choice_{Choice: b.k}
+	return b
+}
+
+// Opt adds one option: a typed value with a human label (empty label =>
+// renderers display the value itself).
+func (b *ChoiceB) Opt(value *Value, label string) *ChoiceB {
+	b.k.Options = append(b.k.Options, &Schema_Field_Choice_Option{Value: value, Label: label})
+	return b
+}
+
+// OptFull adds one fully-described option.
+func (b *ChoiceB) OptFull(o *Schema_Field_Choice_Option) *ChoiceB {
+	b.k.Options = append(b.k.Options, o)
+	return b
+}
+
+// StrOpts adds string options (value doubles as label).
+func (b *ChoiceB) StrOpts(vs ...string) *ChoiceB {
+	for _, v := range vs {
+		b.Opt(StrV(v), "")
+	}
+	return b
+}
+
+// IntOpts adds int64 options (value doubles as label).
+func (b *ChoiceB) IntOpts(vs ...int64) *ChoiceB {
+	for _, v := range vs {
+		b.Opt(Int64V(v), "")
+	}
 	return b
 }
 
 // Default sets the value used when the field is unset.
-func (b *EnumB) Default(v int32) *EnumB { b.k.Default = &v; return b }
+func (b *ChoiceB) Default(v *Value) *ChoiceB { b.k.Default = v; return b }
 
-// Values sets the allowed enum values: integer -> human label.
-func (b *EnumB) Values(v map[int32]string) *EnumB { b.k.Values = v; return b }
-
-// DefinedOnly requires the value to be one of the keys in Values.
-func (b *EnumB) DefinedOnly() *EnumB { b.k.DefinedOnly = true; return b }
-
-// In requires the value to be one of vs.
-func (b *EnumB) In(vs ...int32) *EnumB { b.k.In = vs; return b }
-
-// NotIn forbids the value from being any of vs.
-func (b *EnumB) NotIn(vs ...int32) *EnumB { b.k.NotIn = vs; return b }
+// Open makes the option set advisory: values outside it validate fine.
+func (b *ChoiceB) Open() *ChoiceB { b.k.Open = true; return b }
 
 // Options sets the dynamic options expression: a CEL expression over `root`
-// returning the list of allowed integer values (replaces the static set).
-func (b *EnumB) Options(e string) *EnumB { b.k.OptionsExpr = &e; return b }
+// returning the list of allowed values (replaces the static options).
+func (b *ChoiceB) Options(e string) *ChoiceB { b.k.OptionsExpr = &e; return b }
 
 // JsonB builds a free-form JSON field.
 type JsonB struct {

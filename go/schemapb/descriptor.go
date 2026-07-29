@@ -103,9 +103,15 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 			if len(f.GetList().GetItems()) == 0 {
 				errs = append(errs, schemaErr(path, "list field: at least one item definition is required"))
 			}
-		case f.GetEnum() != nil:
-			if f.GetEnum().GetDefinedOnly() && len(f.GetEnum().GetValues()) == 0 {
-				errs = append(errs, schemaErr(path, "enum field: defined_only requires values"))
+		case f.GetChoice() != nil:
+			ch := f.GetChoice()
+			if !ch.GetOpen() && len(ch.GetOptions()) == 0 && ch.GetOptionsExpr() == "" {
+				errs = append(errs, schemaErr(path, "choice field: a closed choice requires options or options_expr"))
+			}
+			for i, o := range ch.GetOptions() {
+				if o.GetValue() == nil {
+					errs = append(errs, schemaErr(path, fmt.Sprintf("choice option[%d]: value is required", i)))
+				}
 			}
 		case f.GetMap() != nil:
 			mp := f.GetMap()

@@ -13,10 +13,11 @@ __all__ = (
     "SchemaField",
     "SchemaFieldBool",
     "SchemaFieldBytes",
+    "SchemaFieldChoice",
+    "SchemaFieldChoiceOption",
     "SchemaFieldComputed",
     "SchemaFieldDouble",
     "SchemaFieldDuration",
-    "SchemaFieldEnum",
     "SchemaFieldFloat",
     "SchemaFieldInt32",
     "SchemaFieldInt64",
@@ -122,12 +123,10 @@ class ErrorCode(betterproto2.Enum):
     loudly is mandatory: a format may never be silently skipped. 
     """
 
-    ENUM_NOT_DEFINED = 30
+    CHOICE_NOT_ALLOWED = 30
     """
-    Enum constraints. 
+    Choice constraints. 
     """
-
-    ENUM_NOT_ALLOWED = 31
 
     MIN_ITEMS_VIOLATED = 40
     """
@@ -201,8 +200,7 @@ class ErrorCode(betterproto2.Enum):
             25: "ERROR_CODE_PREFIX_MISMATCH",
             26: "ERROR_CODE_SUFFIX_MISMATCH",
             27: "ERROR_CODE_UNSUPPORTED_FORMAT",
-            30: "ERROR_CODE_ENUM_NOT_DEFINED",
-            31: "ERROR_CODE_ENUM_NOT_ALLOWED",
+            30: "ERROR_CODE_CHOICE_NOT_ALLOWED",
             40: "ERROR_CODE_MIN_ITEMS_VIOLATED",
             41: "ERROR_CODE_MAX_ITEMS_VIOLATED",
             42: "ERROR_CODE_NOT_UNIQUE",
@@ -244,8 +242,7 @@ class ErrorCode(betterproto2.Enum):
             "ERROR_CODE_PREFIX_MISMATCH": 25,
             "ERROR_CODE_SUFFIX_MISMATCH": 26,
             "ERROR_CODE_UNSUPPORTED_FORMAT": 27,
-            "ERROR_CODE_ENUM_NOT_DEFINED": 30,
-            "ERROR_CODE_ENUM_NOT_ALLOWED": 31,
+            "ERROR_CODE_CHOICE_NOT_ALLOWED": 30,
             "ERROR_CODE_MIN_ITEMS_VIOLATED": 40,
             "ERROR_CODE_MAX_ITEMS_VIOLATED": 41,
             "ERROR_CODE_NOT_UNIQUE": 42,
@@ -583,7 +580,7 @@ class SchemaField(betterproto2.Message):
                         subtree is gated.
       2. normalize    — map the field's own value.
       3. Computed     — derive the value from `root`.
-      4. options_expr / count_expr — dynamic Enum options / List length.
+      4. options_expr / count_expr — dynamic Choice options / List length.
       5. rules + kind constraints — required/nullable, gt/lt/in/pattern, ...
 
     Renderer contract: an inactive field (when=false) MUST NOT be rendered.
@@ -677,11 +674,11 @@ class SchemaField(betterproto2.Message):
     String field. 
     """
 
-    enum: "SchemaFieldEnum | None" = betterproto2.field(
+    choice: "SchemaFieldChoice | None" = betterproto2.field(
         14, betterproto2.TYPE_MESSAGE, optional=True, group="kind"
     )
     """
-    Enum field. 
+    Choice (closed value set) field. 
     """
 
     duration: "SchemaFieldDuration | None" = betterproto2.field(
@@ -930,6 +927,92 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False)
+class SchemaFieldChoice(betterproto2.Message):
+    """
+
+    Choice field kind: a closed (or advisory) set of allowed values with
+    optional human labels — the "enum" of schemapb, generalised. Options
+    carry typed Values, so string-valued domains ("ssd"/"hdd",
+    "minimal"/"replica"/"logical") are first-class: no artificial integer
+    codes. Renderers draw a select/dropdown from options (label falls
+    back to the value's display form).
+    """
+
+    options: "list[SchemaFieldChoiceOption]" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    The static allowed set (and the renderer's option list). 
+    """
+
+    default: "Value | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Default value used when the field is unset. 
+    """
+
+    open: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
+    """
+    
+    If true the set is advisory: values outside options validate fine
+    (options become suggestions). If false (default) a value not in the
+    allowed set is ERROR_CODE_CHOICE_NOT_ALLOWED.
+    """
+
+    options_expr: "str | None" = betterproto2.field(
+        4, betterproto2.TYPE_STRING, optional=True
+    )
+    """
+    
+    CEL expression over `root` returning the list of allowed values.
+    When set it REPLACES the static options for validation and supplies
+    the option list to renderers. Empty/absent => use options. A
+    non-list result is a runtime error. Use cases: db versions by kind,
+    zones by region.
+    """
+
+
+default_message_pool.register_message(
+    "schemapb", "Schema.Field.Choice", SchemaFieldChoice
+)
+
+
+@dataclass(eq=False, repr=False)
+class SchemaFieldChoiceOption(betterproto2.Message):
+    """
+    One selectable option.
+    """
+
+    value: "Value | None" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    The value this option stands for (typed). 
+    """
+
+    label: "str" = betterproto2.field(2, betterproto2.TYPE_STRING)
+    """
+    Human label for renderers; empty => display the value itself. 
+    """
+
+    description: "str" = betterproto2.field(3, betterproto2.TYPE_STRING)
+    """
+    Human description of the option. 
+    """
+
+    deprecated: "bool" = betterproto2.field(4, betterproto2.TYPE_BOOL)
+    """
+    Renderers may hide or warn on deprecated options. 
+    """
+
+
+default_message_pool.register_message(
+    "schemapb", "Schema.Field.Choice.Option", SchemaFieldChoiceOption
+)
+
+
+@dataclass(eq=False, repr=False)
 class SchemaFieldComputed(betterproto2.Message):
     """
 
@@ -1093,63 +1176,6 @@ class SchemaFieldDuration(betterproto2.Message):
 default_message_pool.register_message(
     "schemapb", "Schema.Field.Duration", SchemaFieldDuration
 )
-
-
-@dataclass(eq=False, repr=False)
-class SchemaFieldEnum(betterproto2.Message):
-    """
-    Enum field kind: an integer value with human labels.
-    """
-
-    default: "int | None" = betterproto2.field(
-        1, betterproto2.TYPE_INT32, optional=True
-    )
-    """
-    Default value used when the field is unset. 
-    """
-
-    values: "dict[int, str]" = betterproto2.field(
-        2,
-        betterproto2.TYPE_MAP,
-        map_meta=betterproto2.map_meta(
-            betterproto2.TYPE_INT32, betterproto2.TYPE_STRING
-        ),
-    )
-    """
-    Allowed enum values: integer -> human label. 
-    """
-
-    defined_only: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
-    """
-    If true, value must be one of the keys in values. 
-    """
-
-    in_: "list[int]" = betterproto2.field(4, betterproto2.TYPE_INT32, repeated=True)
-    """
-    Value must be one of these. 
-    """
-
-    not_in: "list[int]" = betterproto2.field(5, betterproto2.TYPE_INT32, repeated=True)
-    """
-    Value must not be any of these. 
-    """
-
-    options_expr: "str | None" = betterproto2.field(
-        6, betterproto2.TYPE_STRING, optional=True
-    )
-    """
-    
-    CEL expression over `root` returning a list of allowed integer
-    values. When set it REPLACES the static allowed set (values/in/
-    not_in/defined_only) for validation and supplies the option list to
-    renderers. The submitted value must be a member of the result, else
-    ERROR_CODE_ENUM_NOT_ALLOWED. Empty/absent => use the static values.
-    A non-list result is a runtime error. Use cases: db versions by
-    kind, zones by region.
-    """
-
-
-default_message_pool.register_message("schemapb", "Schema.Field.Enum", SchemaFieldEnum)
 
 
 @dataclass(eq=False, repr=False)

@@ -310,8 +310,8 @@ func (e *Engine) checkKind(f *Schema_Field, val any, path string, root map[strin
 			return []*ValidationError{typeErr(path, "bytes", val)}
 		}
 		return checkBytes(path, b, f.GetBytes())
-	case f.GetEnum() != nil:
-		return e.checkEnum(path, val, f.GetEnum(), root)
+	case f.GetChoice() != nil:
+		return e.checkChoice(path, val, f.GetChoice(), root)
 	case f.GetDuration() != nil:
 		return checkDuration(path, val, f.GetDuration())
 	case f.GetTimestamp() != nil:
@@ -570,42 +570,41 @@ func checkBytes(path string, b []byte, k *Schema_Field_Bytes) []*ValidationError
 	return out
 }
 
-// checkEnum validates an enum value. With options_expr, the dynamic set over
-// root REPLACES the static checks (defined_only/in/not_in).
-func (e *Engine) checkEnum(path string, val any, k *Schema_Field_Enum, root map[string]any) []*ValidationError {
-	n, ok := asInt64(val)
-	if !ok || n < math.MinInt32 || n > math.MaxInt32 {
-		return []*ValidationError{typeErr(path, "enum (int32)", val)}
-	}
-	iv := int32(n)
-	if k.GetOptionsExpr() != "" {
-		allowed, err := e.evalEnumOptions(k.GetOptionsExpr(), root)
-		if err != nil {
-			return []*ValidationError{exprErr(path, k.GetOptionsExpr(), "options_expr: "+err.Error())}
-		}
-		if !slices.Contains(allowed, iv) {
-			return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_ENUM_NOT_ALLOWED, "options_expr",
-				listOf(allowed, Int32V), Int32V(iv), fmt.Sprintf("must be one of %v", allowed))}
-		}
+// checkChoice validates a choice value: membership in the allowed set (the
+// static options, or the options_expr result which replaces them). An open
+// choice treats the set as advisory and never fails membership.
+func (e *Engine) checkChoice(path string, val any, k *Schema_Field_Choice, root map[string]any) []*ValidationError {
+	if k.GetOpen() {
 		return nil
 	}
-	var out []*ValidationError
-	if k.GetDefinedOnly() {
-		if _, defined := k.GetValues()[iv]; !defined {
-			keys := slices.Sorted(maps.Keys(k.GetValues()))
-			out = append(out, verr(path, ErrorCode_ERROR_CODE_ENUM_NOT_DEFINED, "defined_only",
-				listOf(keys, Int32V), Int32V(iv), "must be a defined enum value"))
+	actual, _ := FromGo(val)
+	if src := k.GetOptionsExpr(); src != "" {
+		allowed, err := e.evalChoiceOptions(src, root)
+		if err != nil {
+			return []*ValidationError{exprErr(path, src, "options_expr: "+err.Error())}
 		}
+		for _, a := range allowed {
+			if nativeEqual(val, a) {
+				return nil
+			}
+		}
+		expected := make([]*Value, 0, len(allowed))
+		for _, a := range allowed {
+			v, _ := FromGo(a)
+			expected = append(expected, v)
+		}
+		return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED, "options_expr",
+			ListV(expected...), actual, fmt.Sprintf("must be one of %v", allowed))}
 	}
-	if len(k.In) > 0 && !slices.Contains(k.In, iv) {
-		out = append(out, verr(path, ErrorCode_ERROR_CODE_NOT_IN_ALLOWED_SET, "in",
-			listOf(k.In, Int32V), Int32V(iv), fmt.Sprintf("must be one of %v", k.In)))
+	expected := make([]*Value, 0, len(k.GetOptions()))
+	for _, o := range k.GetOptions() {
+		if nativeEqual(val, o.GetValue().ToGo()) {
+			return nil
+		}
+		expected = append(expected, o.GetValue())
 	}
-	if len(k.NotIn) > 0 && slices.Contains(k.NotIn, iv) {
-		out = append(out, verr(path, ErrorCode_ERROR_CODE_IN_FORBIDDEN_SET, "not_in",
-			listOf(k.NotIn, Int32V), Int32V(iv), fmt.Sprintf("must not be one of %v", k.NotIn)))
-	}
-	return out
+	return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED, "options",
+		ListV(expected...), actual, "must be one of the declared options")}
 }
 
 // asDuration accepts the native representation or a parseable string.
