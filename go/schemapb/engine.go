@@ -24,6 +24,7 @@ type Engine struct {
 	progs   map[string]cel.Program
 	asts    map[string]*cel.Ast
 	regexps map[string]*regexp.Regexp
+	formats FormatRegistry
 }
 
 // celEnv is the single CEL environment of the spec: variables `this`, `root`,
@@ -42,7 +43,7 @@ var celEnv = sync.OnceValues(func() (*cel.Env, error) {
 // Compile checks the descriptor, compiles every expression and pattern in the
 // schema (including defs), and statically rejects top-level computed-field
 // cycles. The returned Engine evaluates without further compilation.
-func Compile(s *Schema) (*Engine, error) {
+func Compile(s *Schema, opts ...CompileOption) (*Engine, error) {
 	if err := s.CheckDescriptor(); err != nil {
 		return nil, err
 	}
@@ -50,11 +51,16 @@ func Compile(s *Schema) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("schemapb: cel environment: %w", err)
 	}
+	cfg := compileConfig{formats: CoreFormats()}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	e := &Engine{
 		schema:  s,
 		progs:   map[string]cel.Program{},
 		asts:    map[string]*cel.Ast{},
 		regexps: map[string]*regexp.Regexp{},
+		formats: cfg.formats,
 	}
 	var errs []*ValidationError
 	for src, path := range schemaExprs(s) {

@@ -41,3 +41,75 @@ func TestSmokeResolve(t *testing.T) {
 		t.Errorf("when-gated field seeded: %v", out["hidden"])
 	}
 }
+
+func TestSmokeValidate(t *testing.T) {
+	s := schemapb.NewSchema("infra", "pg", "v1").
+		Strict().
+		Fields(
+			schemapb.Int64("conns").Gte(16).Lte(100).Required(),
+			schemapb.Str("pass").MinLen(8).Secret(),
+			schemapb.Str("mail").Format(schemapb.FormatEmail),
+			schemapb.Str("weird").Format("k8s.quantity"),
+		).
+		Rules(schemapb.Rule("int(root.conns) != 42", "not 42").ID("no42").Warn()).
+		MustBuild()
+
+	res, err := s.Validate(map[string]any{
+		"conns": int64(8),
+		"pass":  "short",
+		"mail":  "not-an-email",
+		"weird": "500Mi",
+		"junk":  int64(1),
+		
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[schemapb.ErrorCode]int{}
+	for _, e := range res.GetErrors() {
+		got[e.GetCode()]++
+		if e.GetPath() == "pass" && e.GetActual() != nil {
+			t.Errorf("secret actual not masked: %v", e)
+		}
+	}
+	want := []schemapb.ErrorCode{
+		schemapb.ErrorCode_ERROR_CODE_GTE_VIOLATED,
+		schemapb.ErrorCode_ERROR_CODE_MIN_LEN_VIOLATED,
+		schemapb.ErrorCode_ERROR_CODE_FORMAT_MISMATCH,
+		schemapb.ErrorCode_ERROR_CODE_UNSUPPORTED_FORMAT,
+		schemapb.ErrorCode_ERROR_CODE_UNKNOWN_FIELD,
+	}
+	for _, w := range want {
+		if got[w] == 0 {
+			t.Errorf("missing code %v in %v", w, res.GetErrors())
+		}
+	}
+	if !res.Blocking() {
+		t.Error("expected blocking result")
+	}
+
+	// Valid input: only the warning rule fires; Bake succeeds. The custom
+	// format is registered on an explicitly compiled engine.
+	eng, err := schemapb.Compile(s, schemapb.WithFormats(schemapb.FormatRegistry{
+		"k8s.quantity": func(v string) bool { return v != "" },
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	baked, res2, err := eng.Bake(map[string]any{"conns": int64(42), "pass": "longenough", "mail": "a@b.co", "weird": "1Gi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res2.Blocking() {
+		t.Fatalf("unexpected blocking: %v", res2.GetErrors())
+	}
+	if len(res2.GetErrors()) != 1 || res2.GetErrors()[0].GetCode() != schemapb.ErrorCode_ERROR_CODE_RULE_VIOLATED {
+		t.Errorf("want single warning rule violation, got %v", res2.GetErrors())
+	}
+	if baked.GetValues().GetFields()["conns"].GetInt64Value() != 42 {
+		t.Errorf("canonical int64 lost: %v", baked.GetValues())
+	}
+	if !baked.Matches(s) {
+		t.Error("baked must match its schema")
+	}
+}

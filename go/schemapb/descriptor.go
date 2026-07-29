@@ -50,6 +50,10 @@ func (s *Schema) CheckDescriptor() error {
 	for name, def := range s.GetDefs() {
 		errs = append(errs, checkFields(def.GetFields(), "$defs."+name)...)
 	}
+	errs = append(errs, checkRefTargets(s.GetFields(), s.GetDefs(), "")...)
+	for name, def := range s.GetDefs() {
+		errs = append(errs, checkRefTargets(def.GetFields(), s.GetDefs(), "$defs."+name)...)
+	}
 	if len(errs) > 0 {
 		return &SchemaError{Result: &ValidationResult{Errors: errs}}
 	}
@@ -88,13 +92,54 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 			if f.GetOneOf().GetDiscriminator() == "" {
 				errs = append(errs, schemaErr(path, "oneof field: discriminator is required"))
 			}
+			if len(f.GetOneOf().GetVariants()) == 0 {
+				errs = append(errs, schemaErr(path, "oneof field: at least one variant is required"))
+			}
 		case f.GetRef() != nil:
 			if f.GetRef().GetTarget() == nil {
 				errs = append(errs, schemaErr(path, "ref field: target is required"))
 			}
+		case f.GetList() != nil:
+			if len(f.GetList().GetItems()) == 0 {
+				errs = append(errs, schemaErr(path, "list field: at least one item definition is required"))
+			}
+		case f.GetEnum() != nil:
+			if f.GetEnum().GetDefinedOnly() && len(f.GetEnum().GetValues()) == 0 {
+				errs = append(errs, schemaErr(path, "enum field: defined_only requires values"))
+			}
+		case f.GetMap() != nil:
+			mp := f.GetMap()
+			if mp.MinEntries != nil && mp.MaxEntries != nil && *mp.MinEntries > *mp.MaxEntries {
+				errs = append(errs, schemaErr(path, "map field: min_entries must be <= max_entries"))
+			}
 		}
 		for _, child := range nestedSchemas(f) {
 			errs = append(errs, checkFields(child.GetFields(), path)...)
+		}
+	}
+	return errs
+}
+
+// checkRefTargets walks fields recursively and reports any name-Ref that
+// targets a def absent from rootDefs. Identity-refs are exempt: they resolve
+// at Link time, not build time.
+func checkRefTargets(fields []*Schema_Field, rootDefs map[string]*Schema, prefix string) []*ValidationError {
+	var errs []*ValidationError
+	for _, f := range fields {
+		path := joinPath(prefix, f.GetName())
+		if ref := f.GetRef(); ref != nil && ref.GetId() == nil && ref.GetName() != "" {
+			if _, ok := rootDefs[ref.GetName()]; !ok {
+				errs = append(errs, schemaErr(path, fmt.Sprintf("ref %q is not defined in schema defs", ref.GetName())))
+			}
+		}
+		if l := f.GetList(); l != nil {
+			// Item fields carry their own nested schemas; recursing the items
+			// covers both (nestedSchemas would double-visit them).
+			errs = append(errs, checkRefTargets(l.GetItems(), rootDefs, path+"[]")...)
+			continue
+		}
+		for _, child := range nestedSchemas(f) {
+			errs = append(errs, checkRefTargets(child.GetFields(), rootDefs, path)...)
 		}
 	}
 	return errs
