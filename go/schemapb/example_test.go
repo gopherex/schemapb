@@ -230,11 +230,7 @@ func Example() {
 	}
 	fmt.Print(text)
 
-	overrides, err := schemapb.StructFromGo(map[string]any{"autovacuum": false})
-	if err != nil {
-		panic(err)
-	}
-	merged, _, err := eng.Merge(baked, overrides, false)
+	merged, _, err := eng.Merge(baked, schemapb.MustStructFromGo(map[string]any{"autovacuum": false}), false)
 	if err != nil {
 		panic(err)
 	}
@@ -244,7 +240,7 @@ func Example() {
 
 	filled := &schemapb.Filled{
 		Schema: &schemapb.SchemaRef{Source: &schemapb.SchemaRef_Schema{Schema: endpoint}},
-		Values: mustStruct(map[string]any{"host": "db.corp.io"}),
+		Values: schemapb.MustStructFromGo(map[string]any{"host": "db.corp.io"}),
 	}
 	fromFilled, _, err := filled.Bake()
 	if err != nil {
@@ -299,13 +295,4 @@ func Example() {
 	// merged autovacuum: false matches: true
 	// filled port: 5432
 	// values: native=13 roundtrip=13 canonical=*schemapb.Value_Int32Value
-}
-
-// mustStruct converts a native map to a wire StructValue or panics.
-func mustStruct(m map[string]any) *schemapb.StructValue {
-	st, err := schemapb.StructFromGo(m)
-	if err != nil {
-		panic(err)
-	}
-	return st
 }

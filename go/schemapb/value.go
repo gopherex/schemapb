@@ -211,6 +211,16 @@ func FromGo(x any) (*Value, error) {
 	}
 }
 
+// MustFromGo is FromGo that panics on an unsupported type. For literals and
+// tests; prefer FromGo for runtime data.
+func MustFromGo(x any) *Value {
+	v, err := FromGo(x)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 // StructFromGo converts a native map to a wire struct.
 func StructFromGo(m map[string]any) (*StructValue, error) {
 	fields := make(map[string]*Value, len(m))
@@ -222,6 +232,16 @@ func StructFromGo(m map[string]any) (*StructValue, error) {
 		fields[name] = v
 	}
 	return &StructValue{Fields: fields}, nil
+}
+
+// MustStructFromGo is StructFromGo that panics on an unsupported type. For
+// literals and tests; prefer StructFromGo for runtime data.
+func MustStructFromGo(m map[string]any) *StructValue {
+	st, err := StructFromGo(m)
+	if err != nil {
+		panic(err)
+	}
+	return st
 }
 
 // =============================================================================
