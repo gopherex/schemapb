@@ -1,23 +1,7 @@
-# Go test / coverage output
-*.test
-*.out
-
-# Node / TypeScript
-node_modules/
-packages/*/dist/
-
-# WASM build artifacts (regenerate with `make wasm`)
-packages/schemapb/schemapb.wasm
-packages/schemapb/wasm_exec.js
-
 # IDE
 .idea/
+.vscode/
 
-# schemapbgen build artifact
-cmd/schemapbgen/schemapbgen
-
-# Local-only Go workspace (for hacking on the library + CLI together).
-# Not committed: CI and `go install` build the CLI against the pinned library
-# version, exactly as a consumer would. Create with `make dev-workspace`.
+# Local Go workspace
 go.work
 go.work.sum
