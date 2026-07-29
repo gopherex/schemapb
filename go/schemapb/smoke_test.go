@@ -113,3 +113,28 @@ func TestSmokeValidate(t *testing.T) {
 		t.Error("baked must match its schema")
 	}
 }
+
+func TestSmokeRender(t *testing.T) {
+	s := schemapb.NewSchema("infra", "pg", "v1").
+		Fields(
+			schemapb.Int64("shared_buffers").Default(128).Unit("MB").Group("Memory"),
+			schemapb.Bool("autovacuum").Default(true).Group("Vacuum"),
+			schemapb.Enum("wal_level").Values(map[int32]string{0: "minimal", 1: "replica"}).Default(1).Group("WAL"),
+		).
+		Template("conf", `{{#fields}}{{#set}}{{name}} = {{value}}{{#label}} # {{label}}{{/label}}
+{{/set}}{{/fields}}`).
+		MustBuild()
+
+	baked, res, err := s.Bake(map[string]any{})
+	if err != nil || res.Blocking() {
+		t.Fatalf("bake: %v %v", err, res.GetErrors())
+	}
+	out, err := baked.Render("conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "shared_buffers = 128\nautovacuum = true\nwal_level = 1 # replica\n"
+	if out != want {
+		t.Errorf("render:\n%q\nwant:\n%q", out, want)
+	}
+}

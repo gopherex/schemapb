@@ -3,6 +3,7 @@ module github.com/gopherex/schemapb/go
 go 1.25.7
 
 require (
+	github.com/cbroglie/mustache v1.4.0
 	github.com/google/cel-go v0.30.0
 	google.golang.org/protobuf v1.36.11
 )

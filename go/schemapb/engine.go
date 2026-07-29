@@ -11,6 +11,8 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/ext"
+
+	"github.com/cbroglie/mustache"
 )
 
 // Engine is a compiled schema: every CEL expression (when / normalize /
@@ -20,11 +22,12 @@ import (
 //
 // An Engine is immutable and safe for concurrent use.
 type Engine struct {
-	schema  *Schema
-	progs   map[string]cel.Program
-	asts    map[string]*cel.Ast
-	regexps map[string]*regexp.Regexp
-	formats FormatRegistry
+	schema    *Schema
+	progs     map[string]cel.Program
+	asts      map[string]*cel.Ast
+	regexps   map[string]*regexp.Regexp
+	formats   FormatRegistry
+	templates map[string]*mustache.Template
 }
 
 // celEnv is the single CEL environment of the spec: variables `this`, `root`,
@@ -56,11 +59,12 @@ func Compile(s *Schema, opts ...CompileOption) (*Engine, error) {
 		opt(&cfg)
 	}
 	e := &Engine{
-		schema:  s,
-		progs:   map[string]cel.Program{},
-		asts:    map[string]*cel.Ast{},
-		regexps: map[string]*regexp.Regexp{},
-		formats: cfg.formats,
+		schema:    s,
+		progs:     map[string]cel.Program{},
+		asts:      map[string]*cel.Ast{},
+		regexps:   map[string]*regexp.Regexp{},
+		formats:   cfg.formats,
+		templates: map[string]*mustache.Template{},
 	}
 	var errs []*ValidationError
 	for src, path := range schemaExprs(s) {
@@ -79,6 +83,14 @@ func Compile(s *Schema, opts ...CompileOption) (*Engine, error) {
 		}
 		e.asts[src] = ast
 		e.progs[src] = prg
+	}
+	for name, src := range s.GetTemplates() {
+		tmpl, err := mustache.ParseString(src)
+		if err != nil {
+			errs = append(errs, schemaErr("templates."+name, fmt.Sprintf("mustache: %v", err)))
+			continue
+		}
+		e.templates[name] = tmpl
 	}
 	for pattern, path := range schemaPatterns(s) {
 		if _, done := e.regexps[pattern]; done {
