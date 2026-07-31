@@ -1,3 +1,5 @@
+# Test CI: every push/PR runs proto lint plus each language's own
+# lint + test gate. Generated code is committed, so no codegen here.
 name: CI
 
 on:
@@ -5,52 +7,86 @@ on:
     branches: [main]
   pull_request:
 
-jobs:
-  go:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-      - run: go build ./...
-      - run: go vet ./...
-      - run: go test ./...
-      # sanity: the wasm entrypoint still compiles for js/wasm
-      - run: GOOS=js GOARCH=wasm go build -o /dev/null ./wasm
+permissions:
+  contents: read
 
-  schemapbgen:
+env:
+  EASYP_VERSION: v0.16.6
+  GOLANGCI_LINT_VERSION: v2.6.2
+
+jobs:
+  proto:
+    name: proto lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
-          go-version-file: cmd/schemapbgen/go.mod
-          cache-dependency-path: cmd/schemapbgen/go.sum
-      # No workspace here: the CLI builds against its pinned schemapb version
-      # from the module proxy, exactly as `go install` would for a consumer.
-      - name: gofmt
-        working-directory: cmd/schemapbgen
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - name: Install easyp
+        run: GOBIN="$PWD/bin" go install "github.com/easyp-tech/easyp/cmd/easyp@${EASYP_VERSION}"
+      - run: ./bin/easyp --cfg schemapb/easyp.go.yaml lint --root "$PWD" -p schemapb
+
+  go:
+    name: go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - name: Install golangci-lint
         run: |
-          out=$(gofmt -l .)
-          if [ -n "$out" ]; then echo "::error::gofmt needed:"; echo "$out"; exit 1; fi
-      - working-directory: cmd/schemapbgen
-        run: go vet ./...
-      - working-directory: cmd/schemapbgen
-        run: go build ./...
-      - working-directory: cmd/schemapbgen
-        run: go test ./...
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+            | sh -s -- -b "$PWD/bin" "$GOLANGCI_LINT_VERSION"
+      - run: cd go && go build ./...
+      - run: cd go && ../bin/golangci-lint run ./...
+      - run: cd go && go test ./...
 
   ts:
+    name: typescript
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6 # needed: each package's pretest builds the wasm
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@v5
+          node-version: 24
+      # Yarn 4 is pinned via packageManager + .yarn in the repo.
+      - run: corepack enable
+      - run: cd ts && yarn install --immutable
+      - run: cd ts && yarn lint
+      - run: cd ts && yarn typecheck
+      - run: cd ts && yarn test
+      - run: cd ts && yarn build
+
+  py:
+    name: python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v9
         with:
-          node-version: 22
-      - run: npm ci # installs all workspaces
-      # Each package's pretest builds the wasm it needs, then vitest runs.
-      - run: npm test --workspaces --if-present
+          version: "0.9.28"
+          working-directory: py
+      - run: cd py && uv sync --frozen
+      - run: cd py && uv run ruff check src tests
+      - run: cd py && uv run ruff format --check src tests
+      - run: cd py && uv run mypy
+      - run: cd py && uv run pytest -q
+
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cd rust && cargo clippy --all-targets -- -D warnings
+      - run: cd rust && cargo fmt --check
+      - run: cd rust && cargo test --quiet

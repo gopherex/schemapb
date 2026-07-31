@@ -1,0 +1,31 @@
+# Go release: push a `go/vX.Y.Z` tag (the tag prefix is required by the Go
+# module proxy for a module living in the go/ subdirectory). Nothing is
+# uploaded anywhere — the proxy pulls from the tag — so this workflow only
+# gates the tag with tests and publishes a GitHub release for visibility.
+# Token: built-in GITHUB_TOKEN (contents: write).
+name: Release Go
+
+on:
+  push:
+    tags: ["go/v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - run: cd go && go build ./... && go test ./...
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Go module: \`go get github.com/gopherex/schemapb/go@${GITHUB_REF_NAME#go/}\`"

@@ -1,0 +1,33 @@
+# npm release: push a `ts/vX.Y.Z` tag. The committed package.json version
+# stays 0.0.0; the publish version is stamped from the tag (single source of
+# truth, no bump commits). Token: NPM_TOKEN repo secret (npm automation token
+# for @gopherex/schemapb).
+name: Release TypeScript
+
+on:
+  push:
+    tags: ["ts/v*"]
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+      - run: cd ts && yarn install --immutable
+      - run: cd ts && yarn lint && yarn typecheck && yarn test
+      - run: cd ts && yarn build
+      - name: Stamp version from tag
+        run: cd ts && npm version --no-git-tag-version "${GITHUB_REF_NAME#ts/v}"
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: cd ts && npm publish --access public --provenance

@@ -6,6 +6,14 @@ values and Mustache rendering. Behaviour is pinned by the cross-language
 conformance suite (`conformance/golden` in the repository root); the Go
 implementation is the reference.
 
+## Install
+
+```sh
+cargo add schemapb
+```
+
+## Quickstart
+
 ```rust
 use schemapb::{engine, validate, bake, formats};
 
@@ -22,6 +30,12 @@ builder APIs in the other ports.
 Runtime dependencies: `prost`/`pbjson` (protobuf + protoJSON),
 `cel-interpreter`/`cel-parser` (CEL evaluation), `mustache`, `chrono`,
 `semver`, `regex`.
+
+## Development
+
+From the repository root: `make configure` once, then `make lint-rust`
+(clippy pedantic+nursery as errors + rustfmt) / `make test-rust`
+(conformance suite).
 
 Known deviations (tracked):
 - no CEL evaluation cost limit: `cel-interpreter` does not expose one

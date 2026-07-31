@@ -1,0 +1,32 @@
+# crates.io release: push a `rust/vX.Y.Z` tag. The committed Cargo.toml
+# version stays 0.0.0; the publish version is stamped from the tag. Token:
+# CARGO_REGISTRY_TOKEN repo secret (crates.io API token).
+name: Release Rust
+
+on:
+  push:
+    tags: ["rust/v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - run: cd rust && cargo clippy --all-targets -- -D warnings && cargo fmt --check
+      - run: cd rust && cargo test --quiet
+      - name: Stamp version from tag
+        run: |
+          cd rust
+          v="${GITHUB_REF_NAME#rust/v}"
+          sed -i "0,/^version = \"0.0.0\"/s//version = \"$v\"/" Cargo.toml
+          grep -q "^version = \"$v\"" Cargo.toml
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cd rust && cargo publish --allow-dirty

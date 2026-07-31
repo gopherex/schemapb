@@ -5,6 +5,7 @@ edition = "2021"
 description = "schemapb — proto-defined form/config schema descriptor: native Rust implementation (validation, CEL computed values, Mustache rendering)"
 license = "MIT"
 repository = "https://github.com/gopherex/schemapb"
+readme = "README.md"
 
 [dependencies]
 prost = "0.14"
