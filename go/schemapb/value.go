@@ -408,14 +408,10 @@ func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
 			return nil, fmt.Errorf("field %s: %T is not a list", f.GetName(), x)
 		}
 		items := make([]*Value, len(arr))
-		var item *Schema_Field
-		if its := f.GetList().GetItems(); len(its) > 0 {
-			item = its[0]
-		}
 		for i, el := range arr {
 			var v *Value
 			var err error
-			if item != nil {
+			if item := listItemDef(f.GetList(), i); item != nil {
 				v, err = CanonicalValue(item, el)
 			} else {
 				v, err = FromGo(el)

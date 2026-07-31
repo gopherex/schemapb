@@ -63,9 +63,10 @@ func (r *ValidationResult) Blocking() bool {
 // Error construction
 // =============================================================================
 
-// verr builds one ValidationError. actual is masked (dropped) for secret
-// fields by the callers that know the field.
-func verr(path string, code ErrorCode, constraint string, expected, actual *Value, msg string) *ValidationError {
+// verr builds one ValidationError; the human message renders from the spec's
+// shared template set (messages.go). actual is masked for secret fields by
+// the callers that know the field.
+func verr(path string, code ErrorCode, constraint string, expected, actual *Value) *ValidationError {
 	return &ValidationError{
 		Path:       path,
 		Code:       code,
@@ -73,26 +74,30 @@ func verr(path string, code ErrorCode, constraint string, expected, actual *Valu
 		Expected:   expected,
 		Actual:     actual,
 		Severity:   SeverityError,
-		Message:    msg,
+		Message:    renderMessage(code, expected, actual),
 	}
 }
 
 // typeErr reports a value of the wrong type for the field kind.
 func typeErr(path, want string, val any) *ValidationError {
 	actual, _ := FromGo(val)
-	return verr(path, ErrorCode_ERROR_CODE_TYPE_MISMATCH, "", StrV(want), actual, "expected "+want)
+	return verr(path, ErrorCode_ERROR_CODE_TYPE_MISMATCH, "", StrV(want), actual)
 }
 
 // ruleErrPath is the path a form-wide rule reports on: its id when set.
 func ruleErrPath(r *Schema_Field_Rule) string { return r.GetId() }
 
-// mask drops the actual value from errors on secret fields.
+// mask drops the actual value from errors on secret fields and re-renders
+// the message so the secret cannot leak through the text either.
 func mask(errs []*ValidationError, secret bool) []*ValidationError {
 	if !secret {
 		return errs
 	}
 	for _, e := range errs {
 		e.Actual = nil
+		if _, templated := messageTemplates[e.GetCode()]; templated {
+			e.Message = renderMessage(e.GetCode(), e.GetExpected(), nil)
+		}
 	}
 	return errs
 }
@@ -118,7 +123,7 @@ func (e *Engine) checkImmutable(fields []*Schema_Field, scope map[string]any, pr
 				if dv, has := defaultValue(f); has && !nativeEqual(cur, dv) {
 					expected, _ := CanonicalValue(f, dv)
 					actual, _ := FromGo(cur)
-					err := verr(path, ErrorCode_ERROR_CODE_IMMUTABLE_MODIFIED, "immutable", expected, actual, "immutable: cannot be changed")
+					err := verr(path, ErrorCode_ERROR_CODE_IMMUTABLE_MODIFIED, "immutable", expected, actual)
 					res.Errors = append(res.Errors, mask([]*ValidationError{err}, f.GetSecret())...)
 				}
 			}
@@ -130,9 +135,13 @@ func (e *Engine) checkImmutable(fields []*Schema_Field, scope map[string]any, pr
 			}
 		}
 		if l := f.GetList(); l != nil && len(l.GetItems()) >= 1 {
-			if o := l.GetItems()[0].GetObject(); o != nil && o.GetSchema() != nil {
-				if arr, ok := scope[name].([]any); ok {
-					for i, el := range arr {
+			if arr, ok := scope[name].([]any); ok {
+				for i, el := range arr {
+					it := listItemDef(l, i)
+					if it == nil {
+						continue
+					}
+					if o := it.GetObject(); o != nil && o.GetSchema() != nil {
 						if m, ok := el.(map[string]any); ok {
 							e.checkImmutable(o.GetSchema().GetFields(), m, fmt.Sprintf("%s[%d]", path, i), root, res)
 						}
@@ -178,7 +187,7 @@ func (e *Engine) validateFields(schema *Schema, scope, root map[string]any, pref
 			if !declared[key] {
 				actual, _ := FromGo(scope[key])
 				res.Errors = append(res.Errors, verr(joinPath(prefix, key),
-					ErrorCode_ERROR_CODE_UNKNOWN_FIELD, "strict", nil, actual, "unknown field: "+key))
+					ErrorCode_ERROR_CODE_UNKNOWN_FIELD, "strict", nil, actual))
 			}
 		}
 	}
@@ -192,11 +201,11 @@ func (e *Engine) validateFields(schema *Schema, scope, root map[string]any, pref
 	}
 	if mn := schema.MinProperties; mn != nil && n < *mn {
 		res.Errors = append(res.Errors, verr(prefix, ErrorCode_ERROR_CODE_MIN_PROPERTIES_VIOLATED,
-			"min_properties", UInt64V(*mn), UInt64V(n), fmt.Sprintf("must have at least %d properties", *mn)))
+			"min_properties", UInt64V(*mn), UInt64V(n)))
 	}
 	if mx := schema.MaxProperties; mx != nil && n > *mx {
 		res.Errors = append(res.Errors, verr(prefix, ErrorCode_ERROR_CODE_MAX_PROPERTIES_VIOLATED,
-			"max_properties", UInt64V(*mx), UInt64V(n), fmt.Sprintf("must have at most %d properties", *mx)))
+			"max_properties", UInt64V(*mx), UInt64V(n)))
 	}
 
 	for _, f := range fields {
@@ -213,16 +222,16 @@ func (e *Engine) validateFields(schema *Schema, scope, root map[string]any, pref
 func (e *Engine) validateOne(f *Schema_Field, val any, exists bool, path string, root, extra map[string]any, res *ValidationResult) {
 	if !exists {
 		if f.GetRequired() {
-			res.Errors = append(res.Errors, verr(path, ErrorCode_ERROR_CODE_REQUIRED_MISSING, "required", nil, nil, "required"))
+			res.Errors = append(res.Errors, verr(path, ErrorCode_ERROR_CODE_REQUIRED_MISSING, "required", nil, nil))
 		}
 		return
 	}
 	if val == nil {
 		switch {
 		case f.GetRequired():
-			res.Errors = append(res.Errors, verr(path, ErrorCode_ERROR_CODE_REQUIRED_MISSING, "required", nil, nil, "required"))
+			res.Errors = append(res.Errors, verr(path, ErrorCode_ERROR_CODE_REQUIRED_MISSING, "required", nil, nil))
 		case !f.GetNullable():
-			res.Errors = append(res.Errors, verr(path, ErrorCode_ERROR_CODE_NOT_NULLABLE, "nullable", nil, NullV(), "must not be null"))
+			res.Errors = append(res.Errors, verr(path, ErrorCode_ERROR_CODE_NOT_NULLABLE, "nullable", nil, NullV()))
 		}
 		return
 	}
@@ -295,7 +304,7 @@ func (e *Engine) checkKind(f *Schema_Field, val any, path string, root map[strin
 		}
 		if c := f.GetBool().Const; c != nil && b != *c {
 			return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_CONST_MISMATCH, "const",
-				BoolV(*c), BoolV(b), fmt.Sprintf("must be %v", *c))}
+				BoolV(*c), BoolV(b))}
 		}
 		return nil
 	case f.GetString_() != nil:
@@ -379,7 +388,7 @@ func numViolations[T int64 | uint64 | float64](path string, n T,
 	cst, gt, gte, lt, lte *T, in, notIn []T, mkV func(T) *Value) []*ValidationError {
 	var out []*ValidationError
 	add := func(code ErrorCode, constraint string, expected *Value, msg string) {
-		out = append(out, verr(path, code, constraint, expected, mkV(n), msg))
+		out = append(out, verr(path, code, constraint, expected, mkV(n)))
 	}
 	if cst != nil && n != *cst {
 		add(ErrorCode_ERROR_CODE_CONST_MISMATCH, "const", mkV(*cst), fmt.Sprintf("must equal %v", *cst))
@@ -449,7 +458,7 @@ func checkInt[T int32 | int64](path string, val any, k numInt[T], minV, maxV int
 		widenSlice[T, int64](k.in), widenSlice[T, int64](k.notIn), Int64V)
 	if k.mul != nil && *k.mul != 0 && n%int64(*k.mul) != 0 {
 		errs = append(errs, verr(path, ErrorCode_ERROR_CODE_MULTIPLE_OF_VIOLATED, "multiple_of",
-			Int64V(int64(*k.mul)), Int64V(n), fmt.Sprintf("must be a multiple of %v", *k.mul)))
+			Int64V(int64(*k.mul)), Int64V(n)))
 	}
 	return errs
 }
@@ -468,7 +477,7 @@ func checkUint[T uint32 | uint64](path string, val any, k numInt[T], maxV uint64
 		widenSlice[T, uint64](k.in), widenSlice[T, uint64](k.notIn), UInt64V)
 	if k.mul != nil && *k.mul != 0 && n%uint64(*k.mul) != 0 {
 		errs = append(errs, verr(path, ErrorCode_ERROR_CODE_MULTIPLE_OF_VIOLATED, "multiple_of",
-			UInt64V(uint64(*k.mul)), UInt64V(n), fmt.Sprintf("must be a multiple of %v", *k.mul)))
+			UInt64V(uint64(*k.mul)), UInt64V(n)))
 	}
 	return errs
 }
@@ -484,7 +493,7 @@ func checkNumber[T float32 | float64](path string, val any, k numFloat[T]) []*Va
 		widenSlice[T, float64](k.in), widenSlice[T, float64](k.notIn), DoubleV)
 	if k.mul != nil && float64(*k.mul) != 0 && math.Mod(n, float64(*k.mul)) != 0 {
 		errs = append(errs, verr(path, ErrorCode_ERROR_CODE_MULTIPLE_OF_VIOLATED, "multiple_of",
-			DoubleV(float64(*k.mul)), DoubleV(n), fmt.Sprintf("must be a multiple of %v", *k.mul)))
+			DoubleV(float64(*k.mul)), DoubleV(n)))
 	}
 	return errs
 }
@@ -496,7 +505,7 @@ func checkNumber[T float32 | float64](path string, val any, k numFloat[T]) []*Va
 func (e *Engine) checkString(path, s string, k *Schema_Field_String) []*ValidationError {
 	var out []*ValidationError
 	add := func(code ErrorCode, constraint string, expected *Value, msg string) {
-		out = append(out, verr(path, code, constraint, expected, StrV(s), msg))
+		out = append(out, verr(path, code, constraint, expected, StrV(s)))
 	}
 	n := uint64(utf8.RuneCountInString(s))
 
@@ -539,7 +548,7 @@ func (e *Engine) checkString(path, s string, k *Schema_Field_String) []*Validati
 func checkBytes(path string, b []byte, k *Schema_Field_Bytes) []*ValidationError {
 	var out []*ValidationError
 	add := func(code ErrorCode, constraint string, expected *Value, msg string) {
-		out = append(out, verr(path, code, constraint, expected, BytesV(b), msg))
+		out = append(out, verr(path, code, constraint, expected, BytesV(b)))
 	}
 	n := uint64(len(b))
 
@@ -594,7 +603,7 @@ func (e *Engine) checkChoice(path string, val any, k *Schema_Field_Choice, root 
 			expected = append(expected, v)
 		}
 		return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED, "options_expr",
-			ListV(expected...), actual, fmt.Sprintf("must be one of %v", allowed))}
+			ListV(expected...), actual)}
 	}
 	expected := make([]*Value, 0, len(k.GetOptions()))
 	for _, o := range k.GetOptions() {
@@ -604,7 +613,7 @@ func (e *Engine) checkChoice(path string, val any, k *Schema_Field_Choice, root 
 		expected = append(expected, o.GetValue())
 	}
 	return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED, "options",
-		ListV(expected...), actual, "must be one of the declared options")}
+		ListV(expected...), actual)}
 }
 
 // asDuration accepts the native representation or a parseable string.
@@ -626,7 +635,7 @@ func checkDuration(path string, val any, k *Schema_Field_Duration) []*Validation
 	}
 	var out []*ValidationError
 	add := func(code ErrorCode, constraint string, bound time.Duration, msg string) {
-		out = append(out, verr(path, code, constraint, DurationV(bound), DurationV(d), msg))
+		out = append(out, verr(path, code, constraint, DurationV(bound), DurationV(d)))
 	}
 	if k.Gt != nil && d <= k.Gt.AsDuration() {
 		add(ErrorCode_ERROR_CODE_GT_VIOLATED, "gt", k.Gt.AsDuration(), fmt.Sprintf("must be > %s", k.Gt.AsDuration()))
@@ -662,7 +671,7 @@ func checkTimestamp(path string, val any, k *Schema_Field_Timestamp) []*Validati
 	}
 	var out []*ValidationError
 	add := func(code ErrorCode, constraint string, bound time.Time, msg string) {
-		out = append(out, verr(path, code, constraint, TimestampV(bound), TimestampV(ts), msg))
+		out = append(out, verr(path, code, constraint, TimestampV(bound), TimestampV(ts)))
 	}
 	if k.Gt != nil && !ts.After(k.Gt.AsTime()) {
 		add(ErrorCode_ERROR_CODE_GT_VIOLATED, "gt", k.Gt.AsTime(), "must be after "+k.Gt.AsTime().Format(time.RFC3339))
@@ -684,15 +693,31 @@ func checkTimestamp(path string, val any, k *Schema_Field_Timestamp) []*Validati
 // =============================================================================
 
 func (e *Engine) checkList(path string, arr []any, l *Schema_Field_List, root map[string]any) []*ValidationError {
+	// Tuple semantics: element i validates against items[i], the length must
+	// equal the tuple size exactly; the homogeneous-list constraints
+	// (min/max/unique/count_expr) are rejected by the descriptor check.
+	if isTuple(l) {
+		var out []*ValidationError
+		want := len(l.GetItems())
+		if len(arr) != want {
+			out = append(out, verr(path, ErrorCode_ERROR_CODE_LIST_COUNT_MISMATCH, "tuple",
+				Int64V(int64(want)), UInt64V(uint64(len(arr)))))
+		}
+		sub := &ValidationResult{}
+		for i := 0; i < min(len(arr), want); i++ {
+			e.validateOne(l.GetItems()[i], arr[i], true, fmt.Sprintf("%s[%d]", path, i), root, map[string]any{"index": int64(i)}, sub)
+		}
+		return append(out, sub.GetErrors()...)
+	}
 	var out []*ValidationError
 	n := uint64(len(arr))
 	if l.MinItems != nil && n < *l.MinItems {
 		out = append(out, verr(path, ErrorCode_ERROR_CODE_MIN_ITEMS_VIOLATED, "min_items",
-			UInt64V(*l.MinItems), UInt64V(n), fmt.Sprintf("must have at least %d items", *l.MinItems)))
+			UInt64V(*l.MinItems), UInt64V(n)))
 	}
 	if l.MaxItems != nil && n > *l.MaxItems {
 		out = append(out, verr(path, ErrorCode_ERROR_CODE_MAX_ITEMS_VIOLATED, "max_items",
-			UInt64V(*l.MaxItems), UInt64V(n), fmt.Sprintf("must have at most %d items", *l.MaxItems)))
+			UInt64V(*l.MaxItems), UInt64V(n)))
 	}
 	if ce := l.GetCountExpr(); ce != "" {
 		want, err := e.evalCount(ce, root)
@@ -700,7 +725,7 @@ func (e *Engine) checkList(path string, arr []any, l *Schema_Field_List, root ma
 			out = append(out, exprErr(path, ce, "count_expr: "+err.Error()))
 		} else if uint64(want) != n {
 			out = append(out, verr(path, ErrorCode_ERROR_CODE_LIST_COUNT_MISMATCH, "count_expr",
-				Int64V(want), UInt64V(n), fmt.Sprintf("must have exactly %d items", want)))
+				Int64V(want), UInt64V(n)))
 		}
 	}
 	if l.GetUnique() {
@@ -710,7 +735,7 @@ func (e *Engine) checkList(path string, arr []any, l *Schema_Field_List, root ma
 			if seen[key] {
 				actual, _ := FromGo(el)
 				out = append(out, verr(fmt.Sprintf("%s[%d]", path, i), ErrorCode_ERROR_CODE_NOT_UNIQUE,
-					"unique", nil, actual, "must be unique"))
+					"unique", nil, actual))
 			}
 			seen[key] = true
 		}
@@ -743,11 +768,11 @@ func (e *Engine) checkMap(path string, m map[string]any, mk *Schema_Field_Map, r
 	n := uint64(len(m))
 	if mk.MinEntries != nil && n < *mk.MinEntries {
 		out = append(out, verr(path, ErrorCode_ERROR_CODE_MIN_ENTRIES_VIOLATED, "min_entries",
-			UInt64V(*mk.MinEntries), UInt64V(n), fmt.Sprintf("must have at least %d entries", *mk.MinEntries)))
+			UInt64V(*mk.MinEntries), UInt64V(n)))
 	}
 	if mk.MaxEntries != nil && n > *mk.MaxEntries {
 		out = append(out, verr(path, ErrorCode_ERROR_CODE_MAX_ENTRIES_VIOLATED, "max_entries",
-			UInt64V(*mk.MaxEntries), UInt64V(n), fmt.Sprintf("must have at most %d entries", *mk.MaxEntries)))
+			UInt64V(*mk.MaxEntries), UInt64V(n)))
 	}
 	vs := mk.GetValueSchema()
 	if vs == nil {
@@ -776,13 +801,13 @@ func (e *Engine) checkOneOf(path string, m map[string]any, oo *Schema_Field_OneO
 	discStr, isStr := discVal.(string)
 	if !present || !isStr || discStr == "" {
 		return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_DISCRIMINATOR_MISSING, "discriminator",
-			StrV(disc), nil, "discriminator field "+disc+" must be a non-empty string")}
+			StrV(disc), nil)}
 	}
 	variant, known := oo.GetVariants()[discStr]
 	if !known {
 		keys := slices.Sorted(maps.Keys(oo.GetVariants()))
 		return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_UNKNOWN_VARIANT, "variants",
-			listOf(keys, StrV), StrV(discStr), "unknown variant: "+discStr)}
+			listOf(keys, StrV), StrV(discStr))}
 	}
 	sub := &ValidationResult{}
 	e.validateFields(variant, m, root, path, sub)
@@ -801,7 +826,7 @@ func (e *Engine) checkRef(path string, val any, ref *Schema_Field_Ref, root map[
 			label = identityString(id) + " (unlinked identity-ref — call Schema.Link)"
 		}
 		return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_UNKNOWN_REF, "ref",
-			StrV(label), nil, "unknown $ref: "+label)}
+			StrV(label), nil)}
 	}
 	m, ok := val.(map[string]any)
 	if !ok {

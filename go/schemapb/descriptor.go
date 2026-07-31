@@ -20,7 +20,8 @@ func (e *SchemaError) Error() string {
 	for _, err := range e.Result.GetErrors() {
 		b.WriteString("; ")
 		if p := err.GetPath(); p != "" {
-			b.WriteString(p + ": ")
+			b.WriteString(p)
+			b.WriteString(": ")
 		}
 		b.WriteString(err.GetMessage())
 	}
@@ -100,8 +101,14 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 				errs = append(errs, schemaErr(path, "ref field: target is required"))
 			}
 		case f.GetList() != nil:
-			if len(f.GetList().GetItems()) == 0 {
+			l := f.GetList()
+			if len(l.GetItems()) == 0 {
 				errs = append(errs, schemaErr(path, "list field: at least one item definition is required"))
+			}
+			if len(l.GetItems()) > 1 {
+				if l.MinItems != nil || l.MaxItems != nil || l.GetUnique() || l.GetCountExpr() != "" {
+					errs = append(errs, schemaErr(path, "tuple list (multiple item definitions) cannot combine with min_items/max_items/unique/count_expr"))
+				}
 			}
 		case f.GetChoice() != nil:
 			ch := f.GetChoice()

@@ -69,7 +69,8 @@ func CoreFormats() FormatRegistry {
 type CompileOption func(*compileConfig)
 
 type compileConfig struct {
-	formats FormatRegistry
+	formats   FormatRegistry
+	costLimit uint64
 }
 
 // WithFormats adds (or overrides) format checkers on top of the core
@@ -77,5 +78,15 @@ type compileConfig struct {
 func WithFormats(reg FormatRegistry) CompileOption {
 	return func(c *compileConfig) {
 		maps.Copy(c.formats, reg)
+	}
+}
+
+// WithCostLimit caps the runtime cost of every CEL evaluation (cel-go cost
+// units). Use it when validating UNTRUSTED schemas: an expression that
+// exceeds the budget aborts with ERROR_CODE_EXPR_ERROR instead of burning
+// CPU. Zero (the default) means no limit.
+func WithCostLimit(limit uint64) CompileOption {
+	return func(c *compileConfig) {
+		c.costLimit = limit
 	}
 }

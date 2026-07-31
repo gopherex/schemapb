@@ -104,6 +104,11 @@ func goldenSchema(t *testing.T) *schemapb.Schema {
 				Lte(time.Date(2030, 12, 31, 23, 59, 59, 0, time.UTC)).
 				Default(time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)),
 
+			schemapb.List("endpoint_pair",
+				schemapb.Str("host").MinLen(1),
+				schemapb.Int64("port").Gte(1).Lte(65535),
+			),
+
 			schemapb.Int64("replica_count").Default(2).Gte(0).Lte(10),
 			schemapb.List("replicas",
 				schemapb.Object("",
@@ -179,9 +184,10 @@ func validInput() map[string]any {
 		"tablespaces": map[string]any{
 			"main": map[string]any{"location": "/var/lib/ts"},
 		},
-		"backup":      map[string]any{"type": "s3", "bucket": "backups"},
-		"data_volume": map[string]any{"path": "/data"},
-		"region":      "somewhere-else", // open choice: fine
+		"backup":        map[string]any{"type": "s3", "bucket": "backups"},
+		"data_volume":   map[string]any{"path": "/data"},
+		"region":        "somewhere-else", // open choice: fine
+		"endpoint_pair": []any{"db1", int64(5432)},
 	}
 }
 
@@ -212,11 +218,12 @@ func brokenInput() map[string]any {
 			map[string]any{"name": "r1"},
 			map[string]any{"weight": int64(2)},
 		},
-		"logging":     map[string]any{"collector": true, "junk": int64(1)},  // UNKNOWN_FIELD (strict object)
-		"tablespaces": map[string]any{"bad": map[string]any{}},              // nested REQUIRED
-		"backup":      map[string]any{"type": "tape"},                       // UNKNOWN_VARIANT
-		"data_volume": map[string]any{"path": "/data", "size_gb": int64(0)}, // GT via def
-		"garbage":     int64(1),                                             // UNKNOWN_FIELD (strict root)
+		"logging":       map[string]any{"collector": true, "junk": int64(1)},  // UNKNOWN_FIELD (strict object)
+		"tablespaces":   map[string]any{"bad": map[string]any{}},              // nested REQUIRED
+		"backup":        map[string]any{"type": "tape"},                       // UNKNOWN_VARIANT
+		"data_volume":   map[string]any{"path": "/data", "size_gb": int64(0)}, // GT via def
+		"garbage":       int64(1),                                             // UNKNOWN_FIELD (strict root)
+		"endpoint_pair": []any{"", "not-a-port"},                              // tuple: MIN_LEN + TYPE_MISMATCH
 	}
 }
 
@@ -297,6 +304,19 @@ func TestGoldenBaked(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkGolden(t, "full-rendered.txt", []byte(rendered+"---\n"+report))
+}
+
+func TestGoldenMessages(t *testing.T) {
+	tmpl := schemapb.MessageTemplates()
+	names := make(map[string]string, len(tmpl))
+	for code, text := range tmpl {
+		names[code.String()] = text
+	}
+	raw, err := json.MarshalIndent(names, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "messages.json", append(raw, '\n'))
 }
 
 func TestGoldenValidationErrors(t *testing.T) {

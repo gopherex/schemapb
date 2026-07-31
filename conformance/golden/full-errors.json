@@ -8,7 +8,7 @@
       },
       "constraint": "strict",
       "severity": "SEVERITY_ERROR",
-      "message": "unknown field: garbage"
+      "message": "unknown field"
     },
     {
       "path": "f32",
@@ -74,7 +74,7 @@
       },
       "constraint": "in",
       "severity": "SEVERITY_ERROR",
-      "message": "must be one of [2 4 8 16 32 64]"
+      "message": "must be one of [2,4,8,16,32,64]"
     },
     {
       "path": "i32",
@@ -125,7 +125,7 @@
       },
       "constraint": "in",
       "severity": "SEVERITY_ERROR",
-      "message": "must be one of [1 2 4]"
+      "message": "must be one of [1,2,4]"
     },
     {
       "path": "u64",
@@ -157,7 +157,7 @@
       },
       "constraint": "const",
       "severity": "SEVERITY_ERROR",
-      "message": "must be true"
+      "message": "must equal true"
     },
     {
       "path": "name",
@@ -192,7 +192,7 @@
       },
       "constraint": "in",
       "severity": "SEVERITY_ERROR",
-      "message": "must be one of [fast slow]"
+      "message": "must be one of [\"fast\",\"slow\"]"
     },
     {
       "path": "mode",
@@ -211,7 +211,7 @@
       },
       "constraint": "not_in",
       "severity": "SEVERITY_ERROR",
-      "message": "must not be one of [legacy]"
+      "message": "must not be one of [\"legacy\"]"
     },
     {
       "path": "exact",
@@ -224,7 +224,7 @@
       },
       "constraint": "len",
       "severity": "SEVERITY_ERROR",
-      "message": "must be exactly 4 characters"
+      "message": "length must be exactly 4"
     },
     {
       "path": "mail",
@@ -247,7 +247,7 @@
       },
       "constraint": "min_len",
       "severity": "SEVERITY_ERROR",
-      "message": "must be at least 8 characters"
+      "message": "length must be at least 8"
     },
     {
       "path": "license",
@@ -260,7 +260,7 @@
       },
       "constraint": "min_len",
       "severity": "SEVERITY_ERROR",
-      "message": "must be at least 4 bytes"
+      "message": "length must be at least 4"
     },
     {
       "path": "license",
@@ -273,7 +273,7 @@
       },
       "constraint": "prefix",
       "severity": "SEVERITY_ERROR",
-      "message": "must start with the required prefix"
+      "message": "must start with TElDLQ=="
     },
     {
       "path": "license",
@@ -286,7 +286,7 @@
       },
       "constraint": "suffix",
       "severity": "SEVERITY_ERROR",
-      "message": "must end with the required suffix"
+      "message": "must end with LUVORA=="
     },
     {
       "path": "magic",
@@ -299,7 +299,7 @@
       },
       "constraint": "const",
       "severity": "SEVERITY_ERROR",
-      "message": "must equal the const bytes"
+      "message": "must equal 3q0="
     },
     {
       "path": "magic",
@@ -321,7 +321,7 @@
       },
       "constraint": "in",
       "severity": "SEVERITY_ERROR",
-      "message": "must be one of the allowed byte strings"
+      "message": "must be one of [\"3q0=\",\"vu8=\"]"
     },
     {
       "path": "magic",
@@ -340,7 +340,7 @@
       },
       "constraint": "not_in",
       "severity": "SEVERITY_ERROR",
-      "message": "must not be one of the forbidden byte strings"
+      "message": "must not be one of [\"AA==\"]"
     },
     {
       "path": "wal_level",
@@ -365,7 +365,7 @@
       },
       "constraint": "options",
       "severity": "SEVERITY_ERROR",
-      "message": "must be one of the declared options"
+      "message": "must be one of [\"minimal\",\"replica\",\"logical\"]"
     },
     {
       "path": "cpu",
@@ -390,7 +390,7 @@
       },
       "constraint": "options",
       "severity": "SEVERITY_ERROR",
-      "message": "must be one of the declared options"
+      "message": "must be one of [2,4,8]"
     },
     {
       "path": "timeout",
@@ -429,7 +429,7 @@
       },
       "constraint": "gt",
       "severity": "SEVERITY_ERROR",
-      "message": "must be after 2025-12-31T23:59:59Z"
+      "message": "must be > 2025-12-31T23:59:59Z"
     },
     {
       "path": "not_before",
@@ -442,7 +442,32 @@
       },
       "constraint": "gte",
       "severity": "SEVERITY_ERROR",
-      "message": "must be at or after 2026-01-01T00:00:00Z"
+      "message": "must be >= 2026-01-01T00:00:00Z"
+    },
+    {
+      "path": "endpoint_pair[0]",
+      "code": "ERROR_CODE_MIN_LEN_VIOLATED",
+      "expected": {
+        "uint64Value": "1"
+      },
+      "actual": {
+        "stringValue": ""
+      },
+      "constraint": "min_len",
+      "severity": "SEVERITY_ERROR",
+      "message": "length must be at least 1"
+    },
+    {
+      "path": "endpoint_pair[1]",
+      "code": "ERROR_CODE_TYPE_MISMATCH",
+      "expected": {
+        "stringValue": "integer"
+      },
+      "actual": {
+        "stringValue": "not-a-port"
+      },
+      "severity": "SEVERITY_ERROR",
+      "message": "expected integer"
     },
     {
       "path": "replicas",
@@ -491,7 +516,7 @@
       },
       "constraint": "strict",
       "severity": "SEVERITY_ERROR",
-      "message": "unknown field: junk"
+      "message": "unknown field"
     },
     {
       "path": "tablespaces.bad.location",
@@ -520,7 +545,7 @@
       },
       "constraint": "variants",
       "severity": "SEVERITY_ERROR",
-      "message": "unknown variant: tape"
+      "message": "unknown variant tape"
     },
     {
       "path": "data_volume.size_gb",

@@ -1,6 +1,7 @@
 package schemapb
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"time"
@@ -112,9 +113,13 @@ func (e *Engine) seed(schema *Schema, scope map[string]any, prefix string, tasks
 				e.seed(f.GetObject().GetSchema(), child, path, tasks, root, res)
 			}
 		case f.GetList() != nil && len(f.GetList().GetItems()) >= 1:
-			if o := f.GetList().GetItems()[0].GetObject(); o != nil && o.GetSchema() != nil {
-				if arr, ok := scope[name].([]any); ok {
-					for i, el := range arr {
+			if arr, ok := scope[name].([]any); ok {
+				for i, el := range arr {
+					it := listItemDef(f.GetList(), i)
+					if it == nil {
+						continue
+					}
+					if o := it.GetObject(); o != nil && o.GetSchema() != nil {
 						if m, ok := el.(map[string]any); ok {
 							e.seed(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks, root, res)
 						}
@@ -140,6 +145,26 @@ func (e *Engine) seed(schema *Schema, scope map[string]any, prefix string, tasks
 				}
 			}
 		}
+	}
+}
+
+// isTuple reports positional-tuple semantics: a list with more than one item
+// definition validates element i against items[i] and requires the exact
+// tuple length.
+func isTuple(l *Schema_Field_List) bool { return len(l.GetItems()) > 1 }
+
+// listItemDef returns the item definition for element i: homogeneous lists
+// (one item def) use it for every element, tuples use the positional one.
+// nil when i is outside the tuple.
+func listItemDef(l *Schema_Field_List, i int) *Schema_Field {
+	items := l.GetItems()
+	switch {
+	case len(items) == 1:
+		return items[0]
+	case i < len(items):
+		return items[i]
+	default:
+		return nil
 	}
 }
 
@@ -192,9 +217,13 @@ func (e *Engine) runNormalize(schema *Schema, scope, root map[string]any, res *V
 			}
 		}
 		if l := f.GetList(); l != nil && len(l.GetItems()) >= 1 {
-			if obj := l.GetItems()[0].GetObject(); obj != nil && obj.GetSchema() != nil {
-				if arr, ok := cur.([]any); ok {
-					for _, el := range arr {
+			if arr, ok := cur.([]any); ok {
+				for i, el := range arr {
+					it := listItemDef(l, i)
+					if it == nil {
+						continue
+					}
+					if obj := it.GetObject(); obj != nil && obj.GetSchema() != nil {
 						if m, ok := el.(map[string]any); ok {
 							e.runNormalize(obj.GetSchema(), m, root, res)
 						}
@@ -374,6 +403,10 @@ func coerceInput(f *Schema_Field, val any) (any, bool) {
 			return false, true
 		}
 
+	case f.GetBytes() != nil:
+		if b, err := base64.StdEncoding.DecodeString(s); err == nil {
+			return b, true
+		}
 	case f.GetDuration() != nil:
 		if d, err := time.ParseDuration(s); err == nil {
 			return d, true

@@ -42,6 +42,18 @@
         }
       }
     },
+    "endpoint_pair": {
+      "listValue": {
+        "items": [
+          {
+            "stringValue": "db1"
+          },
+          {
+            "int64Value": "5432"
+          }
+        ]
+      }
+    },
     "exact": {
       "stringValue": "abcd"
     },

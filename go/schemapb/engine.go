@@ -66,6 +66,10 @@ func Compile(s *Schema, opts ...CompileOption) (*Engine, error) {
 		formats:   cfg.formats,
 		templates: map[string]*mustache.Template{},
 	}
+	var progOpts []cel.ProgramOption
+	if cfg.costLimit > 0 {
+		progOpts = append(progOpts, cel.CostLimit(cfg.costLimit), cel.CostTracking(nil))
+	}
 	var errs []*ValidationError
 	for src, path := range schemaExprs(s) {
 		if _, done := e.progs[src]; done {
@@ -76,7 +80,7 @@ func Compile(s *Schema, opts ...CompileOption) (*Engine, error) {
 			errs = append(errs, schemaErr(path, fmt.Sprintf("cel: %v", iss.Err())))
 			continue
 		}
-		prg, err := env.Program(ast)
+		prg, err := env.Program(ast, progOpts...)
 		if err != nil {
 			errs = append(errs, schemaErr(path, fmt.Sprintf("cel: %v", err)))
 			continue

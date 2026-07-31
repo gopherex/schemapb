@@ -20,6 +20,7 @@ cpu=4
 region=somewhere-else
 timeout=5m0s
 not_before=2026-06-01T12:00:00Z
+endpoint_pair=["db1",5432]
 replica_count=1
 replicas=[{"name":"r1","weight":1}]
 tablespaces={"main":{"location":"/var/lib/ts"}}

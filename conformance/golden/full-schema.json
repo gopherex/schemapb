@@ -266,6 +266,26 @@
       }
     },
     {
+      "name": "endpoint_pair",
+      "list": {
+        "items": [
+          {
+            "name": "host",
+            "string": {
+              "minLen": "1"
+            }
+          },
+          {
+            "name": "port",
+            "int64": {
+              "gte": "1",
+              "lte": "65535"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "replica_count",
       "int64": {
         "default": "2",
