@@ -1,0 +1,1171 @@
+{
+  "schema": {
+    "id": {
+      "namespace": "conformance",
+      "name": "field_coverage",
+      "version": "v9.9.9-rc.1"
+    },
+    "description": "every proto field populated",
+    "fields": [
+      {
+        "name": "float_all",
+        "description": "float with every constraint",
+        "nullable": true,
+        "required": true,
+        "rules": [
+          {
+            "expr": "true",
+            "message": "field rule",
+            "id": "fr",
+            "severity": "SEVERITY_ERROR"
+          }
+        ],
+        "float": {
+          "default": 1,
+          "const": 2,
+          "gt": 3,
+          "gte": 4,
+          "lt": 5,
+          "lte": 6,
+          "in": [
+            7
+          ],
+          "notIn": [
+            8
+          ],
+          "multipleOf": 9
+        },
+        "immutable": true,
+        "group": "grp",
+        "unit": "MB",
+        "title": "Float",
+        "deprecated": true,
+        "examples": [
+          {
+            "floatValue": 1
+          }
+        ],
+        "secret": true,
+        "normalize": "this",
+        "when": "true"
+      },
+      {
+        "name": "double_all",
+        "double": {
+          "default": 1,
+          "const": 2,
+          "gt": 3,
+          "gte": 4,
+          "lt": 5,
+          "lte": 6,
+          "in": [
+            7
+          ],
+          "notIn": [
+            8
+          ],
+          "multipleOf": 9
+        }
+      },
+      {
+        "name": "int32_all",
+        "int32": {
+          "default": 1,
+          "const": 2,
+          "gt": 3,
+          "gte": 4,
+          "lt": 5,
+          "lte": 6,
+          "in": [
+            7
+          ],
+          "notIn": [
+            8
+          ],
+          "multipleOf": 9
+        }
+      },
+      {
+        "name": "int64_all",
+        "int64": {
+          "default": "1",
+          "const": "2",
+          "gt": "3",
+          "gte": "4",
+          "lt": "5",
+          "lte": "6",
+          "in": [
+            "7"
+          ],
+          "notIn": [
+            "8"
+          ],
+          "multipleOf": "9"
+        }
+      },
+      {
+        "name": "uint32_all",
+        "uint32": {
+          "default": 1,
+          "const": 2,
+          "gt": 3,
+          "gte": 4,
+          "lt": 5,
+          "lte": 6,
+          "in": [
+            7
+          ],
+          "notIn": [
+            8
+          ],
+          "multipleOf": 9
+        }
+      },
+      {
+        "name": "uint64_all",
+        "uint64": {
+          "default": "1",
+          "const": "2",
+          "gt": "3",
+          "gte": "4",
+          "lt": "5",
+          "lte": "6",
+          "in": [
+            "7"
+          ],
+          "notIn": [
+            "8"
+          ],
+          "multipleOf": "9"
+        }
+      },
+      {
+        "name": "bool_all",
+        "bool": {
+          "default": true,
+          "const": false
+        }
+      },
+      {
+        "name": "string_all",
+        "string": {
+          "default": "d",
+          "const": "c",
+          "len": "1",
+          "minLen": "2",
+          "maxLen": "3",
+          "pattern": "^x$",
+          "in": [
+            "a"
+          ],
+          "notIn": [
+            "b"
+          ],
+          "format": "email"
+        }
+      },
+      {
+        "name": "bytes_all",
+        "bytes": {
+          "default": "AQ==",
+          "const": "Ag==",
+          "len": "1",
+          "minLen": "2",
+          "maxLen": "3",
+          "prefix": "Aw==",
+          "suffix": "BA==",
+          "in": [
+            "BQ=="
+          ],
+          "notIn": [
+            "Bg=="
+          ]
+        }
+      },
+      {
+        "name": "choice_all",
+        "choice": {
+          "options": [
+            {
+              "value": {
+                "stringValue": "opt"
+              },
+              "label": "Opt",
+              "description": "an option",
+              "deprecated": true
+            }
+          ],
+          "default": {
+            "stringValue": "opt"
+          },
+          "open": true,
+          "optionsExpr": "[\"opt\"]"
+        }
+      },
+      {
+        "name": "duration_all",
+        "duration": {
+          "default": "1.500s",
+          "gt": "1.500s",
+          "gte": "1.500s",
+          "lt": "1.500s",
+          "lte": "1.500s"
+        }
+      },
+      {
+        "name": "timestamp_all",
+        "timestamp": {
+          "default": "2026-06-01T12:00:00Z",
+          "gt": "2026-06-01T12:00:00Z",
+          "gte": "2026-06-01T12:00:00Z",
+          "lt": "2026-06-01T12:00:00Z",
+          "lte": "2026-06-01T12:00:00Z"
+        }
+      },
+      {
+        "name": "list_all",
+        "list": {
+          "items": [
+            {
+              "name": "item",
+              "bool": {}
+            }
+          ],
+          "minItems": "1",
+          "maxItems": "2",
+          "unique": true,
+          "countExpr": "1"
+        }
+      },
+      {
+        "name": "object_all",
+        "object": {
+          "schema": {
+            "id": {
+              "name": "nested"
+            },
+            "fields": [
+              {
+                "name": "y",
+                "bool": {}
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "map_all",
+        "map": {
+          "valueSchema": {
+            "id": {
+              "name": "map_value"
+            },
+            "fields": [
+              {
+                "name": "z",
+                "bool": {}
+              }
+            ]
+          },
+          "minEntries": "1",
+          "maxEntries": "2"
+        }
+      },
+      {
+        "name": "oneof_all",
+        "oneOf": {
+          "discriminator": "type",
+          "variants": {
+            "v1": {
+              "id": {
+                "name": "variant"
+              },
+              "fields": [
+                {
+                  "name": "w",
+                  "bool": {}
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "ref_by_name",
+        "ref": {
+          "name": "def_a"
+        }
+      },
+      {
+        "name": "ref_by_id",
+        "ref": {
+          "id": {
+            "namespace": "conformance",
+            "name": "def_a",
+            "version": "v1.0.0"
+          }
+        }
+      },
+      {
+        "name": "computed_all",
+        "computed": {
+          "expr": "1",
+          "result": "RESULT_TYPE_INT64"
+        }
+      },
+      {
+        "name": "json_all",
+        "json": {
+          "default": {
+            "nullValue": "NULL_VALUE"
+          }
+        }
+      }
+    ],
+    "rules": [
+      {
+        "expr": "true",
+        "message": "form rule",
+        "id": "form-rule",
+        "severity": "SEVERITY_WARNING"
+      }
+    ],
+    "strict": true,
+    "minProperties": "0",
+    "maxProperties": "99",
+    "coerce": true,
+    "defs": {
+      "def_a": {
+        "id": {
+          "name": "def_a"
+        },
+        "fields": [
+          {
+            "name": "x",
+            "bool": {}
+          }
+        ]
+      }
+    },
+    "templates": {
+      "tpl": "{{name}}"
+    }
+  },
+  "allValues": {
+    "items": [
+      {
+        "nullValue": "NULL_VALUE"
+      },
+      {
+        "boolValue": true
+      },
+      {
+        "int32Value": 1
+      },
+      {
+        "int64Value": "2"
+      },
+      {
+        "uint32Value": 3
+      },
+      {
+        "uint64Value": "4"
+      },
+      {
+        "floatValue": 1.5
+      },
+      {
+        "doubleValue": 2.5
+      },
+      {
+        "stringValue": "s"
+      },
+      {
+        "bytesValue": "/w=="
+      },
+      {
+        "durationValue": "1.500s"
+      },
+      {
+        "timestampValue": "2026-06-01T12:00:00Z"
+      },
+      {
+        "listValue": {
+          "items": [
+            {
+              "boolValue": false
+            }
+          ]
+        }
+      },
+      {
+        "structValue": {
+          "fields": {
+            "k": {
+              "nullValue": "NULL_VALUE"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "filledInline": {
+    "schema": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "field_coverage",
+          "version": "v9.9.9-rc.1"
+        },
+        "description": "every proto field populated",
+        "fields": [
+          {
+            "name": "float_all",
+            "description": "float with every constraint",
+            "nullable": true,
+            "required": true,
+            "rules": [
+              {
+                "expr": "true",
+                "message": "field rule",
+                "id": "fr",
+                "severity": "SEVERITY_ERROR"
+              }
+            ],
+            "float": {
+              "default": 1,
+              "const": 2,
+              "gt": 3,
+              "gte": 4,
+              "lt": 5,
+              "lte": 6,
+              "in": [
+                7
+              ],
+              "notIn": [
+                8
+              ],
+              "multipleOf": 9
+            },
+            "immutable": true,
+            "group": "grp",
+            "unit": "MB",
+            "title": "Float",
+            "deprecated": true,
+            "examples": [
+              {
+                "floatValue": 1
+              }
+            ],
+            "secret": true,
+            "normalize": "this",
+            "when": "true"
+          },
+          {
+            "name": "double_all",
+            "double": {
+              "default": 1,
+              "const": 2,
+              "gt": 3,
+              "gte": 4,
+              "lt": 5,
+              "lte": 6,
+              "in": [
+                7
+              ],
+              "notIn": [
+                8
+              ],
+              "multipleOf": 9
+            }
+          },
+          {
+            "name": "int32_all",
+            "int32": {
+              "default": 1,
+              "const": 2,
+              "gt": 3,
+              "gte": 4,
+              "lt": 5,
+              "lte": 6,
+              "in": [
+                7
+              ],
+              "notIn": [
+                8
+              ],
+              "multipleOf": 9
+            }
+          },
+          {
+            "name": "int64_all",
+            "int64": {
+              "default": "1",
+              "const": "2",
+              "gt": "3",
+              "gte": "4",
+              "lt": "5",
+              "lte": "6",
+              "in": [
+                "7"
+              ],
+              "notIn": [
+                "8"
+              ],
+              "multipleOf": "9"
+            }
+          },
+          {
+            "name": "uint32_all",
+            "uint32": {
+              "default": 1,
+              "const": 2,
+              "gt": 3,
+              "gte": 4,
+              "lt": 5,
+              "lte": 6,
+              "in": [
+                7
+              ],
+              "notIn": [
+                8
+              ],
+              "multipleOf": 9
+            }
+          },
+          {
+            "name": "uint64_all",
+            "uint64": {
+              "default": "1",
+              "const": "2",
+              "gt": "3",
+              "gte": "4",
+              "lt": "5",
+              "lte": "6",
+              "in": [
+                "7"
+              ],
+              "notIn": [
+                "8"
+              ],
+              "multipleOf": "9"
+            }
+          },
+          {
+            "name": "bool_all",
+            "bool": {
+              "default": true,
+              "const": false
+            }
+          },
+          {
+            "name": "string_all",
+            "string": {
+              "default": "d",
+              "const": "c",
+              "len": "1",
+              "minLen": "2",
+              "maxLen": "3",
+              "pattern": "^x$",
+              "in": [
+                "a"
+              ],
+              "notIn": [
+                "b"
+              ],
+              "format": "email"
+            }
+          },
+          {
+            "name": "bytes_all",
+            "bytes": {
+              "default": "AQ==",
+              "const": "Ag==",
+              "len": "1",
+              "minLen": "2",
+              "maxLen": "3",
+              "prefix": "Aw==",
+              "suffix": "BA==",
+              "in": [
+                "BQ=="
+              ],
+              "notIn": [
+                "Bg=="
+              ]
+            }
+          },
+          {
+            "name": "choice_all",
+            "choice": {
+              "options": [
+                {
+                  "value": {
+                    "stringValue": "opt"
+                  },
+                  "label": "Opt",
+                  "description": "an option",
+                  "deprecated": true
+                }
+              ],
+              "default": {
+                "stringValue": "opt"
+              },
+              "open": true,
+              "optionsExpr": "[\"opt\"]"
+            }
+          },
+          {
+            "name": "duration_all",
+            "duration": {
+              "default": "1.500s",
+              "gt": "1.500s",
+              "gte": "1.500s",
+              "lt": "1.500s",
+              "lte": "1.500s"
+            }
+          },
+          {
+            "name": "timestamp_all",
+            "timestamp": {
+              "default": "2026-06-01T12:00:00Z",
+              "gt": "2026-06-01T12:00:00Z",
+              "gte": "2026-06-01T12:00:00Z",
+              "lt": "2026-06-01T12:00:00Z",
+              "lte": "2026-06-01T12:00:00Z"
+            }
+          },
+          {
+            "name": "list_all",
+            "list": {
+              "items": [
+                {
+                  "name": "item",
+                  "bool": {}
+                }
+              ],
+              "minItems": "1",
+              "maxItems": "2",
+              "unique": true,
+              "countExpr": "1"
+            }
+          },
+          {
+            "name": "object_all",
+            "object": {
+              "schema": {
+                "id": {
+                  "name": "nested"
+                },
+                "fields": [
+                  {
+                    "name": "y",
+                    "bool": {}
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "map_all",
+            "map": {
+              "valueSchema": {
+                "id": {
+                  "name": "map_value"
+                },
+                "fields": [
+                  {
+                    "name": "z",
+                    "bool": {}
+                  }
+                ]
+              },
+              "minEntries": "1",
+              "maxEntries": "2"
+            }
+          },
+          {
+            "name": "oneof_all",
+            "oneOf": {
+              "discriminator": "type",
+              "variants": {
+                "v1": {
+                  "id": {
+                    "name": "variant"
+                  },
+                  "fields": [
+                    {
+                      "name": "w",
+                      "bool": {}
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "name": "ref_by_name",
+            "ref": {
+              "name": "def_a"
+            }
+          },
+          {
+            "name": "ref_by_id",
+            "ref": {
+              "id": {
+                "namespace": "conformance",
+                "name": "def_a",
+                "version": "v1.0.0"
+              }
+            }
+          },
+          {
+            "name": "computed_all",
+            "computed": {
+              "expr": "1",
+              "result": "RESULT_TYPE_INT64"
+            }
+          },
+          {
+            "name": "json_all",
+            "json": {
+              "default": {
+                "nullValue": "NULL_VALUE"
+              }
+            }
+          }
+        ],
+        "rules": [
+          {
+            "expr": "true",
+            "message": "form rule",
+            "id": "form-rule",
+            "severity": "SEVERITY_WARNING"
+          }
+        ],
+        "strict": true,
+        "minProperties": "0",
+        "maxProperties": "99",
+        "coerce": true,
+        "defs": {
+          "def_a": {
+            "id": {
+              "name": "def_a"
+            },
+            "fields": [
+              {
+                "name": "x",
+                "bool": {}
+              }
+            ]
+          }
+        },
+        "templates": {
+          "tpl": "{{name}}"
+        }
+      }
+    },
+    "values": {
+      "fields": {
+        "bool_all": {
+          "boolValue": true
+        }
+      }
+    }
+  },
+  "filledById": {
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "field_coverage",
+        "version": "v9.9.9-rc.1"
+      }
+    },
+    "values": {
+      "fields": {
+        "bool_all": {
+          "boolValue": true
+        }
+      }
+    }
+  },
+  "baked": {
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "field_coverage",
+        "version": "v9.9.9-rc.1"
+      },
+      "description": "every proto field populated",
+      "fields": [
+        {
+          "name": "float_all",
+          "description": "float with every constraint",
+          "nullable": true,
+          "required": true,
+          "rules": [
+            {
+              "expr": "true",
+              "message": "field rule",
+              "id": "fr",
+              "severity": "SEVERITY_ERROR"
+            }
+          ],
+          "float": {
+            "default": 1,
+            "const": 2,
+            "gt": 3,
+            "gte": 4,
+            "lt": 5,
+            "lte": 6,
+            "in": [
+              7
+            ],
+            "notIn": [
+              8
+            ],
+            "multipleOf": 9
+          },
+          "immutable": true,
+          "group": "grp",
+          "unit": "MB",
+          "title": "Float",
+          "deprecated": true,
+          "examples": [
+            {
+              "floatValue": 1
+            }
+          ],
+          "secret": true,
+          "normalize": "this",
+          "when": "true"
+        },
+        {
+          "name": "double_all",
+          "double": {
+            "default": 1,
+            "const": 2,
+            "gt": 3,
+            "gte": 4,
+            "lt": 5,
+            "lte": 6,
+            "in": [
+              7
+            ],
+            "notIn": [
+              8
+            ],
+            "multipleOf": 9
+          }
+        },
+        {
+          "name": "int32_all",
+          "int32": {
+            "default": 1,
+            "const": 2,
+            "gt": 3,
+            "gte": 4,
+            "lt": 5,
+            "lte": 6,
+            "in": [
+              7
+            ],
+            "notIn": [
+              8
+            ],
+            "multipleOf": 9
+          }
+        },
+        {
+          "name": "int64_all",
+          "int64": {
+            "default": "1",
+            "const": "2",
+            "gt": "3",
+            "gte": "4",
+            "lt": "5",
+            "lte": "6",
+            "in": [
+              "7"
+            ],
+            "notIn": [
+              "8"
+            ],
+            "multipleOf": "9"
+          }
+        },
+        {
+          "name": "uint32_all",
+          "uint32": {
+            "default": 1,
+            "const": 2,
+            "gt": 3,
+            "gte": 4,
+            "lt": 5,
+            "lte": 6,
+            "in": [
+              7
+            ],
+            "notIn": [
+              8
+            ],
+            "multipleOf": 9
+          }
+        },
+        {
+          "name": "uint64_all",
+          "uint64": {
+            "default": "1",
+            "const": "2",
+            "gt": "3",
+            "gte": "4",
+            "lt": "5",
+            "lte": "6",
+            "in": [
+              "7"
+            ],
+            "notIn": [
+              "8"
+            ],
+            "multipleOf": "9"
+          }
+        },
+        {
+          "name": "bool_all",
+          "bool": {
+            "default": true,
+            "const": false
+          }
+        },
+        {
+          "name": "string_all",
+          "string": {
+            "default": "d",
+            "const": "c",
+            "len": "1",
+            "minLen": "2",
+            "maxLen": "3",
+            "pattern": "^x$",
+            "in": [
+              "a"
+            ],
+            "notIn": [
+              "b"
+            ],
+            "format": "email"
+          }
+        },
+        {
+          "name": "bytes_all",
+          "bytes": {
+            "default": "AQ==",
+            "const": "Ag==",
+            "len": "1",
+            "minLen": "2",
+            "maxLen": "3",
+            "prefix": "Aw==",
+            "suffix": "BA==",
+            "in": [
+              "BQ=="
+            ],
+            "notIn": [
+              "Bg=="
+            ]
+          }
+        },
+        {
+          "name": "choice_all",
+          "choice": {
+            "options": [
+              {
+                "value": {
+                  "stringValue": "opt"
+                },
+                "label": "Opt",
+                "description": "an option",
+                "deprecated": true
+              }
+            ],
+            "default": {
+              "stringValue": "opt"
+            },
+            "open": true,
+            "optionsExpr": "[\"opt\"]"
+          }
+        },
+        {
+          "name": "duration_all",
+          "duration": {
+            "default": "1.500s",
+            "gt": "1.500s",
+            "gte": "1.500s",
+            "lt": "1.500s",
+            "lte": "1.500s"
+          }
+        },
+        {
+          "name": "timestamp_all",
+          "timestamp": {
+            "default": "2026-06-01T12:00:00Z",
+            "gt": "2026-06-01T12:00:00Z",
+            "gte": "2026-06-01T12:00:00Z",
+            "lt": "2026-06-01T12:00:00Z",
+            "lte": "2026-06-01T12:00:00Z"
+          }
+        },
+        {
+          "name": "list_all",
+          "list": {
+            "items": [
+              {
+                "name": "item",
+                "bool": {}
+              }
+            ],
+            "minItems": "1",
+            "maxItems": "2",
+            "unique": true,
+            "countExpr": "1"
+          }
+        },
+        {
+          "name": "object_all",
+          "object": {
+            "schema": {
+              "id": {
+                "name": "nested"
+              },
+              "fields": [
+                {
+                  "name": "y",
+                  "bool": {}
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "map_all",
+          "map": {
+            "valueSchema": {
+              "id": {
+                "name": "map_value"
+              },
+              "fields": [
+                {
+                  "name": "z",
+                  "bool": {}
+                }
+              ]
+            },
+            "minEntries": "1",
+            "maxEntries": "2"
+          }
+        },
+        {
+          "name": "oneof_all",
+          "oneOf": {
+            "discriminator": "type",
+            "variants": {
+              "v1": {
+                "id": {
+                  "name": "variant"
+                },
+                "fields": [
+                  {
+                    "name": "w",
+                    "bool": {}
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "ref_by_name",
+          "ref": {
+            "name": "def_a"
+          }
+        },
+        {
+          "name": "ref_by_id",
+          "ref": {
+            "id": {
+              "namespace": "conformance",
+              "name": "def_a",
+              "version": "v1.0.0"
+            }
+          }
+        },
+        {
+          "name": "computed_all",
+          "computed": {
+            "expr": "1",
+            "result": "RESULT_TYPE_INT64"
+          }
+        },
+        {
+          "name": "json_all",
+          "json": {
+            "default": {
+              "nullValue": "NULL_VALUE"
+            }
+          }
+        }
+      ],
+      "rules": [
+        {
+          "expr": "true",
+          "message": "form rule",
+          "id": "form-rule",
+          "severity": "SEVERITY_WARNING"
+        }
+      ],
+      "strict": true,
+      "minProperties": "0",
+      "maxProperties": "99",
+      "coerce": true,
+      "defs": {
+        "def_a": {
+          "id": {
+            "name": "def_a"
+          },
+          "fields": [
+            {
+              "name": "x",
+              "bool": {}
+            }
+          ]
+        }
+      },
+      "templates": {
+        "tpl": "{{name}}"
+      }
+    },
+    "values": {
+      "fields": {
+        "bool_all": {
+          "boolValue": true
+        }
+      }
+    }
+  },
+  "validationResult": {
+    "errors": [
+      {
+        "path": "float_all",
+        "code": "ERROR_CODE_GTE_VIOLATED",
+        "expected": {
+          "floatValue": 4
+        },
+        "actual": {
+          "floatValue": 1
+        },
+        "constraint": "gte",
+        "expr": "true",
+        "ruleId": "fr",
+        "severity": "SEVERITY_WARNING",
+        "message": "must be >= 4"
+      }
+    ]
+  }
+}
