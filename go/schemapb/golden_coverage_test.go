@@ -298,24 +298,24 @@ func TestProtoFieldCoverage(t *testing.T) {
 		}
 	}
 
-	for _, fd := range []protoreflect.FileDescriptor{
+	for _, fileDesc := range []protoreflect.FileDescriptor{
 		schemapb.File_schemapb_value_proto.ParentFile(),
 		schemapb.File_schemapb_schema_proto.ParentFile(),
 		schemapb.File_schemapb_errors_proto.ParentFile(),
 		schemapb.File_schemapb_runtime_proto.ParentFile(),
 	} {
-		collect(fd.Messages())
+		collect(fileDesc.Messages())
 	}
 
 	var mark func(m protoreflect.Message)
 
 	mark = func(m protoreflect.Message) {
-		m.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-			want[string(fd.FullName())] = true
+		m.Range(func(fieldDesc protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+			want[string(fieldDesc.FullName())] = true
 
 			switch {
-			case fd.IsMap():
-				mapVal := fd.MapValue()
+			case fieldDesc.IsMap():
+				mapVal := fieldDesc.MapValue()
 				if mapVal.Kind() == protoreflect.MessageKind {
 					v.Map().Range(func(_ protoreflect.MapKey, mv protoreflect.Value) bool {
 						mark(mv.Message())
@@ -323,12 +323,12 @@ func TestProtoFieldCoverage(t *testing.T) {
 						return true
 					})
 				}
-			case fd.IsList() && fd.Kind() == protoreflect.MessageKind:
+			case fieldDesc.IsList() && fieldDesc.Kind() == protoreflect.MessageKind:
 				list := v.List()
 				for i := range list.Len() {
 					mark(list.Get(i).Message())
 				}
-			case fd.Kind() == protoreflect.MessageKind:
+			case fieldDesc.Kind() == protoreflect.MessageKind:
 				mark(v.Message())
 			}
 
