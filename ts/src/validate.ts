@@ -16,7 +16,6 @@ import {
   listItemDef,
   refDefKey,
   resolve,
-  selectVariant,
 } from "./compute.js";
 import { joinPath } from "./descriptor.js";
 import { durationNanos, parseGoDuration, parseRfc3339, timestampNanos } from "./duration.js";
