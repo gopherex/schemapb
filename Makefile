@@ -22,6 +22,7 @@ PROTOC_GEN_PROST_VERSION      := 0.5.0
 PROTOC_GEN_PROST_CRATE_VERSION:= 0.5.0
 BETTERPROTO2_COMPILER_VERSION := 0.10.1
 GOLANGCI_LINT_VERSION         := v2.6.2
+YARN_BOOTSTRAP_VERSION        := 1.22.22
 
 # easyp resolves protoc-gen-* plugins from PATH: put ./bin first. Paths in
 # the config are relative to the config file; --root pins search to repo root.
@@ -57,6 +58,11 @@ configure: ## Bring environment to working state: fetch all pinned tools into ./
 	ln -sf "$(TOOLS)/py/bin/protoc-gen-python_betterproto2" "$(BIN)/protoc-gen-python_betterproto2"
 	# betterproto2 compiler shells out to ruff (installed as its dependency)
 	ln -sf "$(TOOLS)/py/bin/ruff" "$(BIN)/ruff"
+	echo "--- yarn bootstrap $(YARN_BOOTSTRAP_VERSION) (ts/ pins its own via yarnPath)"
+	mkdir -p "$(TOOLS)/npm-yarn"
+	npm install --prefix "$(TOOLS)/npm-yarn" --no-save --silent yarn@$(YARN_BOOTSTRAP_VERSION)
+	ln -sf "$(TOOLS)/npm-yarn/node_modules/.bin/yarn" "$(BIN)/yarn"
+	cd ts && "$(BIN)/yarn" install --immutable
 	echo "--- golangci-lint $(GOLANGCI_LINT_VERSION)"
 	GOBIN="$(BIN)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	echo "✓ configure done — tools in $(BIN)"
@@ -87,6 +93,14 @@ lint: ## Lint proto files
 .PHONY: lint-go
 lint-go: ## Lint Go code (golangci-lint, pinned in ./bin)
 	cd go && "$(BIN)/golangci-lint" run ./...
+
+.PHONY: lint-ts
+lint-ts: ## Lint + typecheck TypeScript (biome + tsc, yarn pinned via yarnPath)
+	cd ts && "$(BIN)/yarn" lint && "$(BIN)/yarn" typecheck
+
+.PHONY: test-ts
+test-ts: ## Run TypeScript tests (vitest)
+	cd ts && "$(BIN)/yarn" test
 
 .PHONY: breaking
 breaking: ## Check proto files for breaking changes against main

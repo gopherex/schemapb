@@ -18,7 +18,7 @@ generate:
       out: ts/src/gen
       opts:
         target: ts
-        import_extension: ts
+        import_extension: js
         json_types: true
 breaking:
   against_git_ref: main

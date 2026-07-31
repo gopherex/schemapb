@@ -13,3 +13,9 @@ go.work.sum
 # Rust build artifacts
 rust/target/
 rust/Cargo.lock
+
+# Node (ts/)
+ts/node_modules/
+ts/dist/
+ts/.yarn/cache/
+ts/.yarn/install-state.gz
