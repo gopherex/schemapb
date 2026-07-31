@@ -19,3 +19,11 @@ ts/node_modules/
 ts/dist/
 ts/.yarn/cache/
 ts/.yarn/install-state.gz
+
+# Python (py/)
+py/.venv/
+py/dist/
+**/__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

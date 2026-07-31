@@ -22,6 +22,7 @@ PROTOC_GEN_PROST_VERSION      := 0.5.0
 PROTOC_GEN_PROST_CRATE_VERSION:= 0.5.0
 BETTERPROTO2_COMPILER_VERSION := 0.10.1
 GOLANGCI_LINT_VERSION         := v2.6.2
+UV_VERSION                    := 0.9.28
 YARN_BOOTSTRAP_VERSION        := 1.22.22
 
 # easyp resolves protoc-gen-* plugins from PATH: put ./bin first. Paths in
@@ -63,6 +64,10 @@ configure: ## Bring environment to working state: fetch all pinned tools into ./
 	npm install --prefix "$(TOOLS)/npm-yarn" --no-save --silent yarn@$(YARN_BOOTSTRAP_VERSION)
 	ln -sf "$(TOOLS)/npm-yarn/node_modules/.bin/yarn" "$(BIN)/yarn"
 	cd ts && "$(BIN)/yarn" install --immutable
+	echo "--- uv $(UV_VERSION) (py/ dev tool; consumers just pip install)"
+	"$(TOOLS)/py/bin/pip" install --quiet uv==$(UV_VERSION)
+	ln -sf "$(TOOLS)/py/bin/uv" "$(BIN)/uv"
+	cd py && "$(BIN)/uv" sync
 	echo "--- golangci-lint $(GOLANGCI_LINT_VERSION)"
 	GOBIN="$(BIN)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	echo "✓ configure done — tools in $(BIN)"
@@ -102,10 +107,18 @@ lint-ts: ## Lint + typecheck TypeScript (biome + tsc, yarn pinned via yarnPath)
 test-ts: ## Run TypeScript tests (vitest)
 	cd ts && "$(BIN)/yarn" test
 
+.PHONY: lint-py
+lint-py: ## Lint + typecheck Python (ruff + mypy via uv)
+	cd py && "$(BIN)/uv" run ruff check src tests && "$(BIN)/uv" run ruff format --check src tests && "$(BIN)/uv" run mypy
+
+.PHONY: test-py
+test-py: ## Run Python tests (pytest)
+	cd py && "$(BIN)/uv" run pytest -q
+
 .PHONY: breaking
 breaking: ## Check proto files for breaking changes against main
 	$(EASYP) --cfg schemapb/easyp.go.yaml breaking $(EASYP_ROOT) -p schemapb
 
 .PHONY: clean
 clean: ## Remove tools and generated code
-	rm -rf "$(BIN)" "$(TOOLS)" go/schemapb ts/src/gen py/src/gen rust/src rust/Cargo.toml
+	rm -rf "$(BIN)" "$(TOOLS)" go/schemapb ts/src/gen py/src/schemapb/_gen rust/src rust/Cargo.toml

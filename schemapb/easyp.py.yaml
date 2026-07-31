@@ -17,6 +17,6 @@ generate:
     - directory: schemapb
   plugins:
     - name: python_betterproto2
-      out: py/src/gen
+      out: py/src/schemapb/_gen
 breaking:
   against_git_ref: main

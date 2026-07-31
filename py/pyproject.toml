@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "schemapb"
+version = "0.0.0"
+description = "schemapb — proto-defined form/config schema descriptor: native Python implementation (validation, CEL computed values, Mustache rendering)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+  "betterproto2>=0.7,<1",
+  "cel-python>=0.4,<0.6",
+  "chevron>=0.14,<1",
+]
+
+[project.urls]
+Repository = "https://github.com/gopherex/schemapb"
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "mypy>=1.14",
+  "ruff>=0.9",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/schemapb"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = ["src/schemapb/_gen"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  # Docstring ceremony beyond our comment doctrine.
+  "D100", "D101", "D102", "D103", "D104", "D105", "D107", "D203", "D213",
+  "D205", "D209", "D401",
+  # Trailing comma handled by the formatter.
+  "COM812",
+  # TODO-style and boolean-trap rules that fight the spec's API shapes.
+  "FIX002", "TD002", "TD003", "FBT001", "FBT002",
+  # No per-file license headers in this repo.
+  "CPY001",
+  # Engine constants (bit widths, bounds) are the spec, not magic.
+  "PLR2004",
+  # betterproto2 dataclass annotations need runtime imports.
+  "TC001", "TC002", "TC003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "INP001"]
+# The kind-dispatch/traversal modules mirror the Go/TS complexity
+# suppressions: flat exhaustive dispatch is the engine's nature.
+"src/schemapb/{validate,compute,engine,value,render,descriptor,bake}.py" = [
+  "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0917",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/schemapb", "tests"]
+exclude = ["src/schemapb/_gen"]
+
+[[tool.mypy.overrides]]
+module = ["celpy", "celpy.*", "chevron", "betterproto2", "betterproto2.*", "schemapb._gen", "schemapb._gen.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
