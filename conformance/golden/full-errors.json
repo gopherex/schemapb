@@ -1,0 +1,539 @@
+{
+  "errors": [
+    {
+      "path": "garbage",
+      "code": "ERROR_CODE_UNKNOWN_FIELD",
+      "actual": {
+        "int64Value": "1"
+      },
+      "constraint": "strict",
+      "severity": "SEVERITY_ERROR",
+      "message": "unknown field: garbage"
+    },
+    {
+      "path": "f32",
+      "code": "ERROR_CODE_IN_FORBIDDEN_SET",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "doubleValue": 0.25
+            }
+          ]
+        }
+      },
+      "actual": {
+        "doubleValue": 0.25
+      },
+      "constraint": "not_in",
+      "severity": "SEVERITY_ERROR",
+      "message": "must not be one of [0.25]"
+    },
+    {
+      "path": "f64",
+      "code": "ERROR_CODE_CONST_MISMATCH",
+      "expected": {
+        "doubleValue": 1.5
+      },
+      "actual": {
+        "doubleValue": 2
+      },
+      "constraint": "const",
+      "severity": "SEVERITY_ERROR",
+      "message": "must equal 1.5"
+    },
+    {
+      "path": "i32",
+      "code": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "int64Value": "2"
+            },
+            {
+              "int64Value": "4"
+            },
+            {
+              "int64Value": "8"
+            },
+            {
+              "int64Value": "16"
+            },
+            {
+              "int64Value": "32"
+            },
+            {
+              "int64Value": "64"
+            }
+          ]
+        }
+      },
+      "actual": {
+        "int64Value": "5"
+      },
+      "constraint": "in",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be one of [2 4 8 16 32 64]"
+    },
+    {
+      "path": "i32",
+      "code": "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+      "expected": {
+        "int64Value": "2"
+      },
+      "actual": {
+        "int64Value": "5"
+      },
+      "constraint": "multiple_of",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be a multiple of 2"
+    },
+    {
+      "path": "i64",
+      "code": "ERROR_CODE_GTE_VIOLATED",
+      "expected": {
+        "int64Value": "16"
+      },
+      "actual": {
+        "int64Value": "8"
+      },
+      "constraint": "gte",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be >= 16"
+    },
+    {
+      "path": "u32",
+      "code": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "uint64Value": "1"
+            },
+            {
+              "uint64Value": "2"
+            },
+            {
+              "uint64Value": "4"
+            }
+          ]
+        }
+      },
+      "actual": {
+        "uint64Value": "3"
+      },
+      "constraint": "in",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be one of [1 2 4]"
+    },
+    {
+      "path": "u64",
+      "code": "ERROR_CODE_IN_FORBIDDEN_SET",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "uint64Value": "0"
+            }
+          ]
+        }
+      },
+      "actual": {
+        "uint64Value": "0"
+      },
+      "constraint": "not_in",
+      "severity": "SEVERITY_ERROR",
+      "message": "must not be one of [0]"
+    },
+    {
+      "path": "pinned",
+      "code": "ERROR_CODE_CONST_MISMATCH",
+      "expected": {
+        "boolValue": true
+      },
+      "actual": {
+        "boolValue": false
+      },
+      "constraint": "const",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be true"
+    },
+    {
+      "path": "name",
+      "code": "ERROR_CODE_PATTERN_MISMATCH",
+      "expected": {
+        "stringValue": "^[a-z][a-z0-9-]*$"
+      },
+      "actual": {
+        "stringValue": "Bad Name!"
+      },
+      "constraint": "pattern",
+      "severity": "SEVERITY_ERROR",
+      "message": "must match pattern ^[a-z][a-z0-9-]*$"
+    },
+    {
+      "path": "mode",
+      "code": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "stringValue": "fast"
+            },
+            {
+              "stringValue": "slow"
+            }
+          ]
+        }
+      },
+      "actual": {
+        "stringValue": "legacy"
+      },
+      "constraint": "in",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be one of [fast slow]"
+    },
+    {
+      "path": "mode",
+      "code": "ERROR_CODE_IN_FORBIDDEN_SET",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "stringValue": "legacy"
+            }
+          ]
+        }
+      },
+      "actual": {
+        "stringValue": "legacy"
+      },
+      "constraint": "not_in",
+      "severity": "SEVERITY_ERROR",
+      "message": "must not be one of [legacy]"
+    },
+    {
+      "path": "exact",
+      "code": "ERROR_CODE_LEN_MISMATCH",
+      "expected": {
+        "uint64Value": "4"
+      },
+      "actual": {
+        "stringValue": "abcde"
+      },
+      "constraint": "len",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be exactly 4 characters"
+    },
+    {
+      "path": "mail",
+      "code": "ERROR_CODE_FORMAT_MISMATCH",
+      "expected": {
+        "stringValue": "email"
+      },
+      "actual": {
+        "stringValue": "not-an-email"
+      },
+      "constraint": "format",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be a valid email"
+    },
+    {
+      "path": "token",
+      "code": "ERROR_CODE_MIN_LEN_VIOLATED",
+      "expected": {
+        "uint64Value": "8"
+      },
+      "constraint": "min_len",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be at least 8 characters"
+    },
+    {
+      "path": "license",
+      "code": "ERROR_CODE_MIN_LEN_VIOLATED",
+      "expected": {
+        "uint64Value": "4"
+      },
+      "actual": {
+        "bytesValue": "WFg="
+      },
+      "constraint": "min_len",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be at least 4 bytes"
+    },
+    {
+      "path": "license",
+      "code": "ERROR_CODE_PREFIX_MISMATCH",
+      "expected": {
+        "bytesValue": "TElDLQ=="
+      },
+      "actual": {
+        "bytesValue": "WFg="
+      },
+      "constraint": "prefix",
+      "severity": "SEVERITY_ERROR",
+      "message": "must start with the required prefix"
+    },
+    {
+      "path": "license",
+      "code": "ERROR_CODE_SUFFIX_MISMATCH",
+      "expected": {
+        "bytesValue": "LUVORA=="
+      },
+      "actual": {
+        "bytesValue": "WFg="
+      },
+      "constraint": "suffix",
+      "severity": "SEVERITY_ERROR",
+      "message": "must end with the required suffix"
+    },
+    {
+      "path": "magic",
+      "code": "ERROR_CODE_CONST_MISMATCH",
+      "expected": {
+        "bytesValue": "3q0="
+      },
+      "actual": {
+        "bytesValue": "AA=="
+      },
+      "constraint": "const",
+      "severity": "SEVERITY_ERROR",
+      "message": "must equal the const bytes"
+    },
+    {
+      "path": "magic",
+      "code": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "bytesValue": "3q0="
+            },
+            {
+              "bytesValue": "vu8="
+            }
+          ]
+        }
+      },
+      "actual": {
+        "bytesValue": "AA=="
+      },
+      "constraint": "in",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be one of the allowed byte strings"
+    },
+    {
+      "path": "magic",
+      "code": "ERROR_CODE_IN_FORBIDDEN_SET",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "bytesValue": "AA=="
+            }
+          ]
+        }
+      },
+      "actual": {
+        "bytesValue": "AA=="
+      },
+      "constraint": "not_in",
+      "severity": "SEVERITY_ERROR",
+      "message": "must not be one of the forbidden byte strings"
+    },
+    {
+      "path": "wal_level",
+      "code": "ERROR_CODE_CHOICE_NOT_ALLOWED",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "stringValue": "minimal"
+            },
+            {
+              "stringValue": "replica"
+            },
+            {
+              "stringValue": "logical"
+            }
+          ]
+        }
+      },
+      "actual": {
+        "stringValue": "extreme"
+      },
+      "constraint": "options",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be one of the declared options"
+    },
+    {
+      "path": "cpu",
+      "code": "ERROR_CODE_CHOICE_NOT_ALLOWED",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "int64Value": "2"
+            },
+            {
+              "int64Value": "4"
+            },
+            {
+              "int64Value": "8"
+            }
+          ]
+        }
+      },
+      "actual": {
+        "int64Value": "3"
+      },
+      "constraint": "options",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be one of the declared options"
+    },
+    {
+      "path": "timeout",
+      "code": "ERROR_CODE_LT_VIOLATED",
+      "expected": {
+        "durationValue": "7200s"
+      },
+      "actual": {
+        "durationValue": "10800s"
+      },
+      "constraint": "lt",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be < 2h0m0s"
+    },
+    {
+      "path": "timeout",
+      "code": "ERROR_CODE_LTE_VIOLATED",
+      "expected": {
+        "durationValue": "3600s"
+      },
+      "actual": {
+        "durationValue": "10800s"
+      },
+      "constraint": "lte",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be <= 1h0m0s"
+    },
+    {
+      "path": "not_before",
+      "code": "ERROR_CODE_GT_VIOLATED",
+      "expected": {
+        "timestampValue": "2025-12-31T23:59:59Z"
+      },
+      "actual": {
+        "timestampValue": "2020-01-01T00:00:00Z"
+      },
+      "constraint": "gt",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be after 2025-12-31T23:59:59Z"
+    },
+    {
+      "path": "not_before",
+      "code": "ERROR_CODE_GTE_VIOLATED",
+      "expected": {
+        "timestampValue": "2026-01-01T00:00:00Z"
+      },
+      "actual": {
+        "timestampValue": "2020-01-01T00:00:00Z"
+      },
+      "constraint": "gte",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be at or after 2026-01-01T00:00:00Z"
+    },
+    {
+      "path": "replicas",
+      "code": "ERROR_CODE_LIST_COUNT_MISMATCH",
+      "expected": {
+        "int64Value": "2"
+      },
+      "actual": {
+        "uint64Value": "3"
+      },
+      "constraint": "count_expr",
+      "severity": "SEVERITY_ERROR",
+      "message": "must have exactly 2 items"
+    },
+    {
+      "path": "replicas[1]",
+      "code": "ERROR_CODE_NOT_UNIQUE",
+      "actual": {
+        "structValue": {
+          "fields": {
+            "name": {
+              "stringValue": "r1"
+            },
+            "weight": {
+              "int64Value": "1"
+            }
+          }
+        }
+      },
+      "constraint": "unique",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be unique"
+    },
+    {
+      "path": "replicas[2].name",
+      "code": "ERROR_CODE_REQUIRED_MISSING",
+      "constraint": "required",
+      "severity": "SEVERITY_ERROR",
+      "message": "required"
+    },
+    {
+      "path": "logging.junk",
+      "code": "ERROR_CODE_UNKNOWN_FIELD",
+      "actual": {
+        "int64Value": "1"
+      },
+      "constraint": "strict",
+      "severity": "SEVERITY_ERROR",
+      "message": "unknown field: junk"
+    },
+    {
+      "path": "tablespaces.bad.location",
+      "code": "ERROR_CODE_REQUIRED_MISSING",
+      "constraint": "required",
+      "severity": "SEVERITY_ERROR",
+      "message": "required"
+    },
+    {
+      "path": "backup",
+      "code": "ERROR_CODE_UNKNOWN_VARIANT",
+      "expected": {
+        "listValue": {
+          "items": [
+            {
+              "stringValue": "endpoint"
+            },
+            {
+              "stringValue": "s3"
+            }
+          ]
+        }
+      },
+      "actual": {
+        "stringValue": "tape"
+      },
+      "constraint": "variants",
+      "severity": "SEVERITY_ERROR",
+      "message": "unknown variant: tape"
+    },
+    {
+      "path": "data_volume.size_gb",
+      "code": "ERROR_CODE_GT_VIOLATED",
+      "expected": {
+        "int64Value": "0"
+      },
+      "actual": {
+        "int64Value": "0"
+      },
+      "constraint": "gt",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be > 0"
+    }
+  ]
+}

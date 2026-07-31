@@ -1,0 +1,35 @@
+name = main
+wal_level = replica
+cache = 768
+---
+[]
+f32=0.5
+f64=1.5
+i32=8
+u32=2
+u64=1
+pinned=true
+name=main
+mode=fast
+exact=abcd
+mail=dba@corp.io
+token=s3cret-token
+license=TElDLXgtRU5E
+magic=3q0=
+cpu=4
+region=somewhere-else
+timeout=5m0s
+not_before=2026-06-01T12:00:00Z
+replica_count=1
+replicas=[{"name":"r1","weight":1}]
+tablespaces={"main":{"location":"/var/lib/ts"}}
+backup={"bucket":"backups","type":"s3"}
+data_volume={"path":"/data","size_gb":10}
+annotations={"team":"storage","tier":1}
+[numbers]
+i64=256
+cache=768
+[flags]
+flag=true
+[choices]
+wal_level=replica (Replica)

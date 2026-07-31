@@ -1,0 +1,139 @@
+{
+  "fields": {
+    "annotations": {
+      "structValue": {
+        "fields": {
+          "team": {
+            "stringValue": "storage"
+          },
+          "tier": {
+            "int64Value": "1"
+          }
+        }
+      }
+    },
+    "backup": {
+      "structValue": {
+        "fields": {
+          "bucket": {
+            "stringValue": "backups"
+          },
+          "type": {
+            "stringValue": "s3"
+          }
+        }
+      }
+    },
+    "cache": {
+      "int64Value": "768"
+    },
+    "cpu": {
+      "int64Value": "4"
+    },
+    "data_volume": {
+      "structValue": {
+        "fields": {
+          "path": {
+            "stringValue": "/data"
+          },
+          "size_gb": {
+            "int64Value": "10"
+          }
+        }
+      }
+    },
+    "exact": {
+      "stringValue": "abcd"
+    },
+    "f32": {
+      "floatValue": 0.5
+    },
+    "f64": {
+      "doubleValue": 1.5
+    },
+    "flag": {
+      "boolValue": true
+    },
+    "i32": {
+      "int32Value": 8
+    },
+    "i64": {
+      "int64Value": "256"
+    },
+    "license": {
+      "bytesValue": "TElDLXgtRU5E"
+    },
+    "magic": {
+      "bytesValue": "3q0="
+    },
+    "mail": {
+      "stringValue": "dba@corp.io"
+    },
+    "mode": {
+      "stringValue": "fast"
+    },
+    "name": {
+      "stringValue": "main"
+    },
+    "not_before": {
+      "timestampValue": "2026-06-01T12:00:00Z"
+    },
+    "pinned": {
+      "boolValue": true
+    },
+    "region": {
+      "stringValue": "somewhere-else"
+    },
+    "replica_count": {
+      "int64Value": "1"
+    },
+    "replicas": {
+      "listValue": {
+        "items": [
+          {
+            "structValue": {
+              "fields": {
+                "name": {
+                  "stringValue": "r1"
+                },
+                "weight": {
+                  "int64Value": "1"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "tablespaces": {
+      "structValue": {
+        "fields": {
+          "main": {
+            "structValue": {
+              "fields": {
+                "location": {
+                  "stringValue": "/var/lib/ts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "timeout": {
+      "durationValue": "300s"
+    },
+    "token": {
+      "stringValue": "s3cret-token"
+    },
+    "u32": {
+      "uint32Value": 2
+    },
+    "u64": {
+      "uint64Value": "1"
+    },
+    "wal_level": {
+      "stringValue": "replica"
+    }
+  }
+}

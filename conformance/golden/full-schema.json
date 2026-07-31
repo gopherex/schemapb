@@ -1,0 +1,532 @@
+{
+  "id": {
+    "namespace": "conformance",
+    "name": "kitchen_sink",
+    "version": "v1.0.0"
+  },
+  "description": "conformance kitchen sink: every kind, every attribute",
+  "fields": [
+    {
+      "name": "f32",
+      "float": {
+        "default": 0.5,
+        "gt": 0,
+        "lt": 1,
+        "notIn": [
+          0.25
+        ]
+      }
+    },
+    {
+      "name": "f64",
+      "double": {
+        "default": 1.5,
+        "const": 1.5,
+        "multipleOf": 0.5
+      }
+    },
+    {
+      "name": "i32",
+      "int32": {
+        "default": 8,
+        "gte": 0,
+        "lte": 64,
+        "in": [
+          2,
+          4,
+          8,
+          16,
+          32,
+          64
+        ],
+        "multipleOf": 2
+      }
+    },
+    {
+      "name": "i64",
+      "description": "an int64 with everything",
+      "int64": {
+        "default": "128",
+        "gte": "16",
+        "lte": "1099511627776"
+      },
+      "group": "numbers",
+      "unit": "MB",
+      "title": "Big number"
+    },
+    {
+      "name": "u32",
+      "uint32": {
+        "default": 2,
+        "in": [
+          1,
+          2,
+          4
+        ]
+      }
+    },
+    {
+      "name": "u64",
+      "uint64": {
+        "default": "1",
+        "notIn": [
+          "0"
+        ]
+      }
+    },
+    {
+      "name": "flag",
+      "bool": {
+        "default": true
+      },
+      "group": "flags"
+    },
+    {
+      "name": "pinned",
+      "bool": {
+        "default": true,
+        "const": true
+      }
+    },
+    {
+      "name": "name",
+      "string": {
+        "default": "main",
+        "minLen": "1",
+        "maxLen": "32",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "examples": [
+        {
+          "stringValue": "main"
+        },
+        {
+          "stringValue": "analytics"
+        }
+      ]
+    },
+    {
+      "name": "mode",
+      "string": {
+        "default": "Fast",
+        "in": [
+          "fast",
+          "slow"
+        ],
+        "notIn": [
+          "legacy"
+        ]
+      },
+      "normalize": "this.lowerAscii()"
+    },
+    {
+      "name": "exact",
+      "string": {
+        "default": "abcd",
+        "len": "4"
+      }
+    },
+    {
+      "name": "mail",
+      "required": true,
+      "string": {
+        "format": "email"
+      }
+    },
+    {
+      "name": "token",
+      "required": true,
+      "string": {
+        "minLen": "8"
+      },
+      "deprecated": true,
+      "secret": true
+    },
+    {
+      "name": "license",
+      "bytes": {
+        "default": "TElDLXgtRU5E",
+        "minLen": "4",
+        "maxLen": "64",
+        "prefix": "TElDLQ==",
+        "suffix": "LUVORA=="
+      }
+    },
+    {
+      "name": "magic",
+      "bytes": {
+        "const": "3q0=",
+        "in": [
+          "3q0=",
+          "vu8="
+        ],
+        "notIn": [
+          "AA=="
+        ]
+      }
+    },
+    {
+      "name": "wal_level",
+      "choice": {
+        "options": [
+          {
+            "value": {
+              "stringValue": "minimal"
+            },
+            "label": "Minimal",
+            "description": "bare minimum WAL",
+            "deprecated": true
+          },
+          {
+            "value": {
+              "stringValue": "replica"
+            },
+            "label": "Replica"
+          },
+          {
+            "value": {
+              "stringValue": "logical"
+            },
+            "label": "Logical"
+          }
+        ],
+        "default": {
+          "stringValue": "replica"
+        }
+      },
+      "group": "choices"
+    },
+    {
+      "name": "cpu",
+      "choice": {
+        "options": [
+          {
+            "value": {
+              "int64Value": "2"
+            }
+          },
+          {
+            "value": {
+              "int64Value": "4"
+            }
+          },
+          {
+            "value": {
+              "int64Value": "8"
+            }
+          }
+        ],
+        "default": {
+          "int64Value": "4"
+        }
+      }
+    },
+    {
+      "name": "region",
+      "choice": {
+        "options": [
+          {
+            "value": {
+              "stringValue": "eu"
+            }
+          },
+          {
+            "value": {
+              "stringValue": "us"
+            }
+          }
+        ],
+        "open": true
+      }
+    },
+    {
+      "name": "compression",
+      "choice": {
+        "optionsExpr": "root.wal_level == \"logical\" ? [\"lz4\", \"zstd\"] : [\"off\"]"
+      }
+    },
+    {
+      "name": "timeout",
+      "duration": {
+        "default": "300s",
+        "gt": "0s",
+        "gte": "1s",
+        "lt": "7200s",
+        "lte": "3600s"
+      }
+    },
+    {
+      "name": "not_before",
+      "timestamp": {
+        "default": "2026-06-01T12:00:00Z",
+        "gt": "2025-12-31T23:59:59Z",
+        "gte": "2026-01-01T00:00:00Z",
+        "lt": "2031-01-01T00:00:00Z",
+        "lte": "2030-12-31T23:59:59Z"
+      }
+    },
+    {
+      "name": "replica_count",
+      "int64": {
+        "default": "2",
+        "gte": "0",
+        "lte": "10"
+      }
+    },
+    {
+      "name": "replicas",
+      "list": {
+        "items": [
+          {
+            "rules": [
+              {
+                "expr": "true",
+                "message": "always fine"
+              }
+            ],
+            "object": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "name",
+                    "required": true,
+                    "string": {}
+                  },
+                  {
+                    "name": "weight",
+                    "int64": {
+                      "default": "1"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "minItems": "0",
+        "maxItems": "10",
+        "unique": true,
+        "countExpr": "int(root.replica_count)"
+      }
+    },
+    {
+      "name": "logging",
+      "object": {
+        "schema": {
+          "fields": [
+            {
+              "name": "collector",
+              "bool": {
+                "default": false
+              }
+            },
+            {
+              "name": "directory",
+              "string": {
+                "default": "log"
+              }
+            }
+          ],
+          "rules": [
+            {
+              "expr": "root.logging.directory != \"\"",
+              "message": "dir required",
+              "id": "log-dir"
+            }
+          ],
+          "strict": true,
+          "minProperties": "0",
+          "maxProperties": "8"
+        }
+      }
+    },
+    {
+      "name": "tablespaces",
+      "map": {
+        "valueSchema": {
+          "fields": [
+            {
+              "name": "location",
+              "required": true,
+              "string": {}
+            }
+          ],
+          "rules": [
+            {
+              "expr": "true",
+              "message": "map value rule"
+            }
+          ],
+          "strict": true
+        },
+        "minEntries": "0",
+        "maxEntries": "16"
+      }
+    },
+    {
+      "name": "backup",
+      "oneOf": {
+        "discriminator": "type",
+        "variants": {
+          "endpoint": {
+            "id": {
+              "namespace": "conformance",
+              "name": "endpoint",
+              "version": "v2.1.0"
+            },
+            "fields": [
+              {
+                "name": "host",
+                "required": true,
+                "string": {}
+              },
+              {
+                "name": "port",
+                "int64": {
+                  "default": "5432"
+                }
+              }
+            ]
+          },
+          "s3": {
+            "fields": [
+              {
+                "name": "bucket",
+                "required": true,
+                "string": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "data_volume",
+      "ref": {
+        "name": "volume"
+      }
+    },
+    {
+      "name": "primary_endpoint",
+      "ref": {
+        "id": {
+          "namespace": "conformance",
+          "name": "endpoint",
+          "version": "v2.1.0"
+        }
+      }
+    },
+    {
+      "name": "cache",
+      "computed": {
+        "expr": "root.i64 * 3",
+        "result": "RESULT_TYPE_INT64"
+      },
+      "group": "numbers"
+    },
+    {
+      "name": "annotations",
+      "json": {
+        "default": {
+          "structValue": {
+            "fields": {
+              "team": {
+                "stringValue": "storage"
+              },
+              "tier": {
+                "int64Value": "1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "debug_level",
+      "nullable": true,
+      "int64": {
+        "default": "1"
+      },
+      "immutable": true,
+      "when": "root.mode == \"slow\""
+    }
+  ],
+  "rules": [
+    {
+      "expr": "int(root.i64) >= int(root.i32)",
+      "message": "i64 must cover i32",
+      "id": "cross"
+    },
+    {
+      "expr": "int(root.replica_count) < 8",
+      "message": "many replicas",
+      "severity": "SEVERITY_WARNING"
+    },
+    {
+      "expr": "true",
+      "message": "explicit severity",
+      "severity": "SEVERITY_ERROR"
+    },
+    {
+      "expr": "!(root.mode == \"slow\") || (\"annotations\" in root)",
+      "message": "annotations is required when: root.mode == \"slow\"",
+      "id": "annotations"
+    },
+    {
+      "expr": "(false) || (\"mail\" in root)",
+      "message": "mail is required unless: false",
+      "id": "mail"
+    },
+    {
+      "expr": "!(root.mode == \"legacy-off\") || !(\"u64\" in root)",
+      "message": "u64 must be absent when: root.mode == \"legacy-off\"",
+      "id": "u64"
+    }
+  ],
+  "strict": true,
+  "minProperties": "1",
+  "maxProperties": "64",
+  "coerce": true,
+  "defs": {
+    "endpoint": {
+      "id": {
+        "namespace": "conformance",
+        "name": "endpoint",
+        "version": "v2.1.0"
+      },
+      "fields": [
+        {
+          "name": "host",
+          "required": true,
+          "string": {}
+        },
+        {
+          "name": "port",
+          "int64": {
+            "default": "5432"
+          }
+        }
+      ]
+    },
+    "volume": {
+      "fields": [
+        {
+          "name": "path",
+          "required": true,
+          "string": {}
+        },
+        {
+          "name": "size_gb",
+          "int64": {
+            "default": "10",
+            "gt": "0"
+          }
+        }
+      ]
+    }
+  },
+  "templates": {
+    "conf": "name = {{values.name}}\nwal_level = {{values.wal_level}}\ncache = {{values.cache}}\n",
+    "report": "{{#groups}}[{{name}}]\n{{#fields}}{{#set}}{{name}}={{{value}}}{{#label}} ({{label}}){{/label}}\n{{/set}}{{/fields}}{{/groups}}"
+  }
+}
