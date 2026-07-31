@@ -28,32 +28,39 @@ versioning (`/v2` in the Go module path), which is not supported yet.
 | Job | Registry | Version stamping | Auth |
 |---|---|---|---|
 | `go` | Go module proxy pulls the `go/vX.Y.Z` tag; job gates tests + creates the GitHub release | tag is the version | built-in `GITHUB_TOKEN` |
-| `ts` | npmjs.org `@gopherex/schemapb` | `npm version --no-git-tag-version` | npm trusted publisher (OIDC) |
-| `py` | PyPI `schemapb` | `uv version` before `uv build` | PyPI trusted publisher (OIDC) |
-| `rust` | crates.io `schemapb` | `sed` on `Cargo.toml`, `cargo publish --allow-dirty` | crates.io trusted publisher (OIDC) |
+| `ts` | npmjs.org `@gopherex/schemapb` | `npm version --no-git-tag-version` | `NPM_TOKEN` secret |
+| `py` | PyPI `schemapb` | `uv version` before `uv build` | `PYPI_TOKEN` secret |
+| `rust` | crates.io `schemapb` | `sed` on `Cargo.toml`, `cargo publish --allow-dirty` | `CARGO_REGISTRY_TOKEN` secret |
 
-## One-time trusted-publisher setup (per registry, no GitHub secrets)
+## One-time setup: three tokens → three GitHub secrets
 
-Registries authenticate via trusted publishing (OIDC): each registry is
-configured once to trust this repository + workflow file, GitHub mints a
-short-lived identity token per run, and no long-lived secrets are stored.
-All three entries point at repo `gopherex/schemapb`, workflow
-**`release.yml`**:
+Token auth was chosen over OIDC trusted publishing for setup simplicity
+(releases are rare). Tokens can create first-time packages, so even the
+very first release runs fully from CI — no manual publishes.
 
-- **npm** — npmjs.com → package `@gopherex/schemapb` → Settings → Trusted
-  publisher → GitHub Actions. Do **not** set `NODE_AUTH_TOKEN` in the
-  workflow — its presence makes npm fall back to the legacy token path.
-  Provenance attestations are generated automatically. Requires npm ≥
-  11.5.1 (bundled with Node 24).
-- **PyPI** — pypi.org → project `schemapb` → Publishing → Add trusted
-  publisher → GitHub. For the very first upload of a new project use a
-  *pending publisher* on pypi.org. `pypa/gh-action-pypi-publish` uses OIDC
-  automatically when no password is configured.
-- **crates.io** — crates.io → crate `schemapb` → Settings → Trusted
-  Publishing. The workflow exchanges the OIDC token via the official
-  `rust-lang/crates-io-auth-action`, which mints a short-lived (~15 min)
-  token and revokes it after the job. The very first `cargo publish` of a
-  new crate must be done manually with a personal token — trusted
-  publishing config requires an existing crate.
+Create the tokens:
 
-Go needs none of this: publishing is the tag itself.
+- **npm** (`NPM_TOKEN`) — npmjs.com: first create the `gopherex`
+  organization (owns the `@gopherex` scope), then Access Tokens → Granular
+  Access Token with read/write on packages of the `@gopherex` scope.
+  ⚠ npm caps publish-token lifetime at **90 days**: when a release fails
+  with 401/403, re-issue the token and update the secret.
+- **PyPI** (`PYPI_TOKEN`) — pypi.org (account + mandatory 2FA) → Account
+  settings → API tokens. For the first release the token must be
+  account-scoped (project `schemapb` doesn't exist yet); after the first
+  release you may replace it with a token scoped to the project. No expiry.
+- **crates.io** (`CARGO_REGISTRY_TOKEN`) — crates.io (login via GitHub,
+  **verified email required**) → Account Settings → API Tokens → scopes
+  `publish-new` + `publish-update`. No expiry.
+
+Store them in the GitHub repo: Settings → Secrets and variables → Actions →
+New repository secret, names exactly `NPM_TOKEN`, `PYPI_TOKEN`,
+`CARGO_REGISTRY_TOKEN`.
+
+Go needs no token: publishing is the tag itself; the workflow only gates it
+with tests and creates the GitHub release.
+
+Rotation: any of the three can be revoked and re-issued at any time —
+update the secret, re-run the failed job. If a language's publish failed
+while others succeeded, re-running just that job is safe (registries refuse
+duplicate versions; nothing is overwritten).

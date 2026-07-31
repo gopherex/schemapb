@@ -8,9 +8,12 @@
 # the tag. Every job re-runs its language's full lint+test gate — a red
 # gate blocks only that language's publish.
 #
-# Auth: trusted publishing (OIDC) everywhere — no stored registry tokens.
-# One-time setup per registry (all pointing at repo gopherex/schemapb,
-# workflow release.yml): see docs/RELEASING.md.
+# Auth: registry tokens stored as GitHub repo secrets (NPM_TOKEN,
+# PYPI_TOKEN, CARGO_REGISTRY_TOKEN) — chosen over OIDC trusted publishing
+# for setup simplicity (releases are rare; note the npm token has a max
+# 90-day lifetime and needs re-issuing when it expires). Tokens can also
+# create first-time packages, so the very first release runs fully from CI.
+# See docs/RELEASING.md.
 name: Release
 
 on:
@@ -42,14 +45,11 @@ jobs:
 
   ts:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write # OIDC exchange with npm
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
-          node-version: 24 # bundles npm >= 11.5.1, required for OIDC publish
+          node-version: 24
           registry-url: https://registry.npmjs.org
       - run: corepack enable
       - run: cd ts && yarn install --immutable
@@ -57,16 +57,13 @@ jobs:
       - run: cd ts && yarn build
       - name: Stamp version from tag
         run: cd ts && npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
-      # NODE_AUTH_TOKEN must NOT be set, or npm falls back to the legacy
-      # token path. Provenance is automatic under trusted publishing.
-      - name: Publish to npm (trusted publishing)
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: cd ts && npm publish --access public
 
   py:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write # OIDC exchange with PyPI
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v9
@@ -78,16 +75,14 @@ jobs:
       - name: Stamp version from tag
         run: cd py && uv version "${GITHUB_REF_NAME#v}"
       - run: cd py && uv build
-      - name: Publish to PyPI (trusted publishing)
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: py/dist
+          password: ${{ secrets.PYPI_TOKEN }}
 
   rust:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write # OIDC exchange with crates.io
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -101,10 +96,7 @@ jobs:
           v="${GITHUB_REF_NAME#v}"
           sed -i "0,/^version = \"0.0.0\"/s//version = \"$v\"/" Cargo.toml
           grep -q "^version = \"$v\"" Cargo.toml
-      - name: Authenticate with crates.io (trusted publishing)
-        id: auth
-        uses: rust-lang/crates-io-auth-action@v1
       - name: Publish to crates.io
         env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cd rust && cargo publish --allow-dirty
