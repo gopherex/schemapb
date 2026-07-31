@@ -19,7 +19,7 @@ EASYP_VERSION                 := v0.16.6
 PROTOC_GEN_GO_VERSION         := v1.36.11
 PROTOC_GEN_ES_VERSION         := 2.11.0
 PROTOC_GEN_PROST_VERSION      := 0.5.0
-PROTOC_GEN_PROST_CRATE_VERSION:= 0.5.0
+PROTOC_GEN_PROST_SERDE_VERSION:= 0.4.0
 BETTERPROTO2_COMPILER_VERSION := 0.10.1
 GOLANGCI_LINT_VERSION         := v2.6.2
 UV_VERSION                    := 0.9.28
@@ -50,9 +50,9 @@ configure: ## Bring environment to working state: fetch all pinned tools into ./
 	echo "--- protoc-gen-prost $(PROTOC_GEN_PROST_VERSION)"
 	cargo install --quiet --locked --root "$(TOOLS)/cargo" protoc-gen-prost --version $(PROTOC_GEN_PROST_VERSION)
 	ln -sf "$(TOOLS)/cargo/bin/protoc-gen-prost" "$(BIN)/protoc-gen-prost"
-	echo "--- protoc-gen-prost-crate $(PROTOC_GEN_PROST_CRATE_VERSION)"
-	cargo install --quiet --locked --root "$(TOOLS)/cargo" protoc-gen-prost-crate --version $(PROTOC_GEN_PROST_CRATE_VERSION)
-	ln -sf "$(TOOLS)/cargo/bin/protoc-gen-prost-crate" "$(BIN)/protoc-gen-prost-crate"
+	echo "--- protoc-gen-prost-serde $(PROTOC_GEN_PROST_SERDE_VERSION)"
+	cargo install --quiet --locked --root "$(TOOLS)/cargo" protoc-gen-prost-serde --version $(PROTOC_GEN_PROST_SERDE_VERSION)
+	ln -sf "$(TOOLS)/cargo/bin/protoc-gen-prost-serde" "$(BIN)/protoc-gen-prost-serde"
 	echo "--- protoc-gen-python_betterproto2 (compiler $(BETTERPROTO2_COMPILER_VERSION))"
 	python3 -m venv "$(TOOLS)/py"
 	"$(TOOLS)/py/bin/pip" install --quiet betterproto2_compiler==$(BETTERPROTO2_COMPILER_VERSION)
@@ -115,10 +115,22 @@ lint-py: ## Lint + typecheck Python (ruff + mypy via uv)
 test-py: ## Run Python tests (pytest)
 	cd py && "$(BIN)/uv" run pytest -q
 
+.PHONY: test-go
+test-go: ## Run Go tests
+	cd go && go test ./...
+
+.PHONY: lint-rust
+lint-rust: ## Lint Rust code (clippy pedantic+nursery + rustfmt check)
+	cd rust && cargo clippy --all-targets -- -D warnings && cargo fmt --check
+
+.PHONY: test-rust
+test-rust: ## Run Rust tests (conformance)
+	cd rust && cargo test --quiet
+
 .PHONY: breaking
 breaking: ## Check proto files for breaking changes against main
 	$(EASYP) --cfg schemapb/easyp.go.yaml breaking $(EASYP_ROOT) -p schemapb
 
 .PHONY: clean
 clean: ## Remove tools and generated code
-	rm -rf "$(BIN)" "$(TOOLS)" go/schemapb ts/src/gen py/src/schemapb/_gen rust/src rust/Cargo.toml
+	rm -rf "$(BIN)" "$(TOOLS)" go/schemapb ts/src/gen py/src/schemapb/_gen rust/src/gen/schemapb

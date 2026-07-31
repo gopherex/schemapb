@@ -47,9 +47,9 @@ pub mod value {
         #[prost(string, tag="9")]
         StringValue(::prost::alloc::string::String),
         #[prost(message, tag="10")]
-        DurationValue(::prost_types::Duration),
+        DurationValue(::pbjson_types::Duration),
         #[prost(message, tag="11")]
-        TimestampValue(::prost_types::Timestamp),
+        TimestampValue(::pbjson_types::Timestamp),
         #[prost(message, tag="12")]
         ListValue(super::ListValue),
         #[prost(message, tag="13")]
@@ -603,38 +603,38 @@ pub mod schema {
         pub struct Duration {
             /// Default value used when the field is unset. 
             #[prost(message, optional, tag="1")]
-            pub default: ::core::option::Option<::prost_types::Duration>,
+            pub default: ::core::option::Option<::pbjson_types::Duration>,
             /// Exclusive minimum: value > gt. 
             #[prost(message, optional, tag="2")]
-            pub gt: ::core::option::Option<::prost_types::Duration>,
+            pub gt: ::core::option::Option<::pbjson_types::Duration>,
             /// Inclusive minimum: value >= gte. 
             #[prost(message, optional, tag="3")]
-            pub gte: ::core::option::Option<::prost_types::Duration>,
+            pub gte: ::core::option::Option<::pbjson_types::Duration>,
             /// Exclusive maximum: value < lt. 
             #[prost(message, optional, tag="4")]
-            pub lt: ::core::option::Option<::prost_types::Duration>,
+            pub lt: ::core::option::Option<::pbjson_types::Duration>,
             /// Inclusive maximum: value <= lte. 
             #[prost(message, optional, tag="5")]
-            pub lte: ::core::option::Option<::prost_types::Duration>,
+            pub lte: ::core::option::Option<::pbjson_types::Duration>,
         }
         /// Timestamp field kind with optional range bounds. 
         #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
         pub struct Timestamp {
             /// Default value used when the field is unset. 
             #[prost(message, optional, tag="1")]
-            pub default: ::core::option::Option<::prost_types::Timestamp>,
+            pub default: ::core::option::Option<::pbjson_types::Timestamp>,
             /// Exclusive minimum: value > gt. 
             #[prost(message, optional, tag="2")]
-            pub gt: ::core::option::Option<::prost_types::Timestamp>,
+            pub gt: ::core::option::Option<::pbjson_types::Timestamp>,
             /// Inclusive minimum: value >= gte. 
             #[prost(message, optional, tag="3")]
-            pub gte: ::core::option::Option<::prost_types::Timestamp>,
+            pub gte: ::core::option::Option<::pbjson_types::Timestamp>,
             /// Exclusive maximum: value < lt. 
             #[prost(message, optional, tag="4")]
-            pub lt: ::core::option::Option<::prost_types::Timestamp>,
+            pub lt: ::core::option::Option<::pbjson_types::Timestamp>,
             /// Inclusive maximum: value <= lte. 
             #[prost(message, optional, tag="5")]
-            pub lte: ::core::option::Option<::prost_types::Timestamp>,
+            pub lte: ::core::option::Option<::pbjson_types::Timestamp>,
         }
         /// List field kind: a repeated value described by its element field(s). 
         #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1193,4 +1193,5 @@ pub struct Baked {
     #[prost(message, optional, tag="2")]
     pub values: ::core::option::Option<StructValue>,
 }
+include!("schemapb.serde.rs");
 // @@protoc_insertion_point(module)
