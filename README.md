@@ -109,7 +109,8 @@ make test-go test-ts test-py test-rust
 ```
 
 `make help` lists every target. CI runs the same gates
-(`.github/workflows/ci.yml`); releases are tag-driven per language
+(`.github/workflows/ci.yml`). Releasing is `make release`: one `vX.Y.Z` tag
+publishes all four languages in lockstep
 ([docs/RELEASING.md](docs/RELEASING.md)).
 
 Design rules that hold across all four implementations (typed identifier

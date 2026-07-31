@@ -127,6 +127,87 @@ lint-rust: ## Lint Rust code (clippy pedantic+nursery + rustfmt check)
 test-rust: ## Run Rust tests (conformance)
 	cd rust && cargo test --quiet
 
+# v2+ would require semantic import versioning for the Go module (/v2 in the
+# module path), which we don't support yet — keep releases on v0/v1.
+MAX_MAJOR := 1
+
+.PHONY: release
+release: ## Interactive lockstep release: one version, tag pair vX.Y.Z + go/vX.Y.Z
+	set -euo pipefail
+	cd "$$(git rev-parse --show-toplevel)"
+
+	# 1. everything committed?
+	if [ -n "$$(git status --porcelain)" ]; then
+	  echo "✗ Working tree is not clean — commit or stash first:"
+	  git status --short
+	  exit 1
+	fi
+
+	cur="$$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sed 's/^v//' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
+	cur="$${cur:-0.0.0}"
+	head="$$(git rev-parse --short HEAD)"
+	echo "Latest release: v$$cur    HEAD: $$head"
+	echo
+	echo "  1) recreate last tag (v$$cur) on HEAD   [force]"
+	echo "  2) bump version"
+	echo "  3) cancel"
+	read -r -p "> " action
+
+	# One release = one version across all four languages. The go/ prefix
+	# twin is required by the Go module proxy (module lives in go/); the
+	# release workflow triggers on the bare v-tag only.
+	tags_for() { echo "v$$1"; echo "go/v$$1"; }
+
+	case "$$action" in
+	1)
+	  if ! git tag -l "v$$cur" | grep -q .; then
+	    echo "✗ No release tags to recreate."; exit 1
+	  fi
+	  mapfile -t TAGS < <(tags_for "$$cur")
+	  echo
+	  echo "Will DELETE and recreate $${#TAGS[@]} tags of v$$cur on $$head, then force-push."
+	  read -r -p "Type 'yes' to proceed: " ok
+	  [ "$$ok" = "yes" ] || { echo "Aborted."; exit 0; }
+	  for t in "$${TAGS[@]}"; do
+	    git tag -d "$$t" 2>/dev/null || true
+	    git push origin ":refs/tags/$$t" 2>/dev/null || true
+	  done
+	  for t in "$${TAGS[@]}"; do git tag -a "$$t" -m "$$t"; done
+	  git push origin --force "$${TAGS[@]}"
+	  echo "✓ Recreated v$$cur on $$head."
+	  ;;
+	2)
+	  IFS=. read -r MA MI PA <<< "$$cur"
+	  echo
+	  echo "  1) major  -> v$$((MA+1)).0.0"
+	  echo "  2) minor  -> v$$MA.$$((MI+1)).0"
+	  echo "  3) patch  -> v$$MA.$$MI.$$((PA+1))"
+	  read -r -p "> " comp
+	  case "$$comp" in
+	    1) MA=$$((MA+1)); MI=0; PA=0 ;;
+	    2) MI=$$((MI+1)); PA=0 ;;
+	    3) PA=$$((PA+1)) ;;
+	    *) echo "Aborted."; exit 0 ;;
+	  esac
+	  if [ "$$MA" -gt "$(MAX_MAJOR)" ]; then
+	    echo "✗ v$$MA requires semantic import versioning (/v$$MA in the Go module path)."
+	    echo "  Not supported yet — stay on v0/v1."
+	    exit 1
+	  fi
+	  new="$$MA.$$MI.$$PA"
+	  mapfile -t TAGS < <(tags_for "$$new")
+	  echo
+	  echo "Release v$$new — will create $${#TAGS[@]} tags on $$head and push."
+	  echo "(versions are stamped from the tag by CI; manifests stay 0.0.0)"
+	  read -r -p "Type 'yes' to proceed: " ok
+	  [ "$$ok" = "yes" ] || { echo "Aborted."; exit 0; }
+	  for t in "$${TAGS[@]}"; do git tag -a "$$t" -m "$$t"; done
+	  git push origin "$${TAGS[@]}"
+	  echo "✓ Released v$$new."
+	  ;;
+	*) echo "Aborted." ;;
+	esac
+
 .PHONY: breaking
 breaking: ## Check proto files for breaking changes against main
 	$(EASYP) --cfg schemapb/easyp.go.yaml breaking $(EASYP_ROOT) -p schemapb
