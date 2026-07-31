@@ -2,7 +2,7 @@
 # module proxy for a module living in the go/ subdirectory). Nothing is
 # uploaded anywhere — the proxy pulls from the tag — so this workflow only
 # gates the tag with tests and publishes a GitHub release for visibility.
-# Token: built-in GITHUB_TOKEN (contents: write).
+# Auth: built-in GITHUB_TOKEN only.
 name: Release Go
 
 on:
@@ -10,7 +10,7 @@ on:
     tags: ["go/v*"]
 
 permissions:
-  contents: write
+  contents: write # create the GitHub release
 
 jobs:
   release:
@@ -22,10 +22,12 @@ jobs:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.sum
       - run: cd go && go build ./... && go test ./...
+      - name: Module version from tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#go/}" >> "$GITHUB_OUTPUT"
       - name: GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
-            --notes "Go module: \`go get github.com/gopherex/schemapb/go@${GITHUB_REF_NAME#go/}\`"
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: >
+            Go module: `go get github.com/gopherex/schemapb/go@${{ steps.ver.outputs.version }}`

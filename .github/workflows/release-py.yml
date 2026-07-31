@@ -1,6 +1,10 @@
-# PyPI release: push a `py/vX.Y.Z` tag. The committed pyproject version stays
-# 0.0.0; the publish version is stamped from the tag. Token: PYPI_TOKEN repo
-# secret (PyPI API token scoped to the schemapb project).
+# PyPI release: push a `py/vX.Y.Z` tag. The committed pyproject version
+# stays 0.0.0; the publish version is stamped from the tag.
+#
+# Auth: PyPI trusted publishing (OIDC) — no PYPI_TOKEN secret. Configure
+# once on pypi.org → project schemapb → Publishing → Add trusted publisher:
+# repo gopherex/schemapb, workflow release-py.yml. The action picks up the
+# OIDC token automatically when no password is given.
 name: Release Python
 
 on:
@@ -9,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # OIDC exchange with PyPI
 
 jobs:
   release:
@@ -24,8 +29,7 @@ jobs:
       - name: Stamp version from tag
         run: cd py && uv version "${GITHUB_REF_NAME#py/v}"
       - run: cd py && uv build
-      - name: Publish to PyPI
+      - name: Publish to PyPI (trusted publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: py/dist
-          password: ${{ secrets.PYPI_TOKEN }}

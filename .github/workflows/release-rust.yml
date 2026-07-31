@@ -1,6 +1,11 @@
 # crates.io release: push a `rust/vX.Y.Z` tag. The committed Cargo.toml
-# version stays 0.0.0; the publish version is stamped from the tag. Token:
-# CARGO_REGISTRY_TOKEN repo secret (crates.io API token).
+# version stays 0.0.0; the publish version is stamped from the tag.
+#
+# Auth: crates.io trusted publishing (OIDC) — no CARGO_REGISTRY_TOKEN
+# secret. Configure once on crates.io → crate schemapb → Settings → Trusted
+# Publishing: repo gopherex/schemapb, workflow release-rust.yml. The
+# official auth action mints a short-lived token and revokes it after the
+# job.
 name: Release Rust
 
 on:
@@ -9,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # OIDC exchange with crates.io
 
 jobs:
   release:
@@ -26,7 +32,10 @@ jobs:
           v="${GITHUB_REF_NAME#rust/v}"
           sed -i "0,/^version = \"0.0.0\"/s//version = \"$v\"/" Cargo.toml
           grep -q "^version = \"$v\"" Cargo.toml
+      - name: Authenticate with crates.io (trusted publishing)
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
       - name: Publish to crates.io
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: cd rust && cargo publish --allow-dirty
