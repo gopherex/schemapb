@@ -31,6 +31,7 @@ func (s *Schema) Render(name TemplateName, values map[string]any) (string, error
 	if err != nil {
 		return "", err
 	}
+
 	return e.Render(name, values)
 }
 
@@ -40,7 +41,13 @@ func (e *Engine) Render(name TemplateName, values map[string]any) (string, error
 	if tmpl == nil {
 		return "", fmt.Errorf("schemapb: no template %q in schema", name)
 	}
-	return tmpl.Render(e.renderContext(values))
+
+	out, err := tmpl.Render(e.renderContext(values))
+	if err != nil {
+		return "", fmt.Errorf("schemapb: render %q: %w", name, err)
+	}
+
+	return out, nil
 }
 
 // Render renders a Baked snapshot with the named template of its embedded
@@ -51,12 +58,17 @@ func (b *Baked) Render(name TemplateName) (string, error) {
 
 // renderContext builds the contract context from the schema and resolved
 // values. Inactive fields (when=false over the values) are excluded entirely.
+//
+//nolint:cyclop,funlen // one linear context build
 func (e *Engine) renderContext(values map[string]any) map[string]any {
 	if values == nil {
 		values = map[string]any{}
 	}
-	var fields []map[string]any
+
+	fields := make([]map[string]any, 0, len(e.schema.GetFields()))
+
 	var groups []map[string]any
+
 	groupIdx := map[string]int{}
 
 	for _, f := range e.schema.GetFields() {
@@ -65,20 +77,26 @@ func (e *Engine) renderContext(values map[string]any) map[string]any {
 				continue
 			}
 		}
+
 		val, set := values[f.GetName()]
 		display := ""
+
 		if set && val != nil {
 			display = displayString(val)
 		}
+
 		label := ""
+
 		if ch := f.GetChoice(); ch != nil && set {
 			for _, o := range ch.GetOptions() {
 				if nativeEqual(val, o.GetValue().ToGo()) {
 					label = o.GetLabel()
+
 					break
 				}
 			}
 		}
+
 		b, _ := val.(bool)
 		rf := map[string]any{
 			"name":        f.GetName(),
@@ -103,23 +121,32 @@ func (e *Engine) renderContext(values map[string]any) map[string]any {
 		fields = append(fields, rf)
 
 		g := f.GetGroup()
+
 		i, seen := groupIdx[g]
 		if !seen {
 			i = len(groups)
 			groupIdx[g] = i
+
 			groups = append(groups, map[string]any{"name": g, "fields": []map[string]any{}})
 		}
-		groups[i]["fields"] = append(groups[i]["fields"].([]map[string]any), rf)
+
+		if gf, ok := groups[i]["fields"].([]map[string]any); ok {
+			groups[i]["fields"] = append(gf, rf)
+		}
 	}
 
 	display := make(map[string]any, len(values))
+
 	for name, val := range values {
 		if val == nil {
 			display[name] = ""
+
 			continue
 		}
+
 		display[name] = displayString(val)
 	}
+
 	return map[string]any{"fields": fields, "groups": groups, "values": display}
 }
 
@@ -127,6 +154,7 @@ func onoff(b bool) string {
 	if b {
 		return "on"
 	}
+
 	return "off"
 }
 
@@ -134,6 +162,7 @@ func yesno(b bool) string {
 	if b {
 		return "yes"
 	}
+
 	return "no"
 }
 
@@ -146,6 +175,7 @@ func toUpper(s string) string {
 			out[i] = c - 'a' + 'A'
 		}
 	}
+
 	return string(out)
 }
 
@@ -156,6 +186,7 @@ func toLower(s string) string {
 			out[i] = c - 'A' + 'a'
 		}
 	}
+
 	return string(out)
 }
 
@@ -163,6 +194,8 @@ func toLower(s string) string {
 // in decimal, doubles in JSON number form, bool as true/false, duration in
 // Go form ("5m0s"), timestamps as RFC3339, bytes as std base64, lists and
 // objects as compact JSON (with the same leaf forms).
+//
+//nolint:cyclop // flat exhaustive native-type dispatch
 func displayString(v any) string {
 	switch t := v.(type) {
 	case string:
@@ -179,9 +212,10 @@ func displayString(v any) string {
 		return strconv.FormatInt(int64(t), 10)
 	case uint32:
 		return strconv.FormatUint(uint64(t), 10)
-	case float64, float32:
-		b, _ := json.Marshal(t)
-		return string(b)
+	case float64:
+		return jsonNumber(t)
+	case float32:
+		return jsonNumber(t)
 	case time.Duration:
 		return t.String()
 	case time.Time:
@@ -193,10 +227,22 @@ func displayString(v any) string {
 		if err != nil {
 			return fmt.Sprint(t)
 		}
+
 		return string(b)
 	default:
 		return fmt.Sprint(t)
 	}
+}
+
+// jsonNumber renders a float in JSON number form (NaN/Inf fall back to
+// fmt's form — they have no JSON encoding).
+func jsonNumber(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprint(v)
+	}
+
+	return string(b)
 }
 
 // displayJSON converts non-JSON leaves (duration, time, bytes) to their
@@ -210,12 +256,14 @@ func displayJSON(v any) any {
 		for i, el := range t {
 			out[i] = displayJSON(el)
 		}
+
 		return out
 	case map[string]any:
 		out := make(map[string]any, len(t))
 		for k, el := range t {
 			out[k] = displayJSON(el)
 		}
+
 		return out
 	default:
 		return v
@@ -223,6 +271,8 @@ func displayJSON(v any) any {
 }
 
 // kindName returns the short kind name used in render contexts.
+//
+//nolint:cyclop,funlen // flat exhaustive kind dispatch
 func kindName(f *Schema_Field) string {
 	switch f.GetKind().(type) {
 	case *Schema_Field_Float_:

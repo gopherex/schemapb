@@ -28,23 +28,28 @@ func CoreFormats() FormatRegistry {
 	return FormatRegistry{
 		FormatEmail: func(s string) bool {
 			_, err := mail.ParseAddress(s)
+
 			return err == nil
 		},
 		FormatURL: func(s string) bool {
 			_, err := url.ParseRequestURI(s)
+
 			return err == nil
 		},
 		FormatUUID: uuidRE.MatchString,
 		FormatIPv4: func(s string) bool {
 			addr, err := netip.ParseAddr(s)
+
 			return err == nil && addr.Is4()
 		},
 		FormatIPv6: func(s string) bool {
 			addr, err := netip.ParseAddr(s)
+
 			return err == nil && addr.Is6() && !addr.Is4In6()
 		},
 		FormatIP: func(s string) bool {
 			_, err := netip.ParseAddr(s)
+
 			return err == nil
 		},
 		FormatHostname: func(s string) bool {
@@ -52,20 +57,23 @@ func CoreFormats() FormatRegistry {
 		},
 		FormatDate: func(s string) bool {
 			_, err := time.Parse(time.DateOnly, s)
+
 			return err == nil
 		},
 		FormatTime: func(s string) bool {
 			_, err := time.Parse(time.TimeOnly, s)
+
 			return err == nil
 		},
 		FormatDatetime: func(s string) bool {
 			_, err := time.Parse(time.RFC3339, s)
+
 			return err == nil
 		},
 	}
 }
 
-// CompileOption customises Compile.
+// CompileOption customizes Compile.
 type CompileOption func(*compileConfig)
 
 type compileConfig struct {

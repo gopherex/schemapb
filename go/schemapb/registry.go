@@ -33,18 +33,23 @@ func (f *ListFilter) Match(id *SchemaIdentity) bool {
 	if f == nil {
 		return true
 	}
+
 	if f.Namespace != "" && id.Ns() != f.Namespace {
 		return false
 	}
+
 	if f.Name != "" && id.SchemaName() != f.Name {
 		return false
 	}
+
 	if !f.Version.IsZero() && id.GetVersion() != f.Version.String() {
 		return false
 	}
+
 	if f.NameContains != "" && !strings.Contains(strings.ToLower(id.GetName()), strings.ToLower(f.NameContains)) {
 		return false
 	}
+
 	return true
 }
 
@@ -83,13 +88,17 @@ func (r *InMemoryRegistry) Put(_ context.Context, s *Schema) error {
 	if s.GetId().GetName() == "" {
 		return ErrInvalidIdentity
 	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	key := identityKey(s.GetId())
 	if existing, ok := r.m[key]; ok && !proto.Equal(existing, s) {
 		return fmt.Errorf("%w: %s", ErrAlreadyRegistered, identityString(s.GetId()))
 	}
+
 	r.m[key] = s
+
 	return nil
 }
 
@@ -98,9 +107,11 @@ func (r *InMemoryRegistry) PutReplace(_ context.Context, s *Schema) error {
 	if s.GetId().GetName() == "" {
 		return ErrInvalidIdentity
 	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.m[identityKey(s.GetId())] = s
+
 	return nil
 }
 
@@ -108,9 +119,11 @@ func (r *InMemoryRegistry) PutReplace(_ context.Context, s *Schema) error {
 func (r *InMemoryRegistry) Get(_ context.Context, id *SchemaIdentity) (*Schema, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
 	if s, ok := r.m[identityKey(id)]; ok {
 		return s, nil
 	}
+
 	return nil, ErrNotFound
 }
 
@@ -119,11 +132,13 @@ func (r *InMemoryRegistry) List(_ context.Context, f *ListFilter) ([]*Schema, er
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]*Schema, 0, len(r.m))
+
 	for _, s := range r.m {
 		if f.Match(s.GetId()) {
 			out = append(out, s)
 		}
 	}
+
 	return out, nil
 }
 
@@ -140,10 +155,13 @@ func collectIDRefs(fields []*Schema_Field, out map[string]*SchemaIdentity) {
 				out[identityKey(id)] = id
 			}
 		}
+
 		if l := f.GetList(); l != nil {
 			collectIDRefs(l.GetItems(), out)
+
 			continue
 		}
+
 		for _, child := range nestedSchemas(f) {
 			collectIDRefs(child.GetFields(), out)
 		}
@@ -158,41 +176,51 @@ func collectIDRefs(fields []*Schema_Field, out map[string]*SchemaIdentity) {
 // further id-refs. Link returns a linked clone; the receiver is not modified.
 // An identity reg cannot supply, or a $defs key conflict, is an error.
 func (s *Schema) Link(ctx context.Context, reg Registry) (*Schema, error) {
-	root := proto.Clone(s).(*Schema)
+	root := cloneSchema(s)
 	if root.Defs == nil {
 		root.Defs = map[string]*Schema{}
 	}
+
 	if err := hoistDefs(root); err != nil {
 		return nil, err
 	}
+
 	for {
 		ids := map[string]*SchemaIdentity{}
 		collectIDRefs(root.GetFields(), ids)
-		for _, def := range root.Defs {
+
+		for _, def := range root.GetDefs() {
 			collectIDRefs(def.GetFields(), ids)
 		}
+
 		added := false
+
 		for key, id := range ids {
-			if _, ok := root.Defs[key]; ok {
+			if _, ok := root.GetDefs()[key]; ok {
 				continue
 			}
+
 			resolved, err := reg.Get(ctx, id)
 			if err != nil {
 				return nil, fmt.Errorf("schemapb: link: cannot resolve schema %s: %w", identityString(id), err)
 			}
-			clone := proto.Clone(resolved).(*Schema)
+
+			clone := cloneSchema(resolved)
 			for k, d := range clone.GetDefs() {
 				if err := addDef(root, k, d); err != nil {
 					return nil, err
 				}
 			}
+
 			clone.Defs = nil
 			root.Defs[key] = clone
 			added = true
 		}
+
 		if !added {
 			break
 		}
 	}
+
 	return root, nil
 }

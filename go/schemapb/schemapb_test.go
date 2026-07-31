@@ -2,13 +2,15 @@ package schemapb_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
-	schemapb "github.com/gopherex/schemapb/go/schemapb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	schemapb "github.com/gopherex/schemapb/go/schemapb"
 )
 
 // codes extracts the set of error codes from a result, path -> codes.
@@ -17,6 +19,7 @@ func codes(res *schemapb.ValidationResult) map[string][]schemapb.ErrorCode {
 	for _, e := range res.GetErrors() {
 		out[e.GetPath()] = append(out[e.GetPath()], e.GetCode())
 	}
+
 	return out
 }
 
@@ -26,15 +29,18 @@ func hasCode(res *schemapb.ValidationResult, path string, code schemapb.ErrorCod
 			return true
 		}
 	}
+
 	return false
 }
 
 func mustValidate(t *testing.T, s *schemapb.Schema, values map[string]any) *schemapb.ValidationResult {
 	t.Helper()
+
 	res, err := s.Validate(values)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
+
 	return res
 }
 
@@ -43,6 +49,8 @@ func mustValidate(t *testing.T, s *schemapb.Schema, values map[string]any) *sche
 // =============================================================================
 
 func TestNumericConstraints(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "num", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("i").Gt(0).Lte(100).MultipleOf(5),
 		schemapb.Double("d").Gte(0.5).Lt(2.5),
@@ -72,12 +80,15 @@ func TestNumericConstraints(t *testing.T) {
 			t.Errorf("%s: want %v, got %v", path, code, codes(bad)[path])
 		}
 	}
+
 	if !hasCode(bad, "i", schemapb.ErrorCode_ERROR_CODE_MULTIPLE_OF_VIOLATED) {
 		t.Errorf("i: want MULTIPLE_OF violation too")
 	}
 }
 
 func TestNumericTypeMismatch(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "num2", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("i"),
 		schemapb.UInt64("u"),
@@ -98,17 +109,22 @@ func TestNumericTypeMismatch(t *testing.T) {
 
 // Big int64 values survive exactly (the v0 float64 model lost them).
 func TestBigInt64Precision(t *testing.T) {
+	t.Parallel()
+
 	big := int64(1<<62) + 12345
 	s := schemapb.NewSchema(schemapb.ID("t", "big", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("x").Gte(big - 1).Lte(big + 1),
 	).MustBuild()
+
 	if res := mustValidate(t, s, map[string]any{"x": big}); !res.Ok() {
 		t.Fatalf("want valid: %v", res.GetErrors())
 	}
+
 	baked, _, err := s.Bake(map[string]any{"x": big})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if got := baked.GetValues().GetFields()["x"].GetInt64Value(); got != big {
 		t.Fatalf("precision lost: %d != %d", got, big)
 	}
@@ -117,6 +133,7 @@ func TestBigInt64Precision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !strings.Contains(string(j), `"4611686018427400249"`) {
 		t.Errorf("int64 not a JSON string: %s", j)
 	}
@@ -127,6 +144,8 @@ func TestBigInt64Precision(t *testing.T) {
 // =============================================================================
 
 func TestStringConstraints(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "str", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Str("host").MinLen(2).MaxLen(10).Pattern(`^[a-z-]+$`),
 		schemapb.Str("mode").In("fast", "slow"),
@@ -139,30 +158,37 @@ func TestStringConstraints(t *testing.T) {
 	}); !res.Ok() {
 		t.Fatalf("want valid: %v", res.GetErrors())
 	}
+
 	res := mustValidate(t, s, map[string]any{
 		"host": "DB!", "mode": "warp", "mail": "nope", "ip": "::1",
 	})
 	if !hasCode(res, "host", schemapb.ErrorCode_ERROR_CODE_PATTERN_MISMATCH) {
 		t.Errorf("host: %v", codes(res)["host"])
 	}
+
 	if !hasCode(res, "mode", schemapb.ErrorCode_ERROR_CODE_NOT_IN_ALLOWED_SET) {
 		t.Errorf("mode: %v", codes(res)["mode"])
 	}
+
 	if !hasCode(res, "mail", schemapb.ErrorCode_ERROR_CODE_FORMAT_MISMATCH) {
 		t.Errorf("mail: %v", codes(res)["mail"])
 	}
+
 	if !hasCode(res, "ip", schemapb.ErrorCode_ERROR_CODE_FORMAT_MISMATCH) {
 		t.Errorf("ip: %v", codes(res)["ip"])
 	}
 }
 
 func TestBytesConstraints(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "byt", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Bytes("b").MinLen(2).MaxLen(4).Prefix([]byte{0xDE}),
 	).MustBuild()
 	if res := mustValidate(t, s, map[string]any{"b": []byte{0xDE, 0xAD}}); !res.Ok() {
 		t.Fatalf("want valid: %v", res.GetErrors())
 	}
+
 	res := mustValidate(t, s, map[string]any{"b": []byte{0x01}})
 	if !hasCode(res, "b", schemapb.ErrorCode_ERROR_CODE_MIN_LEN_VIOLATED) ||
 		!hasCode(res, "b", schemapb.ErrorCode_ERROR_CODE_PREFIX_MISMATCH) {
@@ -171,6 +197,8 @@ func TestBytesConstraints(t *testing.T) {
 }
 
 func TestChoice(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "choice", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Choice("lvl").StrOpts("min", "replica", "logical"),
 		schemapb.Choice("cpu").IntOpts(2, 4, 8),
@@ -184,6 +212,7 @@ func TestChoice(t *testing.T) {
 	}); !res.Ok() {
 		t.Fatalf("want valid: %v", res.GetErrors())
 	}
+
 	res := mustValidate(t, s, map[string]any{"lvl": "extreme", "cpu": int64(3), "dyn": "z"})
 	for _, path := range []string{"lvl", "cpu", "dyn"} {
 		if !hasCode(res, path, schemapb.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED) {
@@ -207,6 +236,8 @@ func TestChoice(t *testing.T) {
 // =============================================================================
 
 func TestDurationTimestamp(t *testing.T) {
+	t.Parallel()
+
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	s := schemapb.NewSchema(schemapb.ID("t", "dt", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Duration("d").Gte(time.Second).Lte(time.Minute),
@@ -217,13 +248,16 @@ func TestDurationTimestamp(t *testing.T) {
 	if res := mustValidate(t, s, map[string]any{"d": 30 * time.Second, "ts": now.Add(time.Hour)}); !res.Ok() {
 		t.Fatalf("native: %v", res.GetErrors())
 	}
+
 	if res := mustValidate(t, s, map[string]any{"d": "30s", "ts": "2026-06-01T00:00:00Z"}); !res.Ok() {
 		t.Fatalf("string: %v", res.GetErrors())
 	}
+
 	res := mustValidate(t, s, map[string]any{"d": "2h", "ts": "2020-01-01T00:00:00Z"})
 	if !hasCode(res, "d", schemapb.ErrorCode_ERROR_CODE_LTE_VIOLATED) {
 		t.Errorf("d: %v", codes(res)["d"])
 	}
+
 	if !hasCode(res, "ts", schemapb.ErrorCode_ERROR_CODE_GTE_VIOLATED) {
 		t.Errorf("ts: %v", codes(res)["ts"])
 	}
@@ -234,6 +268,8 @@ func TestDurationTimestamp(t *testing.T) {
 // =============================================================================
 
 func TestPresence(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "pres", schemapb.MustVersion("v1"))).Strict().MinProps(1).MaxProps(3).Fields(
 		schemapb.Str("req").Required(),
 		schemapb.Str("opt"),
@@ -244,14 +280,17 @@ func TestPresence(t *testing.T) {
 	if !hasCode(res, "req", schemapb.ErrorCode_ERROR_CODE_REQUIRED_MISSING) {
 		t.Errorf("req: %v", codes(res)["req"])
 	}
+
 	if !hasCode(res, "opt", schemapb.ErrorCode_ERROR_CODE_NOT_NULLABLE) {
 		t.Errorf("opt: %v", codes(res)["opt"])
 	}
+
 	if !hasCode(res, "junk", schemapb.ErrorCode_ERROR_CODE_UNKNOWN_FIELD) {
 		t.Errorf("junk: %v", codes(res)["junk"])
 	}
-	if res := mustValidate(t, s, map[string]any{"req": "x", "nul": nil}); !res.Ok() {
-		t.Errorf("nullable null must pass: %v", res.GetErrors())
+
+	if res2 := mustValidate(t, s, map[string]any{"req": "x", "nul": nil}); !res2.Ok() {
+		t.Errorf("nullable null must pass: %v", res2.GetErrors())
 	}
 }
 
@@ -260,15 +299,19 @@ func TestPresence(t *testing.T) {
 // =============================================================================
 
 func TestCoerce(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "coerce", schemapb.MustVersion("v1"))).Coerce().Fields(
 		schemapb.Int64("i").Gte(10),
 		schemapb.Bool("b"),
 		schemapb.Double("d"),
 	).MustBuild()
 	vals := map[string]any{"i": "42", "b": "true", "d": "1.5"}
+
 	if res := mustValidate(t, s, vals); !res.Ok() {
 		t.Fatalf("coerce: %v", res.GetErrors())
 	}
+
 	if vals["i"] != int64(42) || vals["b"] != true || vals["d"] != 1.5 {
 		t.Errorf("coerced values: %#v", vals)
 	}
@@ -279,21 +322,27 @@ func TestCoerce(t *testing.T) {
 // =============================================================================
 
 func TestComputedDependencyOrder(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "comp", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("base").Default(10),
 		schemapb.Computed("double", "root.base * 2").Result(schemapb.ResultInt64),
 		schemapb.Computed("quad", "root.double * 2").Result(schemapb.ResultInt64),
 	).MustBuild()
+
 	out, res, err := s.Resolve(nil)
 	if err != nil || !res.Ok() {
 		t.Fatalf("%v %v", err, res.GetErrors())
 	}
+
 	if out["quad"] != int64(40) {
 		t.Errorf("quad = %v (%T)", out["quad"], out["quad"])
 	}
 }
 
 func TestComputedCycleRejectedAtCompile(t *testing.T) {
+	t.Parallel()
+
 	_, err := schemapb.NewSchema(schemapb.ID("t", "cycle", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Computed("a", "root.b + 1"),
 		schemapb.Computed("b", "root.a + 1"),
@@ -301,6 +350,7 @@ func TestComputedCycleRejectedAtCompile(t *testing.T) {
 	if err == nil {
 		t.Fatal("want cycle error")
 	}
+
 	var se *schemapb.SchemaError
 	if ok := errorsAs(err, &se); !ok {
 		t.Fatalf("want *SchemaError, got %T: %v", err, err)
@@ -309,20 +359,27 @@ func TestComputedCycleRejectedAtCompile(t *testing.T) {
 
 func errorsAs[T error](err error, target *T) bool {
 	for err != nil {
-		if t, ok := err.(T); ok {
+		var t T
+		if errors.As(err, &t) {
 			*target = t
+
 			return true
 		}
+
 		u, ok := err.(interface{ Unwrap() error })
 		if !ok {
 			return false
 		}
+
 		err = u.Unwrap()
 	}
+
 	return false
 }
 
 func TestWhenGate(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "when", schemapb.MustVersion("v1"))).Strict().Fields(
 		schemapb.Bool("advanced").Default(false),
 		schemapb.Int64("tuning").When("root.advanced == true").Required().Gte(1),
@@ -337,6 +394,7 @@ func TestWhenGate(t *testing.T) {
 	if !hasCode(res, "tuning", schemapb.ErrorCode_ERROR_CODE_REQUIRED_MISSING) {
 		t.Errorf("active: %v", codes(res))
 	}
+
 	active, err := s.FieldActive("tuning", map[string]any{"advanced": true})
 	if err != nil || !active {
 		t.Errorf("FieldActive: %v %v", active, err)
@@ -344,13 +402,17 @@ func TestWhenGate(t *testing.T) {
 }
 
 func TestNormalize(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "norm", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Str("host").Normalize("this.lowerAscii()").In("db-1"),
 	).MustBuild()
 	vals := map[string]any{"host": "DB-1"}
+
 	if res := mustValidate(t, s, vals); !res.Ok() {
 		t.Fatalf("normalize: %v", res.GetErrors())
 	}
+
 	if vals["host"] != "db-1" {
 		t.Errorf("host = %v", vals["host"])
 	}
@@ -361,9 +423,12 @@ func TestNormalize(t *testing.T) {
 // =============================================================================
 
 func TestImmutable(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "imm", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Str("sys").Immutable().Default("fixed"),
 	).MustBuild()
+
 	res := mustValidate(t, s, map[string]any{"sys": "changed"})
 	if !hasCode(res, "sys", schemapb.ErrorCode_ERROR_CODE_IMMUTABLE_MODIFIED) {
 		t.Fatalf("immutable: %v", res.GetErrors())
@@ -371,12 +436,15 @@ func TestImmutable(t *testing.T) {
 	// And the value is forced back to the default by resolve.
 	vals := map[string]any{"sys": "changed"}
 	_, _ = s.Validate(vals)
+
 	if vals["sys"] != "fixed" {
 		t.Errorf("not forced: %v", vals["sys"])
 	}
 }
 
 func TestRulesAndSeverity(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "rules", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("work_mem").Default(64),
 		schemapb.Int64("conns").Default(10).Rules(
@@ -390,15 +458,19 @@ func TestRulesAndSeverity(t *testing.T) {
 	if !hasCode(res, "conns", schemapb.ErrorCode_ERROR_CODE_RULE_VIOLATED) {
 		t.Errorf("field rule: %v", codes(res))
 	}
+
 	var sawWarn bool
+
 	for _, e := range res.GetErrors() {
 		if e.GetSeverity() == schemapb.SeverityWarning {
 			sawWarn = true
 		}
+
 		if e.GetRuleId() == "budget" && e.GetExpr() == "" {
 			t.Error("rule error must carry expr")
 		}
 	}
+
 	if !sawWarn {
 		t.Error("warning severity lost")
 	}
@@ -409,6 +481,8 @@ func TestRulesAndSeverity(t *testing.T) {
 // =============================================================================
 
 func TestList(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "list", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("replicas").Default(2),
 		schemapb.List("names", schemapb.Str("").MinLen(1)).MinItems(1).Unique().Count("int(root.replicas)"),
@@ -417,22 +491,28 @@ func TestList(t *testing.T) {
 	if res := mustValidate(t, s, map[string]any{"names": []any{"a", "b"}}); !res.Ok() {
 		t.Fatalf("valid list: %v", res.GetErrors())
 	}
+
 	res := mustValidate(t, s, map[string]any{"names": []any{"a", "a", ""}})
 	if !hasCode(res, "names", schemapb.ErrorCode_ERROR_CODE_LIST_COUNT_MISMATCH) {
 		t.Errorf("count: %v", codes(res))
 	}
+
 	if !hasCode(res, "names[1]", schemapb.ErrorCode_ERROR_CODE_NOT_UNIQUE) {
 		t.Errorf("unique: %v", codes(res))
 	}
+
 	if !hasCode(res, "names[2]", schemapb.ErrorCode_ERROR_CODE_MIN_LEN_VIOLATED) {
 		t.Errorf("item: %v", codes(res))
 	}
+
 	if n, err := s.ListCount("names", map[string]any{"replicas": int64(5)}); err != nil || n != 5 {
 		t.Errorf("ListCount: %v %v", n, err)
 	}
 }
 
 func TestListItemIndexBinding(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "idx", schemapb.MustVersion("v1"))).Fields(
 		schemapb.List("ports",
 			schemapb.Int64("").Rules(schemapb.Rule("int(this) == 8000 + index", "port must follow index")),
@@ -441,6 +521,7 @@ func TestListItemIndexBinding(t *testing.T) {
 	if res := mustValidate(t, s, map[string]any{"ports": []any{int64(8000), int64(8001)}}); !res.Ok() {
 		t.Fatalf("index binding: %v", res.GetErrors())
 	}
+
 	res := mustValidate(t, s, map[string]any{"ports": []any{int64(9999)}})
 	if !hasCode(res, "ports[0]", schemapb.ErrorCode_ERROR_CODE_RULE_VIOLATED) {
 		t.Errorf("index rule: %v", codes(res))
@@ -448,6 +529,8 @@ func TestListItemIndexBinding(t *testing.T) {
 }
 
 func TestNestedObject(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "obj", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Object("db",
 			schemapb.Str("host").Required(),
@@ -459,20 +542,24 @@ func TestNestedObject(t *testing.T) {
 	if !hasCode(res, "db.host", schemapb.ErrorCode_ERROR_CODE_REQUIRED_MISSING) {
 		t.Errorf("nested required: %v", codes(res))
 	}
+
 	if !hasCode(res, "db.port", schemapb.ErrorCode_ERROR_CODE_LTE_VIOLATED) {
 		t.Errorf("nested range: %v", codes(res))
 	}
 	// Defaults seed inside present objects.
 	vals := map[string]any{"db": map[string]any{"host": "x"}}
-	if res := mustValidate(t, s, vals); !res.Ok() {
-		t.Fatalf("%v", res.GetErrors())
+	if res2 := mustValidate(t, s, vals); !res2.Ok() {
+		t.Fatalf("%v", res2.GetErrors())
 	}
+
 	if vals["db"].(map[string]any)["port"] != int64(5432) {
 		t.Errorf("nested default: %v", vals)
 	}
 }
 
 func TestMapKind(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "map", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Map("subnets",
 			schemapb.Str("cidr").Required().Format("ipv4"),
@@ -486,29 +573,35 @@ func TestMapKind(t *testing.T) {
 	if !hasCode(res, "subnets.a-net.cidr", schemapb.ErrorCode_ERROR_CODE_REQUIRED_MISSING) {
 		t.Errorf("map value required: %v", codes(res))
 	}
+
 	if !hasCode(res, "subnets.b-net.evil", schemapb.ErrorCode_ERROR_CODE_UNKNOWN_FIELD) {
 		t.Errorf("map value strict: %v", codes(res))
 	}
 	// Deterministic order: a-net errors before b-net.
-	var order []string
+	order := make([]string, 0, len(res.GetErrors()))
 	for _, e := range res.GetErrors() {
 		order = append(order, e.GetPath())
 	}
+
 	ai, bi := -1, -1
 	for i, p := range order {
 		if strings.HasPrefix(p, "subnets.a-net") && ai == -1 {
 			ai = i
 		}
+
 		if strings.HasPrefix(p, "subnets.b-net") && bi == -1 {
 			bi = i
 		}
 	}
+
 	if ai == -1 || bi == -1 || ai > bi {
 		t.Errorf("map error order: %v", order)
 	}
 }
 
 func TestOneOf(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "oneof", schemapb.MustVersion("v1"))).Fields(
 		schemapb.OneOf("store", "type").
 			Variant("s3", schemapb.Str("bucket").Required()).
@@ -518,10 +611,12 @@ func TestOneOf(t *testing.T) {
 	if res := mustValidate(t, s, map[string]any{"store": map[string]any{"type": "s3", "bucket": "b"}}); !res.Ok() {
 		t.Fatalf("oneof valid: %v", res.GetErrors())
 	}
+
 	res := mustValidate(t, s, map[string]any{"store": map[string]any{"bucket": "b"}})
 	if !hasCode(res, "store", schemapb.ErrorCode_ERROR_CODE_DISCRIMINATOR_MISSING) {
 		t.Errorf("discriminator: %v", codes(res))
 	}
+
 	res = mustValidate(t, s, map[string]any{"store": map[string]any{"type": "gcs"}})
 	if !hasCode(res, "store", schemapb.ErrorCode_ERROR_CODE_UNKNOWN_VARIANT) {
 		t.Errorf("variant: %v", codes(res))
@@ -529,6 +624,8 @@ func TestOneOf(t *testing.T) {
 }
 
 func TestRefAndDefs(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "ref", schemapb.MustVersion("v1"))).
 		Def("endpoint",
 			schemapb.Str("host").Required(),
@@ -549,9 +646,12 @@ func TestRefAndDefs(t *testing.T) {
 }
 
 func TestLink(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	reg := schemapb.NewInMemoryRegistry()
 	epID := schemapb.ID("infra", "endpoint", schemapb.MustVersion("v1"))
+
 	shared := schemapb.NewSchema(epID).Fields(
 		schemapb.Str("host").Required(),
 	).MustBuild()
@@ -573,9 +673,11 @@ func TestLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res := mustValidate(t, linked, map[string]any{"ep": map[string]any{"host": "h"}}); !res.Ok() {
-		t.Errorf("linked: %v", res.GetErrors())
+
+	if res2 := mustValidate(t, linked, map[string]any{"ep": map[string]any{"host": "h"}}); !res2.Ok() {
+		t.Errorf("linked: %v", res2.GetErrors())
 	}
+
 	res = mustValidate(t, linked, map[string]any{"ep": map[string]any{}})
 	if !hasCode(res, "ep.host", schemapb.ErrorCode_ERROR_CODE_REQUIRED_MISSING) {
 		t.Errorf("linked required: %v", codes(res))
@@ -587,6 +689,8 @@ func TestLink(t *testing.T) {
 // =============================================================================
 
 func TestBakeMerge(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "bake", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Str("name").Required(),
 		schemapb.Object("res",
@@ -599,22 +703,29 @@ func TestBakeMerge(t *testing.T) {
 	if err != nil || res.Blocking() {
 		t.Fatalf("%v %v", err, res.GetErrors())
 	}
+
 	ov, _ := schemapb.StructFromGo(map[string]any{"res": map[string]any{"mem": int64(512)}})
+
 	merged, res2, err := baked.Merge(ov, false)
 	if err != nil || res2.Blocking() {
 		t.Fatalf("%v %v", err, res2.GetErrors())
 	}
+
 	got := merged.GetValues().ToGo()
 	rm := got["res"].(map[string]any)
+
 	if rm["cpu"] != int64(2) || rm["mem"] != int64(512) {
 		t.Errorf("merge: %#v", got)
 	}
+
 	if !merged.Matches(s) || merged.Matches(schemapb.NewSchema(schemapb.ID("x", "y", schemapb.Ver(9, 9, 9))).MustBuild()) {
 		t.Error("Matches broken")
 	}
 }
 
 func TestFilledBake(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("t", "filled", schemapb.MustVersion("v1"))).Fields(
 		schemapb.Int64("x").Default(7),
 	).MustBuild()
@@ -623,10 +734,12 @@ func TestFilledBake(t *testing.T) {
 		Schema: &schemapb.SchemaRef{Source: &schemapb.SchemaRef_Schema{Schema: s}},
 		Values: vals,
 	}
+
 	baked, res, err := filled.Bake()
 	if err != nil || res.Blocking() {
 		t.Fatalf("%v %v", err, res.GetErrors())
 	}
+
 	if baked.GetValues().GetFields()["x"].GetInt64Value() != 7 {
 		t.Errorf("filled bake: %v", baked.GetValues())
 	}
@@ -637,6 +750,8 @@ func TestFilledBake(t *testing.T) {
 // =============================================================================
 
 func TestSchemaProtoRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("infra", "pg", schemapb.MustVersion("v1"))).Strict().Fields(
 		schemapb.Int64("conns").Gte(1).Default(10),
 		schemapb.Choice("lvl").StrOpts("a"),
@@ -647,10 +762,12 @@ func TestSchemaProtoRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var back schemapb.Schema
 	if err := proto.Unmarshal(wire, &back); err != nil {
 		t.Fatal(err)
 	}
+
 	if !proto.Equal(s, &back) {
 		t.Fatal("schema wire round-trip lost data")
 	}
@@ -659,6 +776,7 @@ func TestSchemaProtoRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !hasCode(res, "conns", schemapb.ErrorCode_ERROR_CODE_GTE_VIOLATED) {
 		t.Errorf("decoded schema: %v", codes(res))
 	}
@@ -669,6 +787,8 @@ func TestSchemaProtoRoundTrip(t *testing.T) {
 // =============================================================================
 
 func TestInlineComposition(t *testing.T) {
+	t.Parallel()
+
 	inner := schemapb.NewSchema(schemapb.ID("lib", "endpoint", schemapb.MustVersion("v1"))).
 		Def("port", schemapb.Int64("value").Gte(1).Lte(65535)).
 		Fields(

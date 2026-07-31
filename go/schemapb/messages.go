@@ -16,6 +16,8 @@ import (
 // RULE_VIOLATED carries the rule author's message and EXPR_ERROR /
 // INVALID_SCHEMA carry runtime/compiler text — none of the three is
 // templated.
+//
+//nolint:gochecknoglobals // the spec-owned message-template table
 var messageTemplates = map[ErrorCode]string{
 	ErrorCode_ERROR_CODE_TYPE_MISMATCH:      "expected {expected}",
 	ErrorCode_ERROR_CODE_REQUIRED_MISSING:   "required",
@@ -72,17 +74,21 @@ func renderMessage(code ErrorCode, expected, actual *Value) string {
 	if !ok {
 		return ""
 	}
+
 	sub := func(s, ph string, v *Value) string {
 		if !strings.Contains(s, ph) {
 			return s
 		}
+
 		disp := "…"
 		if v != nil {
 			disp = displayString(v.ToGo())
 		}
+
 		return strings.ReplaceAll(s, ph, disp)
 	}
 	t = sub(t, "{expected}", expected)
 	t = sub(t, "{actual}", actual)
+
 	return t
 }

@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	schemapb "github.com/gopherex/schemapb/go/schemapb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	schemapb "github.com/gopherex/schemapb/go/schemapb"
 )
 
 // The golden files under conformance/golden/ are the cross-language contract
@@ -37,6 +38,7 @@ var goldenSchemaID = schemapb.ID("conformance", "kitchen_sink", schemapb.Ver(1, 
 // least once.
 func goldenSchema(t *testing.T) *schemapb.Schema {
 	t.Helper()
+
 	endpointID := schemapb.ID("conformance", "endpoint", schemapb.Ver(2, 1, 0))
 	endpoint := schemapb.NewSchema(endpointID).Fields(
 		schemapb.Str("host").Required(),
@@ -137,7 +139,7 @@ func goldenSchema(t *testing.T) *schemapb.Schema {
 
 			schemapb.Computed("cache", "root.i64 * 3").Result(schemapb.ResultInt64).
 				Group("numbers"),
-			schemapb.Json("annotations").Default(schemapb.MustFromGo(map[string]any{
+			schemapb.JSON("annotations").Default(schemapb.MustFromGo(map[string]any{
 				"team": "storage", "tier": int64(1),
 			})),
 			schemapb.Int64("debug_level").When(`root.mode == "slow"`).
@@ -157,18 +159,21 @@ func goldenSchema(t *testing.T) *schemapb.Schema {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return s
 }
 
 // goldenEngine compiles the schema with the conformance format extension.
 func goldenEngine(t *testing.T, s *schemapb.Schema) *schemapb.Engine {
 	t.Helper()
+
 	eng, err := schemapb.Compile(s, schemapb.WithFormats(schemapb.FormatRegistry{
 		"x.nonempty": func(v string) bool { return v != "" },
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return eng
 }
 
@@ -231,41 +236,53 @@ func brokenInput() map[string]any {
 // random whitespace by design).
 func stableJSON(t *testing.T, m proto.Message) []byte {
 	t.Helper()
+
 	raw, err := protojson.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var buf bytes.Buffer
 	if err := json.Indent(&buf, raw, "", "  "); err != nil {
 		t.Fatal(err)
 	}
+
 	buf.WriteByte('\n')
+
 	return buf.Bytes()
 }
 
 // checkGolden writes (with -update) or compares a golden file.
 func checkGolden(t *testing.T, name string, got []byte) {
 	t.Helper()
+
 	path := filepath.Join(goldenDir, name)
+
 	if *update {
 		if err := os.MkdirAll(goldenDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
+
 		if err := os.WriteFile(path, got, 0o644); err != nil {
 			t.Fatal(err)
 		}
+
 		return
 	}
+
 	want, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("golden %s missing (run: go test -run Golden -update ./...): %v", name, err)
 	}
+
 	if !bytes.Equal(got, want) {
 		t.Errorf("golden %s drifted; run go test -run Golden -update ./... and review the diff", name)
 	}
 }
 
 func TestGoldenFullSchema(t *testing.T) {
+	t.Parallel()
+
 	s := goldenSchema(t)
 	checkGolden(t, "full-schema.json", stableJSON(t, s))
 
@@ -274,57 +291,75 @@ func TestGoldenFullSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var back schemapb.Schema
 	if err := proto.Unmarshal(wire, &back); err != nil {
 		t.Fatal(err)
 	}
+
 	if !proto.Equal(s, &back) {
 		t.Fatal("kitchen-sink schema does not round-trip")
 	}
 }
 
 func TestGoldenBaked(t *testing.T) {
+	t.Parallel()
+
 	s := goldenSchema(t)
 	eng := goldenEngine(t, s)
+
 	baked, res, err := eng.Bake(validInput())
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res.Blocking() {
 		t.Fatalf("valid input must bake: %v", res.GetErrors())
 	}
+
 	checkGolden(t, "full-baked.json", stableJSON(t, baked.GetValues()))
 
 	rendered, err := baked.Render("conf")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	report, err := baked.Render("report")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	checkGolden(t, "full-rendered.txt", []byte(rendered+"---\n"+report))
 }
 
 func TestGoldenMessages(t *testing.T) {
+	t.Parallel()
+
 	tmpl := schemapb.MessageTemplates()
 	names := make(map[string]string, len(tmpl))
+
 	for code, text := range tmpl {
 		names[code.String()] = text
 	}
+
 	raw, err := json.MarshalIndent(names, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	checkGolden(t, "messages.json", append(raw, '\n'))
 }
 
 func TestGoldenValidationErrors(t *testing.T) {
+	t.Parallel()
+
 	s := goldenSchema(t)
 	eng := goldenEngine(t, s)
+
 	res := eng.Validate(brokenInput())
 	if !res.Blocking() {
 		t.Fatal("broken input must block")
 	}
+
 	checkGolden(t, "full-errors.json", stableJSON(t, res))
 }

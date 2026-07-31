@@ -21,6 +21,7 @@ PROTOC_GEN_ES_VERSION         := 2.11.0
 PROTOC_GEN_PROST_VERSION      := 0.5.0
 PROTOC_GEN_PROST_CRATE_VERSION:= 0.5.0
 BETTERPROTO2_COMPILER_VERSION := 0.10.1
+GOLANGCI_LINT_VERSION         := v2.6.2
 
 # easyp resolves protoc-gen-* plugins from PATH: put ./bin first. Paths in
 # the config are relative to the config file; --root pins search to repo root.
@@ -56,6 +57,8 @@ configure: ## Bring environment to working state: fetch all pinned tools into ./
 	ln -sf "$(TOOLS)/py/bin/protoc-gen-python_betterproto2" "$(BIN)/protoc-gen-python_betterproto2"
 	# betterproto2 compiler shells out to ruff (installed as its dependency)
 	ln -sf "$(TOOLS)/py/bin/ruff" "$(BIN)/ruff"
+	echo "--- golangci-lint $(GOLANGCI_LINT_VERSION)"
+	GOBIN="$(BIN)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	echo "✓ configure done — tools in $(BIN)"
 
 .PHONY: gen
@@ -80,6 +83,10 @@ gen-rust: ## Generate Rust protobuf code (rust/src/gen, prost)
 .PHONY: lint
 lint: ## Lint proto files
 	$(EASYP) --cfg schemapb/easyp.go.yaml lint $(EASYP_ROOT) -p schemapb
+
+.PHONY: lint-go
+lint-go: ## Lint Go code (golangci-lint, pinned in ./bin)
+	cd go && "$(BIN)/golangci-lint" run ./...
 
 .PHONY: breaking
 breaking: ## Check proto files for breaking changes against main

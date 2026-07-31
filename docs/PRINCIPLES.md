@@ -101,7 +101,16 @@ from `messages.json`. A feature does not exist until its golden passes.
 Unsupported anything fails loudly (`UNSUPPORTED_FORMAT` doctrine applies to
 everything).
 
-## 12. Secrets never leak
+## 12. Every implementation has its own linter — pinned, in ./bin
+
+Each language ships a strict lint configuration in its directory (Go:
+golangci-lint, TypeScript/Python/Rust: chosen per port) and a `lint-<lang>`
+Make target. Linter binaries are NEVER system-global: `make configure`
+installs the exact pinned version into `./bin`, same doctrine as the code
+generators. CI runs the linters; a suppression always carries a written
+reason (`nolint:<linter> // why`).
+
+## 13. Secrets never leak
 
 Masking strips the actual value AND re-renders the message from templates.
 Any new error path must prove (test) that a secret field's value appears

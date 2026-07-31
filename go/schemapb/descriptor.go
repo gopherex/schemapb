@@ -16,15 +16,20 @@ type SchemaError struct {
 // Error implements error.
 func (e *SchemaError) Error() string {
 	var b strings.Builder
+
 	b.WriteString("schemapb: invalid schema")
+
 	for _, err := range e.Result.GetErrors() {
 		b.WriteString("; ")
+
 		if p := err.GetPath(); p != "" {
 			b.WriteString(p)
 			b.WriteString(": ")
 		}
+
 		b.WriteString(err.GetMessage())
 	}
+
 	return b.String()
 }
 
@@ -47,43 +52,59 @@ func (s *Schema) CheckDescriptor() error {
 	if s.GetId().GetName() == "" {
 		errs = append(errs, schemaErr("id.name", "schema identity name is required"))
 	}
+
 	errs = append(errs, checkFields(s.GetFields(), "")...)
 	for name, def := range s.GetDefs() {
 		errs = append(errs, checkFields(def.GetFields(), "$defs."+name)...)
 	}
+
 	errs = append(errs, checkRefTargets(s.GetFields(), s.GetDefs(), "")...)
 	for name, def := range s.GetDefs() {
 		errs = append(errs, checkRefTargets(def.GetFields(), s.GetDefs(), "$defs."+name)...)
 	}
+
 	if len(errs) > 0 {
 		return &SchemaError{Result: &ValidationResult{Errors: errs}}
 	}
+
 	return nil
 }
 
 // checkFields verifies structural field well-formedness recursively.
+//
+//nolint:gocognit,cyclop,gocyclo,funlen // flat exhaustive descriptor checks per kind
 func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 	var errs []*ValidationError
+
 	seen := map[string]bool{}
+
 	for _, f := range fields {
 		path := joinPath(prefix, f.GetName())
+
 		if f.GetName() == "" {
 			errs = append(errs, schemaErr(prefix, "field name is required"))
+
 			continue
 		}
+
 		if seen[f.GetName()] {
 			errs = append(errs, schemaErr(path, "duplicate field name"))
 		}
+
 		seen[f.GetName()] = true
+
 		if f.GetKind() == nil {
 			errs = append(errs, schemaErr(path, "field kind is required"))
+
 			continue
 		}
+
 		for i, r := range f.GetRules() {
 			if r.GetExpr() == "" {
 				errs = append(errs, schemaErr(path, fmt.Sprintf("rule[%d]: empty expression", i)))
 			}
 		}
+
 		switch {
 		case f.GetComputed() != nil:
 			if f.GetComputed().GetExpr() == "" {
@@ -93,6 +114,7 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 			if f.GetOneOf().GetDiscriminator() == "" {
 				errs = append(errs, schemaErr(path, "oneof field: discriminator is required"))
 			}
+
 			if len(f.GetOneOf().GetVariants()) == 0 {
 				errs = append(errs, schemaErr(path, "oneof field: at least one variant is required"))
 			}
@@ -105,9 +127,11 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 			if len(l.GetItems()) == 0 {
 				errs = append(errs, schemaErr(path, "list field: at least one item definition is required"))
 			}
+
 			if len(l.GetItems()) > 1 {
 				if l.MinItems != nil || l.MaxItems != nil || l.GetUnique() || l.GetCountExpr() != "" {
-					errs = append(errs, schemaErr(path, "tuple list (multiple item definitions) cannot combine with min_items/max_items/unique/count_expr"))
+					errs = append(errs, schemaErr(path,
+						"tuple list (multiple item definitions) cannot combine with min_items/max_items/unique/count_expr"))
 				}
 			}
 		case f.GetChoice() != nil:
@@ -115,6 +139,7 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 			if !ch.GetOpen() && len(ch.GetOptions()) == 0 && ch.GetOptionsExpr() == "" {
 				errs = append(errs, schemaErr(path, "choice field: a closed choice requires options or options_expr"))
 			}
+
 			for i, o := range ch.GetOptions() {
 				if o.GetValue() == nil {
 					errs = append(errs, schemaErr(path, fmt.Sprintf("choice option[%d]: value is required", i)))
@@ -122,14 +147,16 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 			}
 		case f.GetMap() != nil:
 			mp := f.GetMap()
-			if mp.MinEntries != nil && mp.MaxEntries != nil && *mp.MinEntries > *mp.MaxEntries {
+			if mp.MinEntries != nil && mp.MaxEntries != nil && mp.GetMinEntries() > mp.GetMaxEntries() {
 				errs = append(errs, schemaErr(path, "map field: min_entries must be <= max_entries"))
 			}
 		}
+
 		for _, child := range nestedSchemas(f) {
 			errs = append(errs, checkFields(child.GetFields(), path)...)
 		}
 	}
+
 	return errs
 }
 
@@ -138,23 +165,29 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 // at Link time, not build time.
 func checkRefTargets(fields []*Schema_Field, rootDefs map[string]*Schema, prefix string) []*ValidationError {
 	var errs []*ValidationError
+
 	for _, f := range fields {
 		path := joinPath(prefix, f.GetName())
+
 		if ref := f.GetRef(); ref != nil && ref.GetId() == nil && ref.GetName() != "" {
 			if _, ok := rootDefs[ref.GetName()]; !ok {
 				errs = append(errs, schemaErr(path, fmt.Sprintf("ref %q is not defined in schema defs", ref.GetName())))
 			}
 		}
+
 		if l := f.GetList(); l != nil {
 			// Item fields carry their own nested schemas; recursing the items
 			// covers both (nestedSchemas would double-visit them).
 			errs = append(errs, checkRefTargets(l.GetItems(), rootDefs, path+"[]")...)
+
 			continue
 		}
+
 		for _, child := range nestedSchemas(f) {
 			errs = append(errs, checkRefTargets(child.GetFields(), rootDefs, path)...)
 		}
 	}
+
 	return errs
 }
 
@@ -163,5 +196,6 @@ func joinPath(prefix, name string) string {
 	if prefix == "" {
 		return name
 	}
+
 	return prefix + "." + name
 }

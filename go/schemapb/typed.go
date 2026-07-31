@@ -43,7 +43,7 @@ type Format string
 // =============================================================================
 
 // Version is a validated semantic version. The field is unexported: a Version
-// is either the zero value ("unversioned", serialises to "") or a canonical
+// is either the zero value ("unversioned", serializes to "") or a canonical
 // semver produced by Ver / ParseVersion / MustVersion — an invalid version is
 // unrepresentable. Validation and ordering delegate to golang.org/x/mod/semver
 // (the Go toolchain's own implementation).
@@ -55,18 +55,21 @@ func Ver(major, minor, patch uint64) Version {
 }
 
 // ParseVersion parses a semver string ("v1.2.3", "v1.2.3-rc.1"; shorthands
-// "v1" and "v1.2" canonicalise). An empty string is the zero Version. The
+// "v1" and "v1.2" canonicalize). An empty string is the zero Version. The
 // leading "v" may be omitted on input; the canonical form carries it.
 func ParseVersion(s string) (Version, error) {
 	if s == "" {
 		return Version{}, nil
 	}
+
 	if s[0] != 'v' {
 		s = "v" + s
 	}
+
 	if !semver.IsValid(s) {
 		return Version{}, fmt.Errorf("schemapb: invalid version %q", s)
 	}
+
 	return Version{s: semver.Canonical(s) + semver.Build(s)}, nil
 }
 
@@ -76,6 +79,7 @@ func MustVersion(s string) Version {
 	if err != nil {
 		panic(err)
 	}
+
 	return v
 }
 
@@ -96,6 +100,7 @@ func (v Version) Compare(o Version) int {
 	case o.s == "":
 		return 1
 	}
+
 	return semver.Compare(v.s, o.s)
 }
 
@@ -121,5 +126,6 @@ func (id *SchemaIdentity) SchemaName() SchemaName { return SchemaName(id.GetName
 // Ver returns the parsed version (zero when absent or unparseable).
 func (id *SchemaIdentity) Ver() Version {
 	v, _ := ParseVersion(id.GetVersion())
+
 	return v
 }

@@ -33,6 +33,7 @@ func Example() {
 	if err := reg.Put(ctx, endpoint); err != nil {
 		panic(err)
 	}
+
 	got, err := reg.Get(ctx, endpointID)
 	if err != nil {
 		panic(err)
@@ -41,9 +42,11 @@ func Example() {
 	// explicit.
 	dupe := schemapb.NewSchema(endpointID).Fields(schemapb.Bool("other")).MustBuild()
 	dupErr := reg.Put(ctx, dupe)
+
 	if err := reg.PutReplace(ctx, endpoint); err != nil {
 		panic(err)
 	}
+
 	listed, _ := reg.List(ctx, &schemapb.ListFilter{Namespace: "shared", NameContains: "END"})
 	fmt.Printf("registry: got %s@%s, listed %d, dupe rejected: %v\n",
 		got.GetId().SchemaName(), got.GetId().Ver(), len(listed), errors.Is(dupErr, schemapb.ErrAlreadyRegistered))
@@ -79,7 +82,7 @@ func Example() {
 			schemapb.Str("disk").Format("k8s.quantity").Default("10Gi"),
 			schemapb.Str("password").MinLen(8).Secret().Required(),
 			schemapb.Bytes("license").MinLen(4).MaxLen(64).Prefix([]byte("LIC-")),
-			schemapb.Json("annotations"),
+			schemapb.JSON("annotations"),
 
 			schemapb.Choice("wal_level").
 				Opt(schemapb.StrV("minimal"), "Minimal").
@@ -139,15 +142,18 @@ func Example() {
 	if err != nil {
 		panic(err)
 	}
+
 	if err := linked.CheckDescriptor(); err != nil {
 		panic(err)
 	}
+
 	eng, err := schemapb.Compile(linked, schemapb.WithFormats(schemapb.FormatRegistry{
 		"k8s.quantity": func(s string) bool { return s != "" && s != "0" },
 	}))
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println("compiled:", eng.Schema().GetId().GetName())
 
 	// --- 4. A malformed schema fails Build with a SchemaError ---------------
@@ -156,7 +162,9 @@ func Example() {
 		schemapb.Computed("a", "root.b + 1"),
 		schemapb.Computed("b", "root.a + 1"),
 	).Build()
+
 	var se *schemapb.SchemaError
+
 	if ok := errorsAs(err, &se); ok {
 		fmt.Println("schema errors:", len(se.Result.GetErrors()))
 	}
@@ -177,16 +185,21 @@ func Example() {
 	}
 	res := eng.Validate(bad)
 	fmt.Println("valid:", res.Ok(), "blocking:", res.Blocking())
-	var lines []string
+
+	lines := make([]string, 0, len(res.GetErrors()))
+
 	for _, e := range res.GetErrors() {
 		masked := ""
 		if e.GetPath() == "password" && e.GetActual() == nil {
 			masked = " (masked)"
 		}
+
 		lines = append(lines, fmt.Sprintf("%s: %s%s", e.GetPath(),
 			e.GetCode().String()[len("ERROR_CODE_"):], masked))
 	}
+
 	slices.Sort(lines)
+
 	for _, l := range lines {
 		fmt.Println(" ", l)
 	}
@@ -196,9 +209,11 @@ func Example() {
 	active, _ := eng.FieldActive("debug_level", map[string]any{"mode": "slow"})
 	optVals, _ := eng.ChoiceOptions("compression", map[string]any{"wal_level": "logical"})
 	opts := make([]string, len(optVals))
+
 	for i, v := range optVals {
 		opts[i] = v.GetStringValue()
 	}
+
 	count, _ := eng.ListCount("replica_names", map[string]any{"replica_count": int64(4)})
 	fmt.Printf("active=%v options=%v count=%d\n", active, opts, count)
 
@@ -224,16 +239,19 @@ func Example() {
 	if err != nil || bakeRes.Blocking() {
 		panic(fmt.Sprint(err, bakeRes.GetErrors()))
 	}
+
 	text, err := baked.Render("conf")
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Print(text)
 
 	merged, _, err := eng.Merge(baked, schemapb.MustStructFromGo(map[string]any{"autovacuum": false}), false)
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println("merged autovacuum:",
 		merged.GetValues().GetFields()["autovacuum"].GetBoolValue(),
 		"matches:", merged.Matches(linked))
@@ -242,10 +260,12 @@ func Example() {
 		Schema: &schemapb.SchemaRef{Source: &schemapb.SchemaRef_Schema{Schema: endpoint}},
 		Values: schemapb.MustStructFromGo(map[string]any{"host": "db.corp.io"}),
 	}
+
 	fromFilled, _, err := filled.Bake()
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println("filled port:", fromFilled.GetValues().GetFields()["port"].GetInt64Value())
 
 	// --- 9. The typed Value layer ------------------------------------------
@@ -260,15 +280,18 @@ func Example() {
 		schemapb.StructV(map[string]*schemapb.Value{"k": schemapb.Int64V(9)}),
 	)
 	native := wire.ToGo().([]any)
+
 	back, err := schemapb.FromGo(native)
 	if err != nil {
 		panic(err)
 	}
+
 	canon, err := schemapb.CanonicalValue(
 		schemapb.Int32("n").Done(), float64(42)) // integral float -> int32 kind
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Printf("values: native=%d roundtrip=%d canonical=%T\n",
 		len(native), len(back.GetListValue().GetItems()), canon.GetKind())
 

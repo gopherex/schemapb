@@ -11,12 +11,13 @@ import (
 // Baked snapshot (canonical wire values). On a blocking (ERROR) failure baked
 // is nil; warnings do not block and are returned alongside the Baked. The
 // returned error is programmatic only (schema does not compile, value cannot
-// be canonicalised).
+// be canonicalized).
 func (s *Schema) Bake(values map[string]any) (*Baked, *ValidationResult, error) {
 	e, err := s.engine()
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return e.Bake(values)
 }
 
@@ -26,10 +27,12 @@ func (e *Engine) Bake(values map[string]any) (*Baked, *ValidationResult, error) 
 	if res.Blocking() {
 		return nil, res, nil
 	}
+
 	st, err := e.canonicalStruct(values)
 	if err != nil {
 		return nil, res, fmt.Errorf("schemapb: bake: %w", err)
 	}
+
 	return &Baked{Schema: e.schema, Values: st}, res, nil
 }
 
@@ -38,10 +41,14 @@ func (e *Engine) Bake(values map[string]any) (*Baked, *ValidationResult, error) 
 // keys fall back to best-fit conversion).
 func (e *Engine) canonicalStruct(values map[string]any) (*StructValue, error) {
 	fields := make(map[string]*Value, len(values))
+
 	for name, val := range values {
 		f := findField(e.schema.GetFields(), name)
+
 		var v *Value
+
 		var err error
+
 		switch {
 		case f == nil:
 			v, err = FromGo(val)
@@ -49,24 +56,31 @@ func (e *Engine) canonicalStruct(values map[string]any) (*StructValue, error) {
 			if def := e.schema.GetDefs()[refDefKey(f.GetRef())]; def != nil {
 				if m, ok := val.(map[string]any); ok {
 					v, err = canonicalStruct(def, m, name)
+
 					break
 				}
 			}
+
 			v, err = FromGo(val)
 		case f.GetOneOf() != nil:
 			if variant, m := selectVariant(f.GetOneOf(), val); variant != nil {
 				v, err = canonicalStruct(variant, m, name)
+
 				break
 			}
+
 			v, err = FromGo(val)
 		default:
 			v, err = CanonicalValue(f, val)
 		}
+
 		if err != nil {
 			return nil, err
 		}
+
 		fields[name] = v
 	}
+
 	return &StructValue{Fields: fields}, nil
 }
 
@@ -79,6 +93,7 @@ func (e *Engine) canonicalStruct(values map[string]any) (*StructValue, error) {
 func (b *Baked) Merge(overrides *StructValue, replaceLists bool) (*Baked, *ValidationResult, error) {
 	base := b.GetValues().ToGo()
 	ov := overrides.ToGo()
+
 	return b.GetSchema().Bake(mergeMaps(base, ov, replaceLists))
 }
 
@@ -87,6 +102,7 @@ func (b *Baked) Merge(overrides *StructValue, replaceLists bool) (*Baked, *Valid
 func (e *Engine) Merge(b *Baked, overrides *StructValue, replaceLists bool) (*Baked, *ValidationResult, error) {
 	base := b.GetValues().ToGo()
 	ov := overrides.ToGo()
+
 	return e.Bake(mergeMaps(base, ov, replaceLists))
 }
 
@@ -103,6 +119,7 @@ func (f *Filled) Bake() (*Baked, *ValidationResult, error) {
 	if s == nil {
 		return nil, nil, errors.New("schemapb: Filled.Bake requires an inline schema (id refs resolve via a registry)")
 	}
+
 	return s.Bake(f.GetValues().ToGo())
 }
 
@@ -113,24 +130,30 @@ func mergeMaps(dst, src map[string]any, replaceLists bool) map[string]any {
 	for k, v := range dst {
 		out[k] = v
 	}
+
 	for k, sv := range src {
-		if dv, ok := out[k]; ok {
+		if dv, ok := out[k]; ok { //nolint:nestif // merge dispatch: object/list/scalar
 			if dm, ok1 := dv.(map[string]any); ok1 {
 				if sm, ok2 := sv.(map[string]any); ok2 {
 					out[k] = mergeMaps(dm, sm, replaceLists)
+
 					continue
 				}
 			}
+
 			if !replaceLists {
 				if dl, ok1 := dv.([]any); ok1 {
 					if sl, ok2 := sv.([]any); ok2 {
 						out[k] = append(append([]any{}, dl...), sl...)
+
 						continue
 					}
 				}
 			}
 		}
+
 		out[k] = sv
 	}
+
 	return out
 }

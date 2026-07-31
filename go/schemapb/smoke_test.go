@@ -8,6 +8,8 @@ import (
 )
 
 func TestSmokeResolve(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("infra", "pg", schemapb.MustVersion("v1"))).
 		Fields(
 			schemapb.Int64("shared_buffers").Gte(16).Default(128),
@@ -22,27 +24,35 @@ func TestSmokeResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(res.GetErrors()) != 0 {
 		t.Fatalf("resolve errors: %v", res.GetErrors())
 	}
+
 	if out["shared_buffers"] != int64(128) {
 		t.Errorf("default: %v (%T)", out["shared_buffers"], out["shared_buffers"])
 	}
+
 	if out["cache"] != int64(384) {
 		t.Errorf("computed: %v (%T)", out["cache"], out["cache"])
 	}
+
 	if out["mode"] != "FAST" {
 		t.Errorf("normalize: %v", out["mode"])
 	}
+
 	if out["timeout"] != 5*time.Second {
 		t.Errorf("duration default: %v (%T)", out["timeout"], out["timeout"])
 	}
+
 	if _, ok := out["hidden"]; ok {
 		t.Errorf("when-gated field seeded: %v", out["hidden"])
 	}
 }
 
 func TestSmokeValidate(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("infra", "pg", schemapb.MustVersion("v1"))).
 		Strict().
 		Fields(
@@ -64,13 +74,16 @@ func TestSmokeValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	got := map[schemapb.ErrorCode]int{}
 	for _, e := range res.GetErrors() {
 		got[e.GetCode()]++
+
 		if e.GetPath() == "pass" && e.GetActual() != nil {
 			t.Errorf("secret actual not masked: %v", e)
 		}
 	}
+
 	want := []schemapb.ErrorCode{
 		schemapb.ErrorCode_ERROR_CODE_GTE_VIOLATED,
 		schemapb.ErrorCode_ERROR_CODE_MIN_LEN_VIOLATED,
@@ -83,6 +96,7 @@ func TestSmokeValidate(t *testing.T) {
 			t.Errorf("missing code %v in %v", w, res.GetErrors())
 		}
 	}
+
 	if !res.Blocking() {
 		t.Error("expected blocking result")
 	}
@@ -95,25 +109,32 @@ func TestSmokeValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	baked, res2, err := eng.Bake(map[string]any{"conns": int64(42), "pass": "longenough", "mail": "a@b.co", "weird": "1Gi"})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res2.Blocking() {
 		t.Fatalf("unexpected blocking: %v", res2.GetErrors())
 	}
+
 	if len(res2.GetErrors()) != 1 || res2.GetErrors()[0].GetCode() != schemapb.ErrorCode_ERROR_CODE_RULE_VIOLATED {
 		t.Errorf("want single warning rule violation, got %v", res2.GetErrors())
 	}
+
 	if baked.GetValues().GetFields()["conns"].GetInt64Value() != 42 {
 		t.Errorf("canonical int64 lost: %v", baked.GetValues())
 	}
+
 	if !baked.Matches(s) {
 		t.Error("baked must match its schema")
 	}
 }
 
 func TestSmokeRender(t *testing.T) {
+	t.Parallel()
+
 	s := schemapb.NewSchema(schemapb.ID("infra", "pg", schemapb.MustVersion("v1"))).
 		Fields(
 			schemapb.Int64("shared_buffers").Default(128).Unit("MB").Group("Memory"),
@@ -131,10 +152,12 @@ func TestSmokeRender(t *testing.T) {
 	if err != nil || res.Blocking() {
 		t.Fatalf("bake: %v %v", err, res.GetErrors())
 	}
+
 	out, err := baked.Render("conf")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	want := "shared_buffers = 128\nautovacuum = true\nwal_level = replica # Replica\n"
 	if out != want {
 		t.Errorf("render:\n%q\nwant:\n%q", out, want)

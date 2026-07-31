@@ -5,14 +5,13 @@ import (
 	"regexp"
 	"sync"
 
+	"github.com/cbroglie/mustache"
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/ext"
-
-	"github.com/cbroglie/mustache"
 )
 
 // Engine is a compiled schema: every CEL expression (when / normalize /
@@ -33,6 +32,8 @@ type Engine struct {
 // celEnv is the single CEL environment of the spec: variables `this`, `root`,
 // `index`; full CEL plus the strings extension; numeric comparisons work
 // across int/uint/double.
+//
+//nolint:gochecknoglobals // one shared, immutable CEL environment per process
 var celEnv = sync.OnceValues(func() (*cel.Env, error) {
 	return cel.NewEnv(
 		cel.Variable("this", cel.DynType),
@@ -46,18 +47,23 @@ var celEnv = sync.OnceValues(func() (*cel.Env, error) {
 // Compile checks the descriptor, compiles every expression and pattern in the
 // schema (including defs), and statically rejects top-level computed-field
 // cycles. The returned Engine evaluates without further compilation.
+//
+//nolint:cyclop,funlen // one linear compile pipeline
 func Compile(s *Schema, opts ...CompileOption) (*Engine, error) {
 	if err := s.CheckDescriptor(); err != nil {
 		return nil, err
 	}
+
 	env, err := celEnv()
 	if err != nil {
 		return nil, fmt.Errorf("schemapb: cel environment: %w", err)
 	}
+
 	cfg := compileConfig{formats: CoreFormats()}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+
 	e := &Engine{
 		schema:    s,
 		progs:     map[string]cel.Program{},
@@ -66,55 +72,73 @@ func Compile(s *Schema, opts ...CompileOption) (*Engine, error) {
 		formats:   cfg.formats,
 		templates: map[string]*mustache.Template{},
 	}
+
 	var progOpts []cel.ProgramOption
 	if cfg.costLimit > 0 {
 		progOpts = append(progOpts, cel.CostLimit(cfg.costLimit), cel.CostTracking(nil))
 	}
+
 	var errs []*ValidationError
+
 	for src, path := range schemaExprs(s) {
 		if _, done := e.progs[src]; done {
 			continue
 		}
+
 		ast, iss := env.Compile(src)
 		if iss.Err() != nil {
 			errs = append(errs, schemaErr(path, fmt.Sprintf("cel: %v", iss.Err())))
+
 			continue
 		}
+
 		prg, err := env.Program(ast, progOpts...)
 		if err != nil {
 			errs = append(errs, schemaErr(path, fmt.Sprintf("cel: %v", err)))
+
 			continue
 		}
+
 		e.asts[src] = ast
 		e.progs[src] = prg
 	}
+
 	for name, src := range s.GetTemplates() {
 		tmpl, err := mustache.ParseString(src)
 		if err != nil {
 			errs = append(errs, schemaErr("templates."+name, fmt.Sprintf("mustache: %v", err)))
+
 			continue
 		}
+
 		e.templates[name] = tmpl
 	}
+
 	for pattern, path := range schemaPatterns(s) {
 		if _, done := e.regexps[pattern]; done {
 			continue
 		}
+
 		re, err := regexp.Compile(pattern)
 		if err != nil {
 			errs = append(errs, schemaErr(path, fmt.Sprintf("pattern: %v", err)))
+
 			continue
 		}
+
 		e.regexps[pattern] = re
 	}
+
 	if len(errs) == 0 {
 		if err := e.checkComputedCycles(); err != nil {
 			errs = append(errs, err...)
 		}
 	}
+
 	if len(errs) > 0 {
 		return nil, &SchemaError{Result: &ValidationResult{Errors: errs}}
 	}
+
 	return e, nil
 }
 
@@ -123,6 +147,8 @@ func (e *Engine) Schema() *Schema { return e.schema }
 
 // engineCache backs the convenience methods on *Schema (s.Validate, s.Resolve,
 // ...): one compiled engine per schema pointer.
+//
+//nolint:gochecknoglobals // process-wide compile cache is the point
 var engineCache sync.Map // *Schema -> engineEntry
 
 type engineEntry struct {
@@ -135,13 +161,19 @@ type engineEntry struct {
 // supported (compile explicitly with Compile for that).
 func (s *Schema) engine() (*Engine, error) {
 	if v, ok := engineCache.Load(s); ok {
-		entry := v.(engineEntry)
+		if entry, isEntry := v.(engineEntry); isEntry {
+			return entry.engine, entry.err
+		}
+	}
+
+	eng, err := Compile(s)
+
+	v, _ := engineCache.LoadOrStore(s, engineEntry{engine: eng, err: err})
+	if entry, isEntry := v.(engineEntry); isEntry {
 		return entry.engine, entry.err
 	}
-	eng, err := Compile(s)
-	v, _ := engineCache.LoadOrStore(s, engineEntry{engine: eng, err: err})
-	entry := v.(engineEntry)
-	return entry.engine, entry.err
+
+	return eng, err // unreachable: only engineEntry values are stored
 }
 
 // =============================================================================
@@ -160,7 +192,9 @@ func schemaExprs(s *Schema) map[string]string {
 			}
 		}
 	}
+
 	var walkFields func(fields []*Schema_Field, prefix string)
+
 	walkSchema := func(sub *Schema, prefix string) {
 		for i, r := range sub.GetRules() {
 			add(r.GetExpr(), fmt.Sprintf("%s#rule[%d]", prefix, i))
@@ -171,58 +205,72 @@ func schemaExprs(s *Schema) map[string]string {
 			path := joinPath(prefix, f.GetName())
 			add(f.GetWhen(), path+"#when")
 			add(f.GetNormalize(), path+"#normalize")
+
 			for i, r := range f.GetRules() {
 				add(r.GetExpr(), fmt.Sprintf("%s#rule[%d]", path, i))
 			}
+
 			if c := f.GetComputed(); c != nil {
 				add(c.GetExpr(), path+"#computed")
 			}
+
 			if ch := f.GetChoice(); ch != nil {
 				add(ch.GetOptionsExpr(), path+"#options")
 			}
+
 			if l := f.GetList(); l != nil {
 				add(l.GetCountExpr(), path+"#count")
 				walkFields(l.GetItems(), path+"[]")
 			}
+
 			for _, child := range nestedSchemas(f) {
 				walkSchema(child, path)
 				walkFields(child.GetFields(), path)
 			}
 		}
 	}
+
 	walkSchema(s, "")
 	walkFields(s.GetFields(), "")
+
 	for name, def := range s.GetDefs() {
 		walkSchema(def, "$defs."+name)
 		walkFields(def.GetFields(), "$defs."+name)
 	}
+
 	return out
 }
 
 // schemaPatterns yields every RE2 pattern in the schema with a field path.
 func schemaPatterns(s *Schema) map[string]string {
 	out := map[string]string{}
+
 	var walkFields func(fields []*Schema_Field, prefix string)
 	walkFields = func(fields []*Schema_Field, prefix string) {
 		for _, f := range fields {
 			path := joinPath(prefix, f.GetName())
+
 			if str := f.GetString_(); str != nil && str.GetPattern() != "" {
 				if _, ok := out[str.GetPattern()]; !ok {
 					out[str.GetPattern()] = path + "#pattern"
 				}
 			}
+
 			if l := f.GetList(); l != nil {
 				walkFields(l.GetItems(), path+"[]")
 			}
+
 			for _, child := range nestedSchemas(f) {
 				walkFields(child.GetFields(), path)
 			}
 		}
 	}
 	walkFields(s.GetFields(), "")
+
 	for name, def := range s.GetDefs() {
 		walkFields(def.GetFields(), "$defs."+name)
 	}
+
 	return out
 }
 
@@ -237,10 +285,12 @@ func (e *Engine) eval(src string, vars map[string]any) (any, error) {
 	if prg == nil {
 		return nil, fmt.Errorf("expression not compiled: %s", src)
 	}
+
 	out, _, err := prg.Eval(vars)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cel: %w", err)
 	}
+
 	return celToNative(out), nil
 }
 
@@ -250,10 +300,12 @@ func (e *Engine) evalBool(src string, vars map[string]any) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	b, ok := res.(bool)
 	if !ok {
 		return false, fmt.Errorf("expression yields %T, want bool", res)
 	}
+
 	return b, nil
 }
 
@@ -279,27 +331,36 @@ func celToNative(v ref.Val) any {
 	case types.Null:
 		return nil
 	}
+
 	if l, ok := v.(traits.Lister); ok {
 		var out []any
+
 		it := l.Iterator()
 		for it.HasNext() == types.True {
 			out = append(out, celToNative(it.Next()))
 		}
+
 		return out
 	}
+
 	if m, ok := v.(traits.Mapper); ok {
 		out := map[string]any{}
+
 		it := m.Iterator()
 		for it.HasNext() == types.True {
 			k := it.Next()
-			ks, ok := celToNative(k).(string)
-			if !ok {
+			ks, isStr := celToNative(k).(string)
+
+			if !isStr {
 				ks = fmt.Sprint(celToNative(k))
 			}
+
 			out[ks] = celToNative(m.Get(k))
 		}
+
 		return out
 	}
+
 	return v.Value()
 }
 
@@ -309,23 +370,30 @@ func celToNative(v ref.Val) any {
 
 // exprDeps returns the dotted root paths a compiled expression reads
 // (root.a -> "a", root.addr.zip -> "addr.zip", root["a"] -> "a").
+//
+//nolint:cyclop,funlen // flat exhaustive CEL AST-kind dispatch
 func (e *Engine) exprDeps(src string) []string {
 	a := e.asts[src]
 	if a == nil {
 		return nil
 	}
+
 	var deps []string
+
 	var walk func(x celast.Expr)
 	walk = func(x celast.Expr) {
 		if x == nil {
 			return
 		}
+
 		if p, ok := selectPath(x); ok {
 			if p != "" {
 				deps = append(deps, p)
 			}
+
 			return
 		}
+
 		switch x.Kind() {
 		case celast.SelectKind:
 			walk(x.AsSelect().Operand())
@@ -334,6 +402,7 @@ func (e *Engine) exprDeps(src string) []string {
 			if c.IsMemberFunction() {
 				walk(c.Target())
 			}
+
 			for _, a := range c.Args() {
 				walk(a)
 			}
@@ -358,9 +427,11 @@ func (e *Engine) exprDeps(src string) []string {
 			for _, f := range x.AsStruct().Fields() {
 				walk(f.AsStructField().Value())
 			}
+		default: // idents and literals carry no root selections
 		}
 	}
 	walk(a.NativeRep().Expr())
+
 	return deps
 }
 
@@ -372,37 +443,46 @@ func selectPath(x celast.Expr) (string, bool) {
 		if x.AsIdent() == "root" {
 			return "", true
 		}
+
 		return "", false
 	case celast.SelectKind:
 		sel := x.AsSelect()
+
 		base, ok := selectPath(sel.Operand())
 		if !ok {
 			return "", false
 		}
+
 		if base == "" {
 			return sel.FieldName(), true
 		}
+
 		return base + "." + sel.FieldName(), true
 	case celast.CallKind:
 		c := x.AsCall()
 		if c.FunctionName() != "_[_]" || len(c.Args()) != 2 {
 			return "", false
 		}
+
 		base, ok := selectPath(c.Args()[0])
 		if !ok {
 			return "", false
 		}
+
 		lit := c.Args()[1]
 		if lit.Kind() != celast.LiteralKind {
 			return "", false
 		}
+
 		key, ok := lit.AsLiteral().Value().(string)
 		if !ok {
 			return "", false
 		}
+
 		if base == "" {
 			return key, true
 		}
+
 		return base + "." + key, true
 	default:
 		return "", false
@@ -413,17 +493,22 @@ func selectPath(x celast.Expr) (string, bool) {
 // Computed fields (runtime resolution handles nested scopes).
 func (e *Engine) checkComputedCycles() []*ValidationError {
 	computed := map[string]*Schema_Field{}
+
 	var names []string
+
 	for _, f := range e.schema.GetFields() {
 		if f.GetComputed() != nil {
 			computed[f.GetName()] = f
 			names = append(names, f.GetName())
 		}
 	}
+
 	if len(computed) == 0 {
 		return nil
 	}
+
 	deps := map[string][]string{}
+
 	for name, f := range computed {
 		for _, d := range e.exprDeps(f.GetComputed().GetExpr()) {
 			if d != name {
@@ -433,13 +518,17 @@ func (e *Engine) checkComputedCycles() []*ValidationError {
 			}
 		}
 	}
+
 	const (
 		white = iota
 		gray
 		black
 	)
+
 	color := map[string]int{}
+
 	var errs []*ValidationError
+
 	var visit func(string) bool
 	visit = func(n string) bool {
 		switch color[n] {
@@ -448,22 +537,29 @@ func (e *Engine) checkComputedCycles() []*ValidationError {
 		case black:
 			return true
 		}
+
 		color[n] = gray
+
 		for _, d := range deps[n] {
 			if !visit(d) {
 				return false
 			}
 		}
+
 		color[n] = black
+
 		return true
 	}
+
 	for _, n := range names {
 		if color[n] == black {
 			continue
 		}
+
 		if !visit(n) {
 			errs = append(errs, schemaErr(n, "computed field cycle"))
 		}
 	}
+
 	return errs
 }

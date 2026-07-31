@@ -20,7 +20,9 @@ func (s *Schema) Resolve(values map[string]any) (map[string]any, *ValidationResu
 	if err != nil {
 		return values, nil, err
 	}
+
 	out, res := e.Resolve(values)
+
 	return out, res, nil
 }
 
@@ -29,11 +31,15 @@ func (e *Engine) Resolve(values map[string]any) (map[string]any, *ValidationResu
 	if values == nil {
 		values = map[string]any{}
 	}
+
 	res := &ValidationResult{}
+
 	var tasks []computeTask
+
 	e.seed(e.schema, values, "", &tasks, values, res)
 	e.runNormalize(e.schema, values, values, res)
 	e.runCompute(values, tasks, res)
+
 	return values, res
 }
 
@@ -55,11 +61,14 @@ func (e *Engine) active(f *Schema_Field, root map[string]any, path string, res *
 	if when == "" {
 		return true
 	}
+
 	ok, err := e.evalBool(when, map[string]any{"this": nil, "root": root})
 	if err != nil {
 		res.Errors = append(res.Errors, exprErr(path, when, "when: "+err.Error()))
+
 		return false
 	}
+
 	return ok
 }
 
@@ -73,10 +82,16 @@ type computeTask struct {
 
 // seed fills defaults for unset fields (immutable fields are forced to their
 // default) and collects Computed fields as tasks, recursing into present
-// containers. It never materialises an absent object, so optional sub-forms
+// containers. It never materializes an absent object, so optional sub-forms
 // stay absent and don't spuriously trip their children's "required" checks.
-func (e *Engine) seed(schema *Schema, scope map[string]any, prefix string, tasks *[]computeTask, root map[string]any, res *ValidationResult) {
+//
+//nolint:gocognit,cyclop,gocyclo // container traversal mirrors the schema tree
+func (e *Engine) seed(
+	schema *Schema, scope map[string]any, prefix string,
+	tasks *[]computeTask, root map[string]any, res *ValidationResult,
+) {
 	coerce := schema.GetCoerce()
+
 	for _, f := range schema.GetFields() {
 		name := f.GetName()
 		path := joinPath(prefix, name)
@@ -99,7 +114,7 @@ func (e *Engine) seed(schema *Schema, scope map[string]any, prefix string, tasks
 			if dv, ok := defaultValue(f); ok {
 				scope[name] = dv
 			}
-		} else if _, ok := scope[name]; !ok {
+		} else if _, present := scope[name]; !present {
 			if dv, ok := defaultValue(f); ok {
 				scope[name] = dv
 			}
@@ -119,8 +134,9 @@ func (e *Engine) seed(schema *Schema, scope map[string]any, prefix string, tasks
 					if it == nil {
 						continue
 					}
+
 					if o := it.GetObject(); o != nil && o.GetSchema() != nil {
-						if m, ok := el.(map[string]any); ok {
+						if m, isObj := el.(map[string]any); isObj {
 							e.seed(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks, root, res)
 						}
 					}
@@ -129,7 +145,7 @@ func (e *Engine) seed(schema *Schema, scope map[string]any, prefix string, tasks
 		case f.GetMap() != nil && f.GetMap().GetValueSchema() != nil:
 			if mm, ok := scope[name].(map[string]any); ok {
 				for k, el := range mm {
-					if m, ok := el.(map[string]any); ok {
+					if m, isObj := el.(map[string]any); isObj {
 						e.seed(f.GetMap().GetValueSchema(), m, joinPath(path, k), tasks, root, res)
 					}
 				}
@@ -158,6 +174,7 @@ func isTuple(l *Schema_Field_List) bool { return len(l.GetItems()) > 1 }
 // nil when i is outside the tuple.
 func listItemDef(l *Schema_Field_List, i int) *Schema_Field {
 	items := l.GetItems()
+
 	switch {
 	case len(items) == 1:
 		return items[0]
@@ -176,32 +193,40 @@ func selectVariant(oo *Schema_Field_OneOf, val any) (*Schema, map[string]any) {
 	if !ok {
 		return nil, nil
 	}
+
 	disc, ok := m[oo.GetDiscriminator()].(string)
 	if !ok || disc == "" {
 		return nil, nil
 	}
-	variant, ok := oo.GetVariants()[disc]
-	if !ok {
+
+	v, found := oo.GetVariants()[disc]
+	if !found {
 		return nil, nil
 	}
-	return variant, m
+
+	return v, m
 }
 
 // runNormalize applies normalize expressions to present, active fields,
 // recursing into containers. Runs after seed (defaults in place) and before
-// runCompute (Computed reads normalised values).
+// runCompute (Computed reads normalized values).
+//
+//nolint:gocognit,cyclop // container traversal mirrors the schema tree
 func (e *Engine) runNormalize(schema *Schema, scope, root map[string]any, res *ValidationResult) {
 	for _, f := range schema.GetFields() {
 		name := f.GetName()
+
 		cur, exists := scope[name]
 		if !exists || cur == nil {
 			continue
 		}
+
 		if f.GetWhen() != "" {
 			if ok, err := e.evalBool(f.GetWhen(), map[string]any{"this": nil, "root": root}); err != nil || !ok {
 				continue
 			}
 		}
+
 		if norm := f.GetNormalize(); norm != "" {
 			out, err := e.eval(norm, map[string]any{"this": cur, "root": root})
 			if err != nil {
@@ -211,40 +236,46 @@ func (e *Engine) runNormalize(schema *Schema, scope, root map[string]any, res *V
 				cur = out
 			}
 		}
+
 		if o := f.GetObject(); o != nil && o.GetSchema() != nil {
 			if child, ok := cur.(map[string]any); ok {
 				e.runNormalize(o.GetSchema(), child, root, res)
 			}
 		}
-		if l := f.GetList(); l != nil && len(l.GetItems()) >= 1 {
+
+		if l := f.GetList(); l != nil && len(l.GetItems()) >= 1 { //nolint:nestif // per-index tuple/list descent
 			if arr, ok := cur.([]any); ok {
 				for i, el := range arr {
 					it := listItemDef(l, i)
 					if it == nil {
 						continue
 					}
+
 					if obj := it.GetObject(); obj != nil && obj.GetSchema() != nil {
-						if m, ok := el.(map[string]any); ok {
+						if m, isObj := el.(map[string]any); isObj {
 							e.runNormalize(obj.GetSchema(), m, root, res)
 						}
 					}
 				}
 			}
 		}
+
 		if mp := f.GetMap(); mp != nil && mp.GetValueSchema() != nil {
 			if mm, ok := cur.(map[string]any); ok {
 				for _, el := range mm {
-					if m, ok := el.(map[string]any); ok {
+					if m, isObj := el.(map[string]any); isObj {
 						e.runNormalize(mp.GetValueSchema(), m, root, res)
 					}
 				}
 			}
 		}
+
 		if oo := f.GetOneOf(); oo != nil {
 			if variant, m := selectVariant(oo, cur); variant != nil {
 				e.runNormalize(variant, m, root, res)
 			}
 		}
+
 		if ref := f.GetRef(); ref != nil {
 			if def := e.schema.GetDefs()[refDefKey(ref)]; def != nil {
 				if m, ok := cur.(map[string]any); ok {
@@ -259,15 +290,20 @@ func (e *Engine) runNormalize(schema *Schema, scope, root map[string]any, res *V
 // expression reads), writing each result into its scope. Cycles between
 // nested scopes are reported and their fields left unevaluated (top-level
 // cycles are already rejected at Compile).
+//
+//nolint:cyclop,funlen // dependency-ordered evaluation in one pass
 func (e *Engine) runCompute(root map[string]any, tasks []computeTask, res *ValidationResult) {
 	if len(tasks) == 0 {
 		return
 	}
+
 	byPath := make(map[string]computeTask, len(tasks))
 	for _, t := range tasks {
 		byPath[t.path] = t
 	}
+
 	deps := map[string][]string{}
+
 	for _, t := range tasks {
 		for _, d := range e.exprDeps(t.field.GetComputed().GetExpr()) {
 			if d != t.path {
@@ -283,8 +319,11 @@ func (e *Engine) runCompute(root map[string]any, tasks []computeTask, res *Valid
 		gray
 		black
 	)
+
 	color := map[string]int{}
+
 	var order []computeTask
+
 	var visit func(string) bool
 	visit = func(p string) bool {
 		switch color[p] {
@@ -293,20 +332,27 @@ func (e *Engine) runCompute(root map[string]any, tasks []computeTask, res *Valid
 		case black:
 			return true
 		}
+
 		color[p] = gray
+
 		for _, d := range deps[p] {
 			if !visit(d) {
 				return false
 			}
 		}
+
 		color[p] = black
+
 		order = append(order, byPath[p])
+
 		return true
 	}
+
 	for _, t := range tasks {
 		if color[t.path] == black {
 			continue
 		}
+
 		if !visit(t.path) {
 			res.Errors = append(res.Errors, schemaErr(t.path, "computed field cycle"))
 		}
@@ -314,16 +360,21 @@ func (e *Engine) runCompute(root map[string]any, tasks []computeTask, res *Valid
 
 	for _, t := range order {
 		c := t.field.GetComputed()
+
 		out, err := e.eval(c.GetExpr(), map[string]any{"this": nil, "root": root})
 		if err != nil {
 			res.Errors = append(res.Errors, exprErr(t.path, c.GetExpr(), "compute: "+err.Error()))
+
 			continue
 		}
+
 		shaped, err := shapeResult(c.GetResult(), out)
 		if err != nil {
 			res.Errors = append(res.Errors, exprErr(t.path, c.GetExpr(), "compute: "+err.Error()))
+
 			continue
 		}
+
 		t.scope[t.field.GetName()] = shaped
 	}
 }
@@ -331,10 +382,13 @@ func (e *Engine) runCompute(root map[string]any, tasks []computeTask, res *Valid
 // shapeResult converts a computed result to the native representation of its
 // declared ResultType. UNSPECIFIED keeps the CEL-native value as is (numbers
 // stay honestly typed — no float64 flattening).
+//
+//nolint:cyclop // flat exhaustive ResultType dispatch
 func shapeResult(rt Schema_Field_ResultType, x any) (any, error) {
 	if x == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil // nil IS a valid computed result value
 	}
+
 	switch rt {
 	case Schema_Field_RESULT_TYPE_UNSPECIFIED, Schema_Field_RESULT_TYPE_JSON:
 		return x, nil
@@ -371,17 +425,21 @@ func shapeResult(rt Schema_Field_ResultType, x any) (any, error) {
 			return b, nil
 		}
 	}
+
 	return nil, fmt.Errorf("result %T does not match declared type %v", x, rt)
 }
 
 // coerceInput converts a string value to the field's expected native type.
 // Returns the coerced value and whether conversion occurred; unparseable
 // strings pass through so the type error reports normally.
+//
+//nolint:cyclop // flat exhaustive kind dispatch
 func coerceInput(f *Schema_Field, val any) (any, bool) {
 	s, ok := val.(string)
 	if !ok {
 		return val, false
 	}
+
 	switch {
 	case f.GetInt32() != nil, f.GetInt64() != nil:
 		if n, err := strconv.ParseInt(s, 10, 64); err == nil {
@@ -416,11 +474,14 @@ func coerceInput(f *Schema_Field, val any) (any, bool) {
 			return t, true
 		}
 	}
+
 	return val, false
 }
 
 // defaultValue returns a field's default in the native value model and
 // whether one is set.
+//
+//nolint:cyclop,funlen // flat exhaustive kind dispatch
 func defaultValue(f *Schema_Field) (any, bool) {
 	switch {
 	case f.GetFloat() != nil:
@@ -476,6 +537,7 @@ func defaultValue(f *Schema_Field) (any, bool) {
 			return d.ToGo(), true
 		}
 	}
+
 	return nil, false
 }
 
@@ -491,6 +553,7 @@ func (s *Schema) FieldActive(name FieldName, root map[string]any) (bool, error) 
 	if err != nil {
 		return false, err
 	}
+
 	return e.FieldActive(name, root)
 }
 
@@ -500,9 +563,11 @@ func (e *Engine) FieldActive(name FieldName, root map[string]any) (bool, error) 
 	if f == nil {
 		return false, fmt.Errorf("schemapb: unknown field %q", name)
 	}
+
 	if f.GetWhen() == "" {
 		return true, nil
 	}
+
 	return e.evalBool(f.GetWhen(), map[string]any{"this": nil, "root": root})
 }
 
@@ -514,6 +579,7 @@ func (s *Schema) ChoiceOptions(name FieldName, root map[string]any) ([]*Value, e
 	if err != nil {
 		return nil, err
 	}
+
 	return e.ChoiceOptions(name, root)
 }
 
@@ -523,26 +589,33 @@ func (e *Engine) ChoiceOptions(name FieldName, root map[string]any) ([]*Value, e
 	if f == nil || f.GetChoice() == nil {
 		return nil, fmt.Errorf("schemapb: field %q is not a choice", name)
 	}
+
 	ch := f.GetChoice()
 	if ch.GetOptionsExpr() == "" {
 		out := make([]*Value, 0, len(ch.GetOptions()))
 		for _, o := range ch.GetOptions() {
 			out = append(out, o.GetValue())
 		}
+
 		return out, nil
 	}
+
 	natives, err := e.evalChoiceOptions(ch.GetOptionsExpr(), root)
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]*Value, 0, len(natives))
+
 	for _, el := range natives {
 		v, err := FromGo(el)
 		if err != nil {
 			return nil, err
 		}
+
 		out = append(out, v)
 	}
+
 	return out, nil
 }
 
@@ -552,10 +625,12 @@ func (e *Engine) evalChoiceOptions(src string, root map[string]any) ([]any, erro
 	if err != nil {
 		return nil, err
 	}
+
 	arr, ok := res.([]any)
 	if !ok {
 		return nil, fmt.Errorf("options_expr yields %T, want a list", res)
 	}
+
 	return arr, nil
 }
 
@@ -566,6 +641,7 @@ func (s *Schema) ListCount(name FieldName, root map[string]any) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	return e.ListCount(name, root)
 }
 
@@ -575,10 +651,12 @@ func (e *Engine) ListCount(name FieldName, root map[string]any) (int64, error) {
 	if f == nil || f.GetList() == nil {
 		return 0, fmt.Errorf("schemapb: field %q is not a list", name)
 	}
+
 	ce := f.GetList().GetCountExpr()
 	if ce == "" {
 		return 0, fmt.Errorf("schemapb: field %q has no count_expr", name)
 	}
+
 	return e.evalCount(ce, root)
 }
 
@@ -588,10 +666,12 @@ func (e *Engine) evalCount(src string, root map[string]any) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	n, ok := asInt64(res)
 	if !ok || n < 0 {
 		return 0, fmt.Errorf("count_expr yields %v, want a non-negative int", res)
 	}
+
 	return n, nil
 }
 
@@ -602,5 +682,6 @@ func findField(fields []*Schema_Field, name string) *Schema_Field {
 			return f
 		}
 	}
+
 	return nil
 }

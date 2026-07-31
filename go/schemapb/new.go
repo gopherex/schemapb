@@ -41,7 +41,7 @@ const (
 	ResultDuration  = Schema_Field_RESULT_TYPE_DURATION
 	ResultTimestamp = Schema_Field_RESULT_TYPE_TIMESTAMP
 	ResultBytes     = Schema_Field_RESULT_TYPE_BYTES
-	ResultJson      = Schema_Field_RESULT_TYPE_JSON
+	ResultJSON      = Schema_Field_RESULT_TYPE_JSON
 )
 
 // Core string formats (see the spec's format registry; String.Format accepts
@@ -74,19 +74,34 @@ func NewSchema(id *SchemaIdentity) *SchemaB {
 }
 
 // Descr sets the schema description.
-func (b *SchemaB) Descr(d string) *SchemaB { b.s.Description = &d; return b }
+func (b *SchemaB) Descr(d string) *SchemaB {
+	b.s.Description = &d
+	return b
+}
 
 // Strict enables strict mode: unknown keys in the values map are rejected.
-func (b *SchemaB) Strict() *SchemaB { b.s.Strict = true; return b }
+func (b *SchemaB) Strict() *SchemaB {
+	b.s.Strict = true
+	return b
+}
 
 // Coerce enables input coercion: string inputs are coerced to the field's kind.
-func (b *SchemaB) Coerce() *SchemaB { b.s.Coerce = true; return b }
+func (b *SchemaB) Coerce() *SchemaB {
+	b.s.Coerce = true
+	return b
+}
 
 // MinProps sets the minimum number of properties required in the values map.
-func (b *SchemaB) MinProps(n uint64) *SchemaB { b.s.MinProperties = &n; return b }
+func (b *SchemaB) MinProps(n uint64) *SchemaB {
+	b.s.MinProperties = &n
+	return b
+}
 
 // MaxProps sets the maximum number of properties allowed in the values map.
-func (b *SchemaB) MaxProps(n uint64) *SchemaB { b.s.MaxProperties = &n; return b }
+func (b *SchemaB) MaxProps(n uint64) *SchemaB {
+	b.s.MaxProperties = &n
+	return b
+}
 
 // Template registers a named render template (Mustache) on the schema. Render
 // it with (*Schema).Render(name, values) or (*Baked).Render(name).
@@ -94,7 +109,9 @@ func (b *SchemaB) Template(name TemplateName, tmpl string) *SchemaB {
 	if b.s.Templates == nil {
 		b.s.Templates = map[string]string{}
 	}
+
 	b.s.Templates[string(name)] = tmpl
+
 	return b
 }
 
@@ -103,6 +120,7 @@ func (b *SchemaB) Fields(defs ...FieldDef) *SchemaB {
 	for _, d := range defs {
 		b.s.Fields = append(b.s.Fields, d.Done())
 	}
+
 	return b
 }
 
@@ -111,6 +129,7 @@ func (b *SchemaB) Rules(rules ...RuleDef) *SchemaB {
 	for _, r := range rules {
 		b.s.Rules = append(b.s.Rules, r.Done())
 	}
+
 	return b
 }
 
@@ -121,11 +140,14 @@ func (b *SchemaB) Def(name DefName, fields ...FieldDef) *SchemaB {
 	if b.s.Defs == nil {
 		b.s.Defs = map[string]*Schema{}
 	}
+
 	sub := &Schema{}
 	for _, d := range fields {
 		sub.Fields = append(sub.Fields, d.Done())
 	}
+
 	b.s.Defs[string(name)] = sub
+
 	return b
 }
 
@@ -174,9 +196,11 @@ func (b *SchemaB) Build() (*Schema, error) {
 	if err := hoistDefs(b.s); err != nil {
 		return nil, err
 	}
+
 	if _, err := b.s.engine(); err != nil {
 		return nil, err
 	}
+
 	return b.s, nil
 }
 
@@ -186,6 +210,7 @@ func (b *SchemaB) MustBuild() *Schema {
 	if err != nil {
 		panic(err)
 	}
+
 	return s
 }
 
@@ -209,13 +234,26 @@ func Rule(expr, msg string) *RuleB {
 }
 
 // ID sets the stable rule id.
-func (b *RuleB) ID(id RuleID) *RuleB { s := string(id); b.r.Id = &s; return b }
+func (b *RuleB) ID(id RuleID) *RuleB {
+	s := string(id)
+	b.r.Id = &s
+
+	return b
+}
 
 // Warn marks the rule as a WARNING (does not block submit).
-func (b *RuleB) Warn() *RuleB { s := SeverityWarning; b.r.Severity = &s; return b }
+func (b *RuleB) Warn() *RuleB {
+	s := SeverityWarning
+	b.r.Severity = &s
+
+	return b
+}
 
 // Severity sets the rule severity explicitly.
-func (b *RuleB) Severity(s Schema_Field_Severity) *RuleB { b.r.Severity = &s; return b }
+func (b *RuleB) Severity(s Schema_Field_Severity) *RuleB {
+	b.r.Severity = &s
+	return b
+}
 
 // Done returns the built rule.
 func (b *RuleB) Done() *Schema_Field_Rule { return b.r }
@@ -242,35 +280,65 @@ func newField[S any](name FieldName, self S) fieldBase[S] {
 }
 
 // Required marks the field as mandatory: its value must be present.
-func (b fieldBase[S]) Required() S { b.f.Required = true; return b.self }
+func (b fieldBase[S]) Required() S {
+	b.f.Required = true
+	return b.self
+}
 
 // Nullable allows an explicit null/empty value.
-func (b fieldBase[S]) Nullable() S { b.f.Nullable = true; return b.self }
+func (b fieldBase[S]) Nullable() S {
+	b.f.Nullable = true
+	return b.self
+}
 
 // Immutable pins the field to its default (system-fixed value).
-func (b fieldBase[S]) Immutable() S { b.f.Immutable = true; return b.self }
+func (b fieldBase[S]) Immutable() S {
+	b.f.Immutable = true
+	return b.self
+}
 
 // Group sets an informative section label. Purely informative.
-func (b fieldBase[S]) Group(g GroupName) S { s := string(g); b.f.Group = &s; return b.self }
+func (b fieldBase[S]) Group(g GroupName) S {
+	s := string(g)
+	b.f.Group = &s
+
+	return b.self
+}
 
 // Unit sets an informative value unit ("MB", "ms"). Purely informative.
-func (b fieldBase[S]) Unit(u string) S { b.f.Unit = &u; return b.self }
+func (b fieldBase[S]) Unit(u string) S {
+	b.f.Unit = &u
+	return b.self
+}
 
 // Desc sets the human description.
-func (b fieldBase[S]) Desc(d string) S { b.f.Description = &d; return b.self }
+func (b fieldBase[S]) Desc(d string) S {
+	b.f.Description = &d
+	return b.self
+}
 
 // Title sets an informative human title. Purely informative.
-func (b fieldBase[S]) Title(t string) S { b.f.Title = &t; return b.self }
+func (b fieldBase[S]) Title(t string) S {
+	b.f.Title = &t
+	return b.self
+}
 
 // Deprecated marks the field as deprecated. Purely informative.
-func (b fieldBase[S]) Deprecated() S { b.f.Deprecated = true; return b.self }
+func (b fieldBase[S]) Deprecated() S {
+	b.f.Deprecated = true
+	return b.self
+}
 
 // Secret marks the field as sensitive; its value is masked in errors.
-func (b fieldBase[S]) Secret() S { b.f.Secret = true; return b.self }
+func (b fieldBase[S]) Secret() S {
+	b.f.Secret = true
+	return b.self
+}
 
 // Examples attaches example values. Purely informative.
 func (b fieldBase[S]) Examples(vals ...*Value) S {
 	b.f.Examples = append(b.f.Examples, vals...)
+
 	return b.self
 }
 
@@ -279,17 +347,24 @@ func (b fieldBase[S]) Rules(rules ...RuleDef) S {
 	for _, r := range rules {
 		b.f.Rules = append(b.f.Rules, r.Done())
 	}
+
 	return b.self
 }
 
 // Normalize sets the normalize expression: `this` = current value, `root` =
 // whole form; the expression result becomes the new value.
-func (b fieldBase[S]) Normalize(e string) S { b.f.Normalize = &e; return b.self }
+func (b fieldBase[S]) Normalize(e string) S {
+	b.f.Normalize = &e
+	return b.self
+}
 
 // When sets the conditional gate: a CEL boolean over `root`. When false the
 // field (and its subtree) is inactive — skipped by validation, hidden by
 // renderers. `this` is not bound.
-func (b fieldBase[S]) When(e string) S { b.f.When = &e; return b.self }
+func (b fieldBase[S]) When(e string) S {
+	b.f.When = &e
+	return b.self
+}
 
 // Done returns the built field.
 func (b fieldBase[S]) Done() *Schema_Field { return b.f }
@@ -315,39 +390,68 @@ func newNum[T any](name FieldName, k numSpec[T], kind isSchema_Field_Kind) *NumB
 	b := &NumB[T]{k: k}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = kind
+
 	return b
 }
 
 // Default sets the value used when the field is unset.
-func (b *NumB[T]) Default(v T) *NumB[T] { *b.k.def = &v; return b }
+func (b *NumB[T]) Default(v T) *NumB[T] {
+	*b.k.def = &v
+	return b
+}
 
 // Const requires the value to equal exactly v.
-func (b *NumB[T]) Const(v T) *NumB[T] { *b.k.con = &v; return b }
+func (b *NumB[T]) Const(v T) *NumB[T] {
+	*b.k.con = &v
+	return b
+}
 
 // Gt sets the exclusive minimum.
-func (b *NumB[T]) Gt(v T) *NumB[T] { *b.k.gt = &v; return b }
+func (b *NumB[T]) Gt(v T) *NumB[T] {
+	*b.k.gt = &v
+	return b
+}
 
 // Gte sets the inclusive minimum.
-func (b *NumB[T]) Gte(v T) *NumB[T] { *b.k.gte = &v; return b }
+func (b *NumB[T]) Gte(v T) *NumB[T] {
+	*b.k.gte = &v
+	return b
+}
 
 // Lt sets the exclusive maximum.
-func (b *NumB[T]) Lt(v T) *NumB[T] { *b.k.lt = &v; return b }
+func (b *NumB[T]) Lt(v T) *NumB[T] {
+	*b.k.lt = &v
+	return b
+}
 
 // Lte sets the inclusive maximum.
-func (b *NumB[T]) Lte(v T) *NumB[T] { *b.k.lte = &v; return b }
+func (b *NumB[T]) Lte(v T) *NumB[T] {
+	*b.k.lte = &v
+	return b
+}
 
 // In requires the value to be one of vs.
-func (b *NumB[T]) In(vs ...T) *NumB[T] { *b.k.in = vs; return b }
+func (b *NumB[T]) In(vs ...T) *NumB[T] {
+	*b.k.in = vs
+	return b
+}
 
 // NotIn forbids the value from being any of vs.
-func (b *NumB[T]) NotIn(vs ...T) *NumB[T] { *b.k.notIn = vs; return b }
+func (b *NumB[T]) NotIn(vs ...T) *NumB[T] {
+	*b.k.notIn = vs
+	return b
+}
 
 // MultipleOf requires the value to be divisible by v.
-func (b *NumB[T]) MultipleOf(v T) *NumB[T] { *b.k.mul = &v; return b }
+func (b *NumB[T]) MultipleOf(v T) *NumB[T] {
+	*b.k.mul = &v
+	return b
+}
 
 // Float builds a float field.
 func Float(name FieldName) *NumB[float32] {
 	k := &Schema_Field_Float{}
+
 	return newNum(name, numSpec[float32]{
 		def: &k.Default, con: &k.Const, gt: &k.Gt, gte: &k.Gte, lt: &k.Lt, lte: &k.Lte,
 		mul: &k.MultipleOf, in: &k.In, notIn: &k.NotIn,
@@ -357,6 +461,7 @@ func Float(name FieldName) *NumB[float32] {
 // Double builds a double field.
 func Double(name FieldName) *NumB[float64] {
 	k := &Schema_Field_Double{}
+
 	return newNum(name, numSpec[float64]{
 		def: &k.Default, con: &k.Const, gt: &k.Gt, gte: &k.Gte, lt: &k.Lt, lte: &k.Lte,
 		mul: &k.MultipleOf, in: &k.In, notIn: &k.NotIn,
@@ -366,6 +471,7 @@ func Double(name FieldName) *NumB[float64] {
 // Int32 builds an int32 field.
 func Int32(name FieldName) *NumB[int32] {
 	k := &Schema_Field_Int32{}
+
 	return newNum(name, numSpec[int32]{
 		def: &k.Default, con: &k.Const, gt: &k.Gt, gte: &k.Gte, lt: &k.Lt, lte: &k.Lte,
 		mul: &k.MultipleOf, in: &k.In, notIn: &k.NotIn,
@@ -375,6 +481,7 @@ func Int32(name FieldName) *NumB[int32] {
 // Int64 builds an int64 field.
 func Int64(name FieldName) *NumB[int64] {
 	k := &Schema_Field_Int64{}
+
 	return newNum(name, numSpec[int64]{
 		def: &k.Default, con: &k.Const, gt: &k.Gt, gte: &k.Gte, lt: &k.Lt, lte: &k.Lte,
 		mul: &k.MultipleOf, in: &k.In, notIn: &k.NotIn,
@@ -384,6 +491,7 @@ func Int64(name FieldName) *NumB[int64] {
 // UInt32 builds a uint32 field.
 func UInt32(name FieldName) *NumB[uint32] {
 	k := &Schema_Field_UInt32{}
+
 	return newNum(name, numSpec[uint32]{
 		def: &k.Default, con: &k.Const, gt: &k.Gt, gte: &k.Gte, lt: &k.Lt, lte: &k.Lte,
 		mul: &k.MultipleOf, in: &k.In, notIn: &k.NotIn,
@@ -393,6 +501,7 @@ func UInt32(name FieldName) *NumB[uint32] {
 // UInt64 builds a uint64 field.
 func UInt64(name FieldName) *NumB[uint64] {
 	k := &Schema_Field_UInt64{}
+
 	return newNum(name, numSpec[uint64]{
 		def: &k.Default, con: &k.Const, gt: &k.Gt, gte: &k.Gte, lt: &k.Lt, lte: &k.Lte,
 		mul: &k.MultipleOf, in: &k.In, notIn: &k.NotIn,
@@ -414,14 +523,21 @@ func Bool(name FieldName) *BoolB {
 	b := &BoolB{k: &Schema_Field_Bool{}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Bool_{Bool: b.k}
+
 	return b
 }
 
 // Default sets the value used when the field is unset.
-func (b *BoolB) Default(v bool) *BoolB { b.k.Default = &v; return b }
+func (b *BoolB) Default(v bool) *BoolB {
+	b.k.Default = &v
+	return b
+}
 
 // Const requires the value to equal exactly v.
-func (b *BoolB) Const(v bool) *BoolB { b.k.Const = &v; return b }
+func (b *BoolB) Const(v bool) *BoolB {
+	b.k.Const = &v
+	return b
+}
 
 // StrB builds a string field.
 type StrB struct {
@@ -434,36 +550,66 @@ func Str(name FieldName) *StrB {
 	b := &StrB{k: &Schema_Field_String{}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_String_{String_: b.k}
+
 	return b
 }
 
 // Default sets the value used when the field is unset.
-func (b *StrB) Default(v string) *StrB { b.k.Default = &v; return b }
+func (b *StrB) Default(v string) *StrB {
+	b.k.Default = &v
+	return b
+}
 
 // Const requires the value to equal exactly v.
-func (b *StrB) Const(v string) *StrB { b.k.Const = &v; return b }
+func (b *StrB) Const(v string) *StrB {
+	b.k.Const = &v
+	return b
+}
 
 // Len requires the exact character length.
-func (b *StrB) Len(v uint64) *StrB { b.k.Len = &v; return b }
+func (b *StrB) Len(v uint64) *StrB {
+	b.k.Len = &v
+	return b
+}
 
 // MinLen sets the minimum character length.
-func (b *StrB) MinLen(v uint64) *StrB { b.k.MinLen = &v; return b }
+func (b *StrB) MinLen(v uint64) *StrB {
+	b.k.MinLen = &v
+	return b
+}
 
 // MaxLen sets the maximum character length.
-func (b *StrB) MaxLen(v uint64) *StrB { b.k.MaxLen = &v; return b }
+func (b *StrB) MaxLen(v uint64) *StrB {
+	b.k.MaxLen = &v
+	return b
+}
 
 // Pattern sets the RE2 regular expression the value must match.
-func (b *StrB) Pattern(v string) *StrB { b.k.Pattern = &v; return b }
+func (b *StrB) Pattern(v string) *StrB {
+	b.k.Pattern = &v
+	return b
+}
 
 // In requires the value to be one of vs.
-func (b *StrB) In(vs ...string) *StrB { b.k.In = vs; return b }
+func (b *StrB) In(vs ...string) *StrB {
+	b.k.In = vs
+	return b
+}
 
 // NotIn forbids the value from being any of vs.
-func (b *StrB) NotIn(vs ...string) *StrB { b.k.NotIn = vs; return b }
+func (b *StrB) NotIn(vs ...string) *StrB {
+	b.k.NotIn = vs
+	return b
+}
 
 // Format sets the semantic format: a registry identifier ("email", "uuid",
 // "k8s.quantity", ...). Unknown formats fail validation loudly.
-func (b *StrB) Format(f Format) *StrB { s := string(f); b.k.Format = &s; return b }
+func (b *StrB) Format(f Format) *StrB {
+	s := string(f)
+	b.k.Format = &s
+
+	return b
+}
 
 // BytesB builds a bytes field.
 type BytesB struct {
@@ -476,35 +622,63 @@ func Bytes(name FieldName) *BytesB {
 	b := &BytesB{k: &Schema_Field_Bytes{}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Bytes_{Bytes: b.k}
+
 	return b
 }
 
 // Default sets the value used when the field is unset.
-func (b *BytesB) Default(v []byte) *BytesB { b.k.Default = v; return b }
+func (b *BytesB) Default(v []byte) *BytesB {
+	b.k.Default = v
+	return b
+}
 
 // Const requires the value to equal exactly v.
-func (b *BytesB) Const(v []byte) *BytesB { b.k.Const = v; return b }
+func (b *BytesB) Const(v []byte) *BytesB {
+	b.k.Const = v
+	return b
+}
 
 // Len requires the exact byte length.
-func (b *BytesB) Len(v uint64) *BytesB { b.k.Len = &v; return b }
+func (b *BytesB) Len(v uint64) *BytesB {
+	b.k.Len = &v
+	return b
+}
 
 // MinLen sets the minimum byte length.
-func (b *BytesB) MinLen(v uint64) *BytesB { b.k.MinLen = &v; return b }
+func (b *BytesB) MinLen(v uint64) *BytesB {
+	b.k.MinLen = &v
+	return b
+}
 
 // MaxLen sets the maximum byte length.
-func (b *BytesB) MaxLen(v uint64) *BytesB { b.k.MaxLen = &v; return b }
+func (b *BytesB) MaxLen(v uint64) *BytesB {
+	b.k.MaxLen = &v
+	return b
+}
 
 // Prefix requires the value to start with p.
-func (b *BytesB) Prefix(p []byte) *BytesB { b.k.Prefix = p; return b }
+func (b *BytesB) Prefix(p []byte) *BytesB {
+	b.k.Prefix = p
+	return b
+}
 
 // Suffix requires the value to end with s.
-func (b *BytesB) Suffix(s []byte) *BytesB { b.k.Suffix = s; return b }
+func (b *BytesB) Suffix(s []byte) *BytesB {
+	b.k.Suffix = s
+	return b
+}
 
 // In requires the value to be one of vs.
-func (b *BytesB) In(vs ...[]byte) *BytesB { b.k.In = vs; return b }
+func (b *BytesB) In(vs ...[]byte) *BytesB {
+	b.k.In = vs
+	return b
+}
 
 // NotIn forbids the value from being any of vs.
-func (b *BytesB) NotIn(vs ...[]byte) *BytesB { b.k.NotIn = vs; return b }
+func (b *BytesB) NotIn(vs ...[]byte) *BytesB {
+	b.k.NotIn = vs
+	return b
+}
 
 // ChoiceB builds a choice field: a closed (or advisory) set of allowed
 // typed values with optional human labels.
@@ -518,6 +692,7 @@ func Choice(name FieldName) *ChoiceB {
 	b := &ChoiceB{k: &Schema_Field_Choice{}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Choice_{Choice: b.k}
+
 	return b
 }
 
@@ -525,12 +700,14 @@ func Choice(name FieldName) *ChoiceB {
 // renderers display the value itself).
 func (b *ChoiceB) Opt(value *Value, label string) *ChoiceB {
 	b.k.Options = append(b.k.Options, &Schema_Field_Choice_Option{Value: value, Label: label})
+
 	return b
 }
 
 // OptFull adds one fully-described option.
 func (b *ChoiceB) OptFull(o *Schema_Field_Choice_Option) *ChoiceB {
 	b.k.Options = append(b.k.Options, o)
+
 	return b
 }
 
@@ -539,6 +716,7 @@ func (b *ChoiceB) StrOpts(vs ...string) *ChoiceB {
 	for _, v := range vs {
 		b.Opt(StrV(v), "")
 	}
+
 	return b
 }
 
@@ -547,36 +725,50 @@ func (b *ChoiceB) IntOpts(vs ...int64) *ChoiceB {
 	for _, v := range vs {
 		b.Opt(Int64V(v), "")
 	}
+
 	return b
 }
 
 // Default sets the value used when the field is unset.
-func (b *ChoiceB) Default(v *Value) *ChoiceB { b.k.Default = v; return b }
+func (b *ChoiceB) Default(v *Value) *ChoiceB {
+	b.k.Default = v
+	return b
+}
 
 // Open makes the option set advisory: values outside it validate fine.
-func (b *ChoiceB) Open() *ChoiceB { b.k.Open = true; return b }
+func (b *ChoiceB) Open() *ChoiceB {
+	b.k.Open = true
+	return b
+}
 
 // Options sets the dynamic options expression: a CEL expression over `root`
 // returning the list of allowed values (replaces the static options).
-func (b *ChoiceB) Options(e string) *ChoiceB { b.k.OptionsExpr = &e; return b }
+func (b *ChoiceB) Options(e string) *ChoiceB {
+	b.k.OptionsExpr = &e
+	return b
+}
 
-// JsonB builds a free-form JSON field.
-type JsonB struct {
-	fieldBase[*JsonB]
+// JSONB builds a free-form JSON field.
+type JSONB struct {
+	fieldBase[*JSONB]
 	k *Schema_Field_Json
 }
 
-// Json builds a free-form field: any value passes without structural
+// JSON builds a free-form field: any value passes without structural
 // validation (rules still apply).
-func Json(name FieldName) *JsonB {
-	b := &JsonB{k: &Schema_Field_Json{}}
+func JSON(name FieldName) *JSONB {
+	b := &JSONB{k: &Schema_Field_Json{}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Json_{Json: b.k}
+
 	return b
 }
 
 // Default sets the value used when the field is unset.
-func (b *JsonB) Default(v *Value) *JsonB { b.k.Default = v; return b }
+func (b *JSONB) Default(v *Value) *JSONB {
+	b.k.Default = v
+	return b
+}
 
 // =============================================================================
 // Duration / Timestamp
@@ -593,23 +785,39 @@ func Duration(name FieldName) *DurationB {
 	b := &DurationB{k: &Schema_Field_Duration{}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Duration_{Duration: b.k}
+
 	return b
 }
 
 // Default sets the value used when the field is unset.
-func (b *DurationB) Default(d time.Duration) *DurationB { b.k.Default = durationpb.New(d); return b }
+func (b *DurationB) Default(d time.Duration) *DurationB {
+	b.k.Default = durationpb.New(d)
+	return b
+}
 
 // Gt sets the exclusive minimum.
-func (b *DurationB) Gt(d time.Duration) *DurationB { b.k.Gt = durationpb.New(d); return b }
+func (b *DurationB) Gt(d time.Duration) *DurationB {
+	b.k.Gt = durationpb.New(d)
+	return b
+}
 
 // Gte sets the inclusive minimum.
-func (b *DurationB) Gte(d time.Duration) *DurationB { b.k.Gte = durationpb.New(d); return b }
+func (b *DurationB) Gte(d time.Duration) *DurationB {
+	b.k.Gte = durationpb.New(d)
+	return b
+}
 
 // Lt sets the exclusive maximum.
-func (b *DurationB) Lt(d time.Duration) *DurationB { b.k.Lt = durationpb.New(d); return b }
+func (b *DurationB) Lt(d time.Duration) *DurationB {
+	b.k.Lt = durationpb.New(d)
+	return b
+}
 
 // Lte sets the inclusive maximum.
-func (b *DurationB) Lte(d time.Duration) *DurationB { b.k.Lte = durationpb.New(d); return b }
+func (b *DurationB) Lte(d time.Duration) *DurationB {
+	b.k.Lte = durationpb.New(d)
+	return b
+}
 
 // TimestampB builds a timestamp field.
 type TimestampB struct {
@@ -622,23 +830,39 @@ func Timestamp(name FieldName) *TimestampB {
 	b := &TimestampB{k: &Schema_Field_Timestamp{}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Timestamp_{Timestamp: b.k}
+
 	return b
 }
 
 // Default sets the value used when the field is unset.
-func (b *TimestampB) Default(t time.Time) *TimestampB { b.k.Default = timestamppb.New(t); return b }
+func (b *TimestampB) Default(t time.Time) *TimestampB {
+	b.k.Default = timestamppb.New(t)
+	return b
+}
 
 // Gt sets the exclusive minimum.
-func (b *TimestampB) Gt(t time.Time) *TimestampB { b.k.Gt = timestamppb.New(t); return b }
+func (b *TimestampB) Gt(t time.Time) *TimestampB {
+	b.k.Gt = timestamppb.New(t)
+	return b
+}
 
 // Gte sets the inclusive minimum.
-func (b *TimestampB) Gte(t time.Time) *TimestampB { b.k.Gte = timestamppb.New(t); return b }
+func (b *TimestampB) Gte(t time.Time) *TimestampB {
+	b.k.Gte = timestamppb.New(t)
+	return b
+}
 
 // Lt sets the exclusive maximum.
-func (b *TimestampB) Lt(t time.Time) *TimestampB { b.k.Lt = timestamppb.New(t); return b }
+func (b *TimestampB) Lt(t time.Time) *TimestampB {
+	b.k.Lt = timestamppb.New(t)
+	return b
+}
 
 // Lte sets the inclusive maximum.
-func (b *TimestampB) Lte(t time.Time) *TimestampB { b.k.Lte = timestamppb.New(t); return b }
+func (b *TimestampB) Lte(t time.Time) *TimestampB {
+	b.k.Lte = timestamppb.New(t)
+	return b
+}
 
 // =============================================================================
 // List / Object / Map / Computed / OneOf / Ref
@@ -654,26 +878,41 @@ type ListB struct {
 func List(name FieldName, items ...FieldDef) *ListB {
 	b := &ListB{k: &Schema_Field_List{}}
 	b.fieldBase = newField(name, b)
+
 	for _, d := range items {
 		b.k.Items = append(b.k.Items, d.Done())
 	}
+
 	b.f.Kind = &Schema_Field_List_{List: b.k}
+
 	return b
 }
 
 // MinItems sets the minimum number of items.
-func (b *ListB) MinItems(v uint64) *ListB { b.k.MinItems = &v; return b }
+func (b *ListB) MinItems(v uint64) *ListB {
+	b.k.MinItems = &v
+	return b
+}
 
 // MaxItems sets the maximum number of items.
-func (b *ListB) MaxItems(v uint64) *ListB { b.k.MaxItems = &v; return b }
+func (b *ListB) MaxItems(v uint64) *ListB {
+	b.k.MaxItems = &v
+	return b
+}
 
 // Unique requires items to be unique.
-func (b *ListB) Unique() *ListB { b.k.Unique = true; return b }
+func (b *ListB) Unique() *ListB {
+	b.k.Unique = true
+	return b
+}
 
 // Count sets the dynamic length expression: a CEL expression over `root`
 // returning the exact non-negative number of items. Inside an item's rules the
 // item's zero-based position is bound as `index`.
-func (b *ListB) Count(e string) *ListB { b.k.CountExpr = &e; return b }
+func (b *ListB) Count(e string) *ListB {
+	b.k.CountExpr = &e
+	return b
+}
 
 // ObjectB builds a nested object field.
 type ObjectB struct {
@@ -688,9 +927,11 @@ func Object(name FieldName, fields ...FieldDef) *ObjectB {
 	for _, d := range fields {
 		sub.Fields = append(sub.Fields, d.Done())
 	}
+
 	b := &ObjectB{k: &Schema_Field_Object{Schema: sub}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Object_{Object: b.k}
+
 	return b
 }
 
@@ -699,17 +940,27 @@ func (b *ObjectB) Rule(rules ...RuleDef) *ObjectB {
 	for _, r := range rules {
 		b.k.Schema.Rules = append(b.k.Schema.Rules, r.Done())
 	}
+
 	return b
 }
 
 // Strict enables strict mode on the nested object schema.
-func (b *ObjectB) Strict() *ObjectB { b.k.Schema.Strict = true; return b }
+func (b *ObjectB) Strict() *ObjectB {
+	b.k.Schema.Strict = true
+	return b
+}
 
 // MinProps sets the minimum number of properties on the nested object schema.
-func (b *ObjectB) MinProps(n uint64) *ObjectB { b.k.Schema.MinProperties = &n; return b }
+func (b *ObjectB) MinProps(n uint64) *ObjectB {
+	b.k.Schema.MinProperties = &n
+	return b
+}
 
 // MaxProps sets the maximum number of properties on the nested object schema.
-func (b *ObjectB) MaxProps(n uint64) *ObjectB { b.k.Schema.MaxProperties = &n; return b }
+func (b *ObjectB) MaxProps(n uint64) *ObjectB {
+	b.k.Schema.MaxProperties = &n
+	return b
+}
 
 // MapB builds a map field: free-form string keys (never rejected), values
 // validated against a shared schema.
@@ -727,27 +978,39 @@ func Map(name FieldName, valueFields ...FieldDef) *MapB {
 	for _, d := range valueFields {
 		sub.Fields = append(sub.Fields, d.Done())
 	}
+
 	b := &MapB{k: &Schema_Field_Map{ValueSchema: sub}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Map_{Map: b.k}
+
 	return b
 }
 
 // Strict enables strict mode on the map's value schema: an unknown key inside
 // a map VALUE is rejected (the map's own keys are always free).
-func (b *MapB) Strict() *MapB { b.k.ValueSchema.Strict = true; return b }
+func (b *MapB) Strict() *MapB {
+	b.k.ValueSchema.Strict = true
+	return b
+}
 
 // MinEntries sets the minimum number of map entries.
-func (b *MapB) MinEntries(n uint64) *MapB { b.k.MinEntries = &n; return b }
+func (b *MapB) MinEntries(n uint64) *MapB {
+	b.k.MinEntries = &n
+	return b
+}
 
 // MaxEntries sets the maximum number of map entries.
-func (b *MapB) MaxEntries(n uint64) *MapB { b.k.MaxEntries = &n; return b }
+func (b *MapB) MaxEntries(n uint64) *MapB {
+	b.k.MaxEntries = &n
+	return b
+}
 
 // Rule adds a form-wide rule to the map's value schema.
 func (b *MapB) Rule(rules ...RuleDef) *MapB {
 	for _, r := range rules {
 		b.k.ValueSchema.Rules = append(b.k.ValueSchema.Rules, r.Done())
 	}
+
 	return b
 }
 
@@ -763,11 +1026,15 @@ func Computed(name FieldName, expr string) *ComputedB {
 	b := &ComputedB{k: &Schema_Field_Computed{Expr: expr}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Computed_{Computed: b.k}
+
 	return b
 }
 
 // Result sets the result-type hint used to marshal the derived value.
-func (b *ComputedB) Result(rt Schema_Field_ResultType) *ComputedB { b.k.Result = &rt; return b }
+func (b *ComputedB) Result(rt Schema_Field_ResultType) *ComputedB {
+	b.k.Result = &rt
+	return b
+}
 
 // OneOfB builds a discriminated-union field.
 type OneOfB struct {
@@ -777,10 +1044,11 @@ type OneOfB struct {
 
 // OneOf builds a discriminated-union field. The value must be an object; the
 // discriminator property selects the variant schema to validate against.
-func OneOf(name FieldName, discriminator FieldName) *OneOfB {
+func OneOf(name, discriminator FieldName) *OneOfB {
 	b := &OneOfB{k: &Schema_Field_OneOf{Discriminator: string(discriminator), Variants: map[string]*Schema{}}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_OneOf_{OneOf: b.k}
+
 	return b
 }
 
@@ -791,7 +1059,9 @@ func (b *OneOfB) Variant(key VariantKey, fields ...FieldDef) *OneOfB {
 	for _, d := range fields {
 		sub.Fields = append(sub.Fields, d.Done())
 	}
+
 	b.k.Variants[string(key)] = sub
+
 	return b
 }
 
@@ -806,6 +1076,7 @@ func Ref(name FieldName, defName DefName) *RefB {
 	b := &RefB{}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Ref_{Ref: &Schema_Field_Ref{Target: &Schema_Field_Ref_Name{Name: string(defName)}}}
+
 	return b
 }
 
@@ -817,5 +1088,6 @@ func RefID(name FieldName, id *SchemaIdentity) *RefB {
 	b := &RefB{}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = &Schema_Field_Ref_{Ref: &Schema_Field_Ref{Target: &Schema_Field_Ref_Id{Id: id}}}
+
 	return b
 }
