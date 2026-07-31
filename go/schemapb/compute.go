@@ -325,6 +325,7 @@ func (e *Engine) runCompute(root map[string]any, tasks []computeTask, res *Valid
 	var order []computeTask
 
 	var visit func(string) bool
+
 	visit = func(p string) bool {
 		switch color[p] {
 		case gray:

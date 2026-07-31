@@ -110,6 +110,7 @@ func (r *InMemoryRegistry) PutReplace(_ context.Context, s *Schema) error {
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	r.m[identityKey(s.GetId())] = s
 
 	return nil
@@ -131,6 +132,7 @@ func (r *InMemoryRegistry) Get(_ context.Context, id *SchemaIdentity) (*Schema, 
 func (r *InMemoryRegistry) List(_ context.Context, f *ListFilter) ([]*Schema, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
 	out := make([]*Schema, 0, len(r.m))
 
 	for _, s := range r.m {

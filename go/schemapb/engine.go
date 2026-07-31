@@ -246,6 +246,7 @@ func schemaPatterns(s *Schema) map[string]string {
 	out := map[string]string{}
 
 	var walkFields func(fields []*Schema_Field, prefix string)
+
 	walkFields = func(fields []*Schema_Field, prefix string) {
 		for _, f := range fields {
 			path := joinPath(prefix, f.GetName())
@@ -381,6 +382,7 @@ func (e *Engine) exprDeps(src string) []string {
 	var deps []string
 
 	var walk func(x celast.Expr)
+
 	walk = func(x celast.Expr) {
 		if x == nil {
 			return
@@ -530,6 +532,7 @@ func (e *Engine) checkComputedCycles() []*ValidationError {
 	var errs []*ValidationError
 
 	var visit func(string) bool
+
 	visit = func(n string) bool {
 		switch color[n] {
 		case gray:
