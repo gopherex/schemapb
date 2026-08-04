@@ -186,3 +186,81 @@ fn message_templates() {
         assert_eq!(template(code), Some(tpl.as_str()), "{name}");
     }
 }
+
+/// Lookup conformance: every case in lookup.json must resolve to the same
+/// kind, or fail with the same (at, segment, reason) triple, as Go.
+#[test]
+fn lookup_cases() {
+    let schema: Schema = serde_json::from_str(&golden("full-schema.json")).unwrap();
+    let doc: serde_json::Value = serde_json::from_str(&golden("lookup.json")).unwrap();
+
+    for case in doc["cases"].as_array().unwrap() {
+        let path = case["path"].as_str().unwrap();
+        match schemapb::lookup::lookup_path(&schema, path) {
+            Ok(f) => {
+                assert!(
+                    case["error"].is_null(),
+                    "lookup {path:?}: resolved, want error"
+                );
+                assert_eq!(
+                    schemapb::render::kind_name(f),
+                    case["kind"].as_str().unwrap(),
+                    "lookup {path:?}: kind"
+                );
+            }
+            Err(e) => {
+                let want = &case["error"];
+                assert!(
+                    !want.is_null(),
+                    "lookup {path:?}: failed with {e}, want kind"
+                );
+                assert_eq!(e.at, want["at"].as_str().unwrap(), "lookup {path:?}: at");
+                assert_eq!(
+                    e.segment,
+                    want["segment"].as_str().unwrap(),
+                    "lookup {path:?}: segment"
+                );
+                assert_eq!(
+                    e.reason.as_str(),
+                    want["reason"].as_str().unwrap(),
+                    "lookup {path:?}: reason"
+                );
+            }
+        }
+    }
+}
+
+/// Field names must be identifiers and not CEL reserved words.
+#[test]
+fn field_name_rules() {
+    use schemapb::gen::schemapb::schema::field::{Kind, String as StringKind};
+    use schemapb::gen::schemapb::{schema::Field, SchemaIdentity};
+
+    let with_name = |name: &str| Schema {
+        id: Some(SchemaIdentity {
+            namespace: "t".into(),
+            name: "names".into(),
+            ..Default::default()
+        }),
+        fields: vec![Field {
+            name: name.into(),
+            kind: Some(Kind::String(<StringKind as Default>::default())),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+
+    for bad in ["a.b", "my-field", "1st", "in", "true", "while"] {
+        assert!(
+            !schemapb::descriptor::check_descriptor(&with_name(bad)).is_empty(),
+            "field name {bad:?} accepted, want descriptor error"
+        );
+    }
+
+    for good in ["snake_case", "camelCase", "_x", "a1"] {
+        assert!(
+            schemapb::descriptor::check_descriptor(&with_name(good)).is_empty(),
+            "field name {good:?} rejected"
+        );
+    }
+}

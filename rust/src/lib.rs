@@ -10,6 +10,7 @@ pub mod duration;
 pub mod engine;
 pub mod formats;
 pub mod gen;
+pub mod lookup;
 pub mod messages;
 pub mod registry;
 pub mod render;

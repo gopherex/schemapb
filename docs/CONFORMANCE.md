@@ -14,6 +14,7 @@ fixtures, and TypeScript, Python and Rust must reproduce them exactly
 | `full-errors.json` | `Validate` of a deliberately broken input: every error with `path`, `ErrorCode`, expected/actual, severity — in the deterministic order the spec requires. |
 | `full-rendered.txt` | Mustache render of the schema's template against the resolved values — byte-equal, including escaping and Go-style duration display (`5m0s`). |
 | `messages.json` | The spec-owned message-template set, per `ErrorCode`. |
+| `lookup.json` | Schema path lookup over the kitchen-sink schema: each case pins either the resolved field's kind or the failing `(at, segment, reason)` triple. Error message texts are NOT pinned — each language words its lookup error idiomatically; the triple is the contract. |
 | `full-coverage.json` | Which contract features the kitchen-sink schema exercises — a checklist that the goldens stay exhaustive. |
 
 The valid/broken inputs are defined in `go/schemapb/golden_test.go` and

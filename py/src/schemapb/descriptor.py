@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from schemapb._gen.schemapb import (
     ErrorCode,
     Schema,
@@ -61,6 +63,38 @@ def check_descriptor(s: Schema) -> list[ValidationError]:
     return errs
 
 
+# Field names are referenced by CEL expressions (when/computed/rules) and by
+# schema paths (lookup): both require identifier names. This only states an
+# invariant that CEL already imposed implicitly.
+_FIELD_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+_CEL_RESERVED = frozenset(
+    {
+        "true",
+        "false",
+        "null",
+        "in",
+        "as",
+        "break",
+        "const",
+        "continue",
+        "else",
+        "for",
+        "function",
+        "if",
+        "import",
+        "let",
+        "loop",
+        "package",
+        "namespace",
+        "return",
+        "var",
+        "void",
+        "while",
+    }
+)
+
+
 def _check_fields(fields: list[SchemaField], prefix: str) -> list[ValidationError]:
     errs: list[ValidationError] = []
     seen: set[str] = set()
@@ -69,6 +103,12 @@ def _check_fields(fields: list[SchemaField], prefix: str) -> list[ValidationErro
         if f.name == "":
             errs.append(schema_err(prefix, "field name is required"))
             continue
+        if not _FIELD_NAME_RE.match(f.name):
+            errs.append(
+                schema_err(path, "field name must be an identifier ([A-Za-z_][A-Za-z0-9_]*)")
+            )
+        elif f.name in _CEL_RESERVED:
+            errs.append(schema_err(path, f'field name "{f.name}" is a CEL reserved word'))
         if f.name in seen:
             errs.append(schema_err(path, "duplicate field name"))
         seen.add(f.name)

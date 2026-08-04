@@ -25,14 +25,15 @@ from schemapb.bake import (
     render,
     render_baked,
 )
-from schemapb.compute import choice_options, field_is_active, list_count, resolve
+from schemapb.compute import choice_options, field_is_active, list_count, list_item_def, resolve
 from schemapb.descriptor import SchemaError, check_descriptor
 from schemapb.duration import format_go_duration, format_rfc3339, parse_go_duration, parse_rfc3339
 from schemapb.engine import Engine, compile_schema
 from schemapb.formats import FormatRegistry, core_formats
+from schemapb.lookup import LookupReason, SchemaLookupError, lookup, lookup_path
 from schemapb.messages import MESSAGE_TEMPLATES, render_message
 from schemapb.registry import InMemoryRegistry, RegistryError, identity_key, link
-from schemapb.render import display_string, native_equals
+from schemapb.render import display_string, kind_name, native_equals
 from schemapb.typed import (
     FORMAT_EMAIL,
     Format,
@@ -84,6 +85,10 @@ __all__ = [  # noqa: RUF022 - grouped by module
     "parse_rfc3339",
     "Engine",
     "compile_schema",
+    "kind_name",
+    "list_item_def",
+    "lookup",
+    "lookup_path",
     "FormatRegistry",
     "core_formats",
     "MESSAGE_TEMPLATES",
@@ -96,6 +101,8 @@ __all__ = [  # noqa: RUF022 - grouped by module
     "native_equals",
     "FORMAT_EMAIL",
     "Format",
+    "LookupReason",
+    "SchemaLookupError",
     "Version",
     "make_id",
     "result_blocking",

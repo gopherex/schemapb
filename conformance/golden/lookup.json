@@ -1,0 +1,136 @@
+{
+  "cases": [
+    {
+      "path": "name",
+      "kind": "string"
+    },
+    {
+      "path": "flag",
+      "kind": "bool"
+    },
+    {
+      "path": "logging",
+      "kind": "object"
+    },
+    {
+      "path": "logging.collector",
+      "kind": "bool"
+    },
+    {
+      "path": "replicas",
+      "kind": "list"
+    },
+    {
+      "path": "endpoint_pair",
+      "kind": "list"
+    },
+    {
+      "path": "tablespaces",
+      "kind": "map"
+    },
+    {
+      "path": "backup",
+      "kind": "oneof"
+    },
+    {
+      "path": "data_volume",
+      "kind": "ref"
+    },
+    {
+      "path": "data_volume.size_gb",
+      "kind": "int64"
+    },
+    {
+      "path": "primary_endpoint.host",
+      "error": {
+        "at": "",
+        "segment": "primary_endpoint",
+        "reason": "unknown_ref"
+      }
+    },
+    {
+      "path": "cache",
+      "kind": "computed"
+    },
+    {
+      "path": "wal_level",
+      "kind": "choice"
+    },
+    {
+      "path": "timeout",
+      "kind": "duration"
+    },
+    {
+      "path": "nope",
+      "error": {
+        "at": "",
+        "segment": "nope",
+        "reason": "not_found"
+      }
+    },
+    {
+      "path": "logging.nope",
+      "error": {
+        "at": "logging",
+        "segment": "nope",
+        "reason": "not_found"
+      }
+    },
+    {
+      "path": "replicas.name",
+      "error": {
+        "at": "",
+        "segment": "replicas",
+        "reason": "not_traversable"
+      }
+    },
+    {
+      "path": "tablespaces.location",
+      "error": {
+        "at": "",
+        "segment": "tablespaces",
+        "reason": "not_traversable"
+      }
+    },
+    {
+      "path": "backup.url",
+      "error": {
+        "at": "",
+        "segment": "backup",
+        "reason": "ambiguous_oneof"
+      }
+    },
+    {
+      "path": "name.x",
+      "error": {
+        "at": "",
+        "segment": "name",
+        "reason": "not_traversable"
+      }
+    },
+    {
+      "path": "logging.collector.x",
+      "error": {
+        "at": "logging",
+        "segment": "collector",
+        "reason": "not_traversable"
+      }
+    },
+    {
+      "path": "cache.x",
+      "error": {
+        "at": "",
+        "segment": "cache",
+        "reason": "not_traversable"
+      }
+    },
+    {
+      "path": "",
+      "error": {
+        "at": "",
+        "segment": "",
+        "reason": "empty_path"
+      }
+    }
+  ]
+}
