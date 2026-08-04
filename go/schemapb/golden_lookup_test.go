@@ -48,6 +48,7 @@ var goldenLookupPaths = []string{
 type lookupGoldenCase struct {
 	Path  string           `json:"path"`
 	Kind  string           `json:"kind,omitempty"`
+	Items []string         `json:"items,omitempty"`
 	Error *lookupGoldenErr `json:"error,omitempty"`
 }
 
@@ -80,6 +81,9 @@ func TestGoldenLookup(t *testing.T) {
 			}
 		} else {
 			c.Kind = string(schemapb.KindName(f))
+			for _, it := range f.Items() {
+				c.Items = append(c.Items, string(schemapb.KindName(it)))
+			}
 		}
 
 		cases = append(cases, c)

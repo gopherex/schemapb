@@ -115,3 +115,13 @@ export function lookupPath(s: Schema, path: string): Schema_Field {
   }
   return lookup(s, ...path.split("."));
 }
+
+/**
+ * The item definitions of a list field: one definition governing every
+ * element for homogeneous lists, one per position for tuple lists, empty
+ * for any other kind. Combine with kindName to check element kinds
+ * ("the elements of spec.roles are strings").
+ */
+export function listItems(f: Schema_Field): Schema_Field[] {
+  return f.kind.case === "list" ? f.kind.value.items : [];
+}

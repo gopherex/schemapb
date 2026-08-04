@@ -23,7 +23,7 @@ from schemapb.render import kind_name
 if TYPE_CHECKING:
     from schemapb._gen.schemapb import Schema, SchemaField
 
-__all__ = ["LookupReason", "SchemaLookupError", "lookup", "lookup_path"]
+__all__ = ["LookupReason", "SchemaLookupError", "list_items", "lookup", "lookup_path"]
 
 
 class LookupReason(StrEnum):
@@ -115,3 +115,14 @@ def lookup_path(s: Schema, path: str) -> SchemaField:
     if path == "":
         raise SchemaLookupError(LookupReason.EMPTY_PATH)
     return lookup(s, *path.split("."))
+
+
+def list_items(f: SchemaField) -> list[SchemaField]:
+    """The item definitions of a list field.
+
+    One definition governing every element for homogeneous lists, one per
+    position for tuple lists, empty for any other kind. Combine with
+    ``kind_name`` to check element kinds ("the elements of spec.roles are
+    strings").
+    """
+    return list(f.list.items) if f.list is not None else []

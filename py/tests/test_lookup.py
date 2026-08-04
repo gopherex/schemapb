@@ -33,7 +33,9 @@ def test_lookup_conformance(case: dict[str, Any]) -> None:
         got = {"at": err.at, "segment": err.segment, "reason": err.reason.value}
         assert got == case["error"]
     else:
-        assert spb.kind_name(spb.lookup_path(schema, case["path"])) == case["kind"]
+        f = spb.lookup_path(schema, case["path"])
+        assert spb.kind_name(f) == case["kind"]
+        assert [spb.kind_name(it) for it in spb.list_items(f)] == case.get("items", [])
 
 
 def _schema_with_name(name: str) -> Schema:

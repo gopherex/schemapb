@@ -11,7 +11,7 @@ import { create, fromJson } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { checkDescriptor } from "../src/descriptor.js";
 import { SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
-import { LookupError, lookupPath } from "../src/lookup.js";
+import { LookupError, listItems, lookupPath } from "../src/lookup.js";
 import { kindName } from "../src/render.js";
 
 const goldenDir = join(__dirname, "..", "..", "conformance", "golden");
@@ -19,6 +19,7 @@ const goldenDir = join(__dirname, "..", "..", "conformance", "golden");
 interface LookupCase {
   path: string;
   kind?: string;
+  items?: string[];
   error?: { at: string; segment: string; reason: string };
 }
 
@@ -43,7 +44,9 @@ describe("lookup conformance", () => {
       }
       return;
     }
-    expect(kindName(lookupPath(schema, c.path))).toBe(c.kind);
+    const f = lookupPath(schema, c.path);
+    expect(kindName(f)).toBe(c.kind);
+    expect(listItems(f).map(kindName)).toEqual(c.items ?? []);
   });
 });
 

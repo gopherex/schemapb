@@ -30,7 +30,7 @@ from schemapb.descriptor import SchemaError, check_descriptor
 from schemapb.duration import format_go_duration, format_rfc3339, parse_go_duration, parse_rfc3339
 from schemapb.engine import Engine, compile_schema
 from schemapb.formats import FormatRegistry, core_formats
-from schemapb.lookup import LookupReason, SchemaLookupError, lookup, lookup_path
+from schemapb.lookup import LookupReason, SchemaLookupError, list_items, lookup, lookup_path
 from schemapb.messages import MESSAGE_TEMPLATES, render_message
 from schemapb.registry import InMemoryRegistry, RegistryError, identity_key, link
 from schemapb.render import display_string, kind_name, native_equals
@@ -87,6 +87,7 @@ __all__ = [  # noqa: RUF022 - grouped by module
     "compile_schema",
     "kind_name",
     "list_item_def",
+    "list_items",
     "lookup",
     "lookup_path",
     "FormatRegistry",

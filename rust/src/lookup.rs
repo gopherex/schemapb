@@ -150,3 +150,17 @@ pub fn lookup_path<'a>(s: &'a Schema, path: &str) -> Result<&'a SchemaField, Loo
     let segments: Vec<&str> = path.split('.').collect();
     lookup(s, &segments)
 }
+
+/// The item definitions of a list field.
+///
+/// One definition governing every element for homogeneous lists, one per
+/// position for tuple lists, empty for any other kind. Combine with
+/// `kind_name` to check element kinds ("the elements of spec.roles are
+/// strings").
+#[must_use]
+pub fn list_items(f: &SchemaField) -> &[SchemaField] {
+    match f.kind.as_ref() {
+        Some(K::List(l)) => &l.items,
+        _ => &[],
+    }
+}

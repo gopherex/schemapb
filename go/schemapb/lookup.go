@@ -175,3 +175,11 @@ func KindName(f *Schema_Field) FieldKind {
 func ListItemDef(l *Schema_Field_List, i int) *Schema_Field {
 	return listItemDef(l, i)
 }
+
+// Items returns the item definitions of a list field: one definition
+// governing every element for homogeneous lists, one per position for
+// tuple lists, empty for any other kind. Combine with KindName to check
+// element kinds ("the elements of spec.roles are strings").
+func (f *Schema_Field) Items() []*Schema_Field {
+	return f.GetList().GetItems()
+}

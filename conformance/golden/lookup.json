@@ -18,11 +18,18 @@
     },
     {
       "path": "replicas",
-      "kind": "list"
+      "kind": "list",
+      "items": [
+        "object"
+      ]
     },
     {
       "path": "endpoint_pair",
-      "kind": "list"
+      "kind": "list",
+      "items": [
+        "string",
+        "int64"
+      ]
     },
     {
       "path": "tablespaces",
