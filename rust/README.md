@@ -15,17 +15,38 @@ cargo add schemapb
 ## Quickstart
 
 ```rust
-use schemapb::{engine, validate, bake, formats};
+use schemapb::engine::Engine;
+use schemapb::formats::FormatRegistry;
 
-let eng = engine::compile(schema, formats::FormatRegistry::new())?; // SchemaError on defects
-let result = validate::validate(&eng, &mut values); // ValidationResult (data, not panics)
-let outcome = bake::bake(&eng, &mut values);        // canonical Baked snapshot
-let text = bake::render(&eng, "conf", &values);     // Mustache template from the schema
+let engine = Engine::compile(schema, FormatRegistry::new())?; // SchemaError on defects
+let result = engine.validate(&mut values); // ValidationResult (data, not panics)
+let outcome = engine.bake(&mut values);    // canonical Baked snapshot
+let text = engine.render("conf", &values); // Mustache template from the schema
+
+let field = schema.lookup_path("logging.collector")?; // schema path lookup
+let n: i64 = i64::try_from(baked_value)?;             // typed extraction (TryFrom<&Value>)
 ```
 
 Schemas are authored as plain `prost` struct literals of the generated
 types (with `..Default::default()`) — the idiomatic Rust equivalent of the
 builder APIs in the other ports.
+
+## Using schemapb types from your own protos
+
+When your `.proto` files embed schemapb messages (`schemapb.Schema`,
+`schemapb.Value`, …), point prost at this crate instead of generating a
+second copy:
+
+```rust
+// build.rs
+prost_build::Config::new()
+    .extern_path(".schemapb", "::schemapb::gen::schemapb")
+    .compile_protos(&["proto/my_service.proto"], &["proto"])?;
+```
+
+Your generated code then references this crate's types directly — no
+conversion layer. The path `schemapb::gen::schemapb` is a stability
+promise.
 
 Runtime dependencies: `prost`/`pbjson` (protobuf + protoJSON),
 `cel-interpreter`/`cel-parser` (CEL evaluation), `mustache`, `chrono`,

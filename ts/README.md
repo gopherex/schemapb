@@ -26,18 +26,36 @@ const { schema, engine } = spb
   .fields(
     spb.str("name").required().minLen(1n),
     spb.int64("replicas").default(1n).gte(1n).lte(9n), // int64 = bigint, honestly
-    spb.computed("memory_mb", "replicas * 256"),
+    spb.computed("memory_mb", "root.replicas * 256"),
   )
-  .template("conf", "{{name}}: {{values.memory_mb}}MB")
+  .template("conf", "{{values.name}}: {{values.memory_mb}}MB")
   .build(); // schema is a plain proto message — ship it anywhere
 
-const result = spb.validate(engine, values); // ValidationResult — errors as data
-const outcome = spb.bake(engine, values);    // canonical Baked snapshot
-const text = spb.render(engine, "conf", values); // Mustache from the schema
+const result = engine.validate(values);  // ValidationResult — errors as data
+const outcome = engine.bake(values);     // canonical Baked snapshot
+const text = engine.render(spb.templateName("conf"), values); // Mustache
+
+// Free-function forms of every operation stay exported for functional
+// style and tree-shaking: spb.validate(engine, values) etc.
 ```
 
 64-bit integers are `bigint` end to end; identifier domains (`FieldName`,
-`Namespace`, `TemplateName`, …) are branded types.
+`Namespace`, `TemplateName`, …) are branded types with explicit
+constructors (`spb.fieldName("x")`, `spb.templateName("conf")`).
+
+## Using schemapb types from your own protos
+
+If your `.proto` files embed schemapb messages and you generate them with
+`protoc-gen-es`, the generated schemapb copy is **structurally identical**
+to this package's types (same `$typeName`, same runtime `@bufbuild/protobuf`
+— a peer dependency), so values flow between the two with no conversion.
+To avoid the duplicate copy entirely, replace the generated
+`schemapb/*_pb.ts` files with re-export shims:
+
+```ts
+// <your gen root>/schemapb/schema_pb.ts
+export * from "@gopherex/schemapb";
+```
 
 ## Development
 

@@ -6,9 +6,9 @@ import { choiceOptions } from "../src/compute.js";
 import { SchemaError } from "../src/descriptor.js";
 import { ErrorCode } from "../src/gen/schemapb/errors_pb.js";
 import * as b from "../src/new.js";
-import { id, Version } from "../src/typed.js";
+import { id, templateName, Version } from "../src/typed.js";
 import { validate } from "../src/validate.js";
-import { strV } from "../src/value.js";
+import { structFromNative, strV } from "../src/value.js";
 
 describe("builder", () => {
   it("builds, validates, bakes and renders like the Go smoke test", () => {
@@ -66,7 +66,34 @@ describe("builder", () => {
     const outcome = bake(engine, {});
     expect(outcome.baked).toBeDefined();
     if (outcome.baked !== undefined) {
-      expect(renderBaked(engine, outcome.baked, "out" as never)).toBe("name = main\n");
+      expect(renderBaked(engine, outcome.baked, templateName("out"))).toBe("name = main\n");
     }
+  });
+});
+
+describe("engine method surface", () => {
+  it("methods delegate to the same machinery as the free functions", () => {
+    const { engine } = b
+      .newSchema(id("t", "idioms", Version.of(1, 0, 0)))
+      .fields(
+        b.str("name").required().minLen(1n),
+        b.int64("replicas").default(1n).gte(1n),
+        b.computed("memory_mb", "root.replicas * 256"),
+      )
+      .template("conf", "{{values.name}}: {{values.memory_mb}}MB")
+      .build();
+
+    expect(engine.validate({ name: "svc" }).errors).toEqual([]);
+
+    const outcome = engine.bake({ name: "svc" });
+    expect(outcome.baked).toBeDefined();
+    const baked = outcome.baked as NonNullable<typeof outcome.baked>;
+    expect(engine.renderBaked(baked, templateName("conf"))).toBe("svc: 256MB");
+
+    const merged = engine.merge(baked, structFromNative({ replicas: 3n }));
+    expect(merged.baked).toBeDefined();
+    expect(engine.renderBaked(merged.baked as typeof baked, templateName("conf"))).toBe(
+      "svc: 768MB",
+    );
   });
 });

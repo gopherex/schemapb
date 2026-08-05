@@ -90,7 +90,7 @@ pub fn go_quote(s: &str) -> String {
 
 /// The short kind name used in render contexts.
 #[must_use]
-pub const fn kind_name(f: &SchemaField) -> &'static str {
+pub(crate) const fn kind_name(f: &SchemaField) -> &'static str {
     use crate::gen::schemapb::schema::field::Kind as K;
     match f.kind.as_ref() {
         Some(K::Float(_)) => "float",

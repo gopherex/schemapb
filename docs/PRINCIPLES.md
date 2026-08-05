@@ -115,3 +115,26 @@ reason (`nolint:<linter> // why`).
 Masking strips the actual value AND re-renders the message from templates.
 Any new error path must prove (test) that a secret field's value appears
 nowhere in the result.
+
+## 14. One semantics, each language's own spelling
+
+Behaviour is identical everywhere (principle 8/11); the SURFACE is written
+in each language's native idiom, not transliterated Go. Concretely: the
+operations of a compiled schema are methods on Engine in every language
+that has one; Rust exposes extraction as std traits (`TryFrom<&Value>`)
+and inherent methods on the generated types; TypeScript keeps free
+functions over its prototype-less generated POJOs plus branded-type
+constructors; Python offers both methods and module-level functions.
+Generic entry points share one shape — Go `As[T]`, Rust `get::<T>()`,
+TS `valueAs(v, "kind")`, Py `value_as(v, type)` — over one golden-pinned
+conversion rule.
+
+## 15. Generated types are the public API — and stay addressable
+
+Consumers embedding schemapb messages in their own protos must be able to
+reference OUR generated types from THEIR generated code, per language: Go
+via `go_package` (native), Rust via prost `extern_path` onto
+`schemapb::gen::schemapb` (path is a stability promise), Python via the
+public `schemapb.pb` re-export (shim target for betterproto2 trees),
+TypeScript via structural typing (or a re-export shim). Renaming or
+hiding generated-type paths is a breaking change.

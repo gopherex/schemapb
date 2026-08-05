@@ -28,9 +28,9 @@ schema := spb.NewSchema(id).
 	Fields(
 		spb.Str("name").Required().MinLen(1),
 		spb.Int64("replicas").Default(1).Gte(1).Lte(9),
-		spb.Computed("memory_mb", "replicas * 256"),
+		spb.Computed("memory_mb", "root.replicas * 256"),
 	).
-	Template("conf", "{{name}}: {{values.memory_mb}}MB").
+	Template("conf", "{{values.name}}: {{values.memory_mb}}MB").
 	MustBuild()
 
 engine, err := spb.Compile(schema,

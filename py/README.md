@@ -26,18 +26,36 @@ schema, engine = (
     .fields(
         spb.str_("name").required().min_len(1),
         spb.int64("replicas").default(1).gte(1).lte(9),
-        spb.computed("memory_mb", "replicas * 256"),
+        spb.computed("memory_mb", "root.replicas * 256"),
     )
-    .template("conf", "{{name}}: {{values.memory_mb}}MB")
+    .template("conf", "{{values.name}}: {{values.memory_mb}}MB")
     .build()  # schema is a plain proto message — ship it anywhere
 )
 
-result = spb.validate(engine, values)      # ValidationResult — errors as data
-outcome = spb.bake(engine, values)         # canonical Baked snapshot
-text = spb.render(engine, "conf", values)  # Mustache template from the schema
+result = engine.validate(values)      # ValidationResult — errors as data
+outcome = engine.bake(values)         # canonical Baked snapshot
+text = engine.render("conf", values)  # Mustache template from the schema
+
+# Module-level forms of every operation stay importable for functional
+# style: spb.validate(engine, values) etc.
 ```
 
 Schemas arriving over the wire compile with `spb.compile_schema(schema)`.
+
+## Using schemapb types from your own protos
+
+If your `.proto` files embed schemapb messages and you generate them with
+betterproto2, your gen tree will contain its own `schemapb/` package.
+Replace it with a one-line shim so your generated code uses this package's
+classes:
+
+```python
+# <your gen root>/schemapb/__init__.py
+from schemapb.pb import *  # noqa: F403
+```
+
+`schemapb.pb` is the public, stable re-export of the generated protobuf
+types (the internal `_gen` layout is not a stability promise).
 
 ## Development
 

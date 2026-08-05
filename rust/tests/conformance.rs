@@ -2,11 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use schemapb::bake::{bake, render_baked};
-use schemapb::engine::{compile, Engine};
+use schemapb::engine::Engine;
 use schemapb::gen::schemapb::{ErrorCode, Schema, StructValue, ValidationResult};
 use schemapb::messages::template;
-use schemapb::validate::validate;
 use schemapb::value::{Native, NativeStruct};
 
 fn golden(name: &str) -> String {
@@ -20,7 +18,7 @@ fn golden_engine() -> Engine {
     let schema: Schema = serde_json::from_str(&golden("full-schema.json")).unwrap();
     let mut formats = schemapb::formats::FormatRegistry::new();
     formats.insert("x.nonempty".into(), Box::new(|v: &str| !v.is_empty()));
-    compile(schema, formats).unwrap()
+    Engine::compile(schema, formats).unwrap()
 }
 
 fn s(v: &str) -> Native {
@@ -120,7 +118,7 @@ fn broken_input() -> NativeStruct {
 fn bakes_valid_input() {
     let e = golden_engine();
     let mut values = valid_input();
-    let outcome = bake(&e, &mut values);
+    let outcome = e.bake(&mut values);
     let hard: Vec<_> = outcome
         .result
         .errors
@@ -144,7 +142,7 @@ fn bakes_valid_input() {
 fn broken_input_errors() {
     let e = golden_engine();
     let mut values = broken_input();
-    let got = validate(&e, &mut values);
+    let got = e.validate(&mut values);
     let want: ValidationResult = serde_json::from_str(&golden("full-errors.json")).unwrap();
     let key = |x: &schemapb::gen::schemapb::ValidationError| format!("{}:{}", x.path, x.code);
     assert_eq!(
@@ -160,10 +158,10 @@ fn broken_input_errors() {
 fn rendered() {
     let e = golden_engine();
     let mut values = valid_input();
-    let outcome = bake(&e, &mut values);
+    let outcome = e.bake(&mut values);
     let baked = outcome.baked.expect("baked");
-    let conf = render_baked(&e, &baked, "conf").expect("conf");
-    let report = render_baked(&e, &baked, "report").expect("report");
+    let conf = e.render_baked(&baked, "conf").expect("conf");
+    let report = e.render_baked(&baked, "report").expect("report");
     assert_eq!(format!("{conf}---\n{report}"), golden("full-rendered.txt"));
 }
 
@@ -196,14 +194,14 @@ fn lookup_cases() {
 
     for case in doc["cases"].as_array().unwrap() {
         let path = case["path"].as_str().unwrap();
-        match schemapb::lookup::lookup_path(&schema, path) {
+        match schema.lookup_path(path) {
             Ok(f) => {
                 assert!(
                     case["error"].is_null(),
                     "lookup {path:?}: resolved, want error"
                 );
                 assert_eq!(
-                    schemapb::render::kind_name(f),
+                    f.kind_name(),
                     case["kind"].as_str().unwrap(),
                     "lookup {path:?}: kind"
                 );

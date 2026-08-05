@@ -97,7 +97,7 @@ fn err(reason: LookupReason, at: &str, segment: &str, kind: &'static str) -> Loo
 /// Resolves a field path within the schema, one segment per field name.
 /// Returns the addressed field, or a `LookupError` naming the exact
 /// segment that failed.
-pub fn lookup<'a>(s: &'a Schema, segments: &[&str]) -> Result<&'a SchemaField, LookupError> {
+fn lookup_in<'a>(s: &'a Schema, segments: &[&str]) -> Result<&'a SchemaField, LookupError> {
     if segments.is_empty() {
         return Err(err(LookupReason::EmptyPath, "", "", ""));
     }
@@ -142,13 +142,13 @@ pub fn lookup<'a>(s: &'a Schema, segments: &[&str]) -> Result<&'a SchemaField, L
 /// `lookup` over a dot-separated path ("a.b.c"). Field names are
 /// identifiers (enforced by descriptor validation), so the dot is never
 /// part of a name.
-pub fn lookup_path<'a>(s: &'a Schema, path: &str) -> Result<&'a SchemaField, LookupError> {
+fn lookup_path_in<'a>(s: &'a Schema, path: &str) -> Result<&'a SchemaField, LookupError> {
     if path.is_empty() {
         return Err(err(LookupReason::EmptyPath, "", "", ""));
     }
 
     let segments: Vec<&str> = path.split('.').collect();
-    lookup(s, &segments)
+    lookup_in(s, &segments)
 }
 
 /// The item definitions of a list field.
@@ -157,10 +157,48 @@ pub fn lookup_path<'a>(s: &'a Schema, path: &str) -> Result<&'a SchemaField, Loo
 /// position for tuple lists, empty for any other kind. Combine with
 /// `kind_name` to check element kinds ("the elements of spec.roles are
 /// strings").
-#[must_use]
-pub fn list_items(f: &SchemaField) -> &[SchemaField] {
-    match f.kind.as_ref() {
-        Some(K::List(l)) => &l.items,
-        _ => &[],
+impl Schema {
+    /// Resolves a field path within the schema, one segment per field
+    /// name. Returns the addressed field, or a `LookupError` naming the
+    /// exact segment that failed.
+    pub fn lookup<'a>(&'a self, segments: &[&str]) -> Result<&'a SchemaField, LookupError> {
+        lookup_in(self, segments)
+    }
+
+    /// `lookup` over a dot-separated path ("a.b.c"). Field names are
+    /// identifiers (enforced by descriptor validation), so the dot is
+    /// never part of a name.
+    pub fn lookup_path<'a>(&'a self, path: &str) -> Result<&'a SchemaField, LookupError> {
+        lookup_path_in(self, path)
+    }
+}
+
+impl SchemaField {
+    /// The item definitions of a list field.
+    ///
+    /// One definition governing every element for homogeneous lists, one
+    /// per position for tuple lists, empty for any other kind. Combine
+    /// with `kind_name` to check element kinds.
+    #[must_use]
+    pub fn items(&self) -> &[Self] {
+        match self.kind.as_ref() {
+            Some(K::List(l)) => &l.items,
+            _ => &[],
+        }
+    }
+
+    /// The field's kind as its spec short name ("string", "list", …).
+    #[must_use]
+    pub const fn kind_name(&self) -> &'static str {
+        crate::render::kind_name(self)
+    }
+}
+
+impl crate::gen::schemapb::schema::field::List {
+    /// The item definition governing element `i`: homogeneous lists have
+    /// one definition for every element, tuple lists one per position.
+    #[must_use]
+    pub fn item(&self, i: usize) -> Option<&SchemaField> {
+        crate::compute::list_item_def(self, i)
     }
 }

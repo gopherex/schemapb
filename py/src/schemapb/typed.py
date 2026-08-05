@@ -78,6 +78,18 @@ class Version:
     def __str__(self) -> str:
         return self._s
 
+    def __lt__(self, other: Version) -> bool:
+        return self.compare(other) < 0
+
+    def __le__(self, other: Version) -> bool:
+        return self.compare(other) <= 0
+
+    def __gt__(self, other: Version) -> bool:
+        return self.compare(other) > 0
+
+    def __ge__(self, other: Version) -> bool:
+        return self.compare(other) >= 0
+
     def compare(self, other: Version) -> int:
         if self._s == other._s:
             return 0

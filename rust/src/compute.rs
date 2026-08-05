@@ -11,7 +11,7 @@ use crate::gen::schemapb::{ErrorCode, Schema, ValidationError};
 use crate::value::{as_double, as_int, as_uint, to_native, Native, NativeStruct, SchemaField};
 
 #[must_use]
-pub fn expr_err(path: &str, expr: &str, msg: &str) -> ValidationError {
+pub(crate) fn expr_err(path: &str, expr: &str, msg: &str) -> ValidationError {
     ValidationError {
         path: path.to_owned(),
         code: ErrorCode::ExprError.into(),
@@ -24,7 +24,7 @@ pub fn expr_err(path: &str, expr: &str, msg: &str) -> ValidationError {
 
 /// The root-defs lookup key for a Ref (NUL separators for identity keys).
 #[must_use]
-pub fn ref_def_key(r: &Ref) -> String {
+pub(crate) fn ref_def_key(r: &Ref) -> String {
     match r.target.as_ref() {
         Some(Target::Id(id)) => format!("{}\0{}\0{}", id.namespace, id.name, id.version),
         Some(Target::Name(name)) => name.clone(),
@@ -33,12 +33,12 @@ pub fn ref_def_key(r: &Ref) -> String {
 }
 
 #[must_use]
-pub const fn is_tuple(l: &ListKind) -> bool {
+pub(crate) const fn is_tuple(l: &ListKind) -> bool {
     l.items.len() > 1
 }
 
 #[must_use]
-pub fn list_item_def(l: &ListKind, i: usize) -> Option<&SchemaField> {
+pub(crate) fn list_item_def(l: &ListKind, i: usize) -> Option<&SchemaField> {
     if l.items.len() == 1 {
         l.items.first()
     } else {
@@ -48,7 +48,7 @@ pub fn list_item_def(l: &ListKind, i: usize) -> Option<&SchemaField> {
 
 /// Picks the `OneOf` variant schema for a value by its discriminator.
 #[must_use]
-pub fn select_variant<'a>(oo: &'a OneOf, val: &Native) -> Option<&'a Schema> {
+pub(crate) fn select_variant<'a>(oo: &'a OneOf, val: &Native) -> Option<&'a Schema> {
     let m = val.as_struct()?;
     match m.get(&oo.discriminator) {
         Some(Native::Str(disc)) if !disc.is_empty() => oo.variants.get(disc),
@@ -57,7 +57,7 @@ pub fn select_variant<'a>(oo: &'a OneOf, val: &Native) -> Option<&'a Schema> {
 }
 
 /// Resolves values in place: defaults, coercion, normalize, computed.
-pub fn resolve(e: &Engine, values: &mut NativeStruct) -> Vec<ValidationError> {
+pub(crate) fn resolve(e: &Engine, values: &mut NativeStruct) -> Vec<ValidationError> {
     let mut errs = Vec::new();
     let schema = e.schema.clone();
     let mut task_paths: Vec<(Vec<String>, String)> = Vec::new();
@@ -77,7 +77,7 @@ pub fn resolve(e: &Engine, values: &mut NativeStruct) -> Vec<ValidationError> {
 }
 
 #[must_use]
-pub fn field_is_active(
+pub(crate) fn field_is_active(
     e: &Engine,
     f: &SchemaField,
     root: &NativeStruct,
@@ -453,7 +453,7 @@ fn find_computed<'a>(
 
 /// Converts a computed result to its declared `ResultType`'s native form.
 #[must_use]
-pub fn shape_result(rt: Option<i32>, x: Native) -> Option<Native> {
+pub(crate) fn shape_result(rt: Option<i32>, x: Native) -> Option<Native> {
     if x.is_null() {
         return Some(Native::Null);
     }
@@ -473,7 +473,7 @@ pub fn shape_result(rt: Option<i32>, x: Native) -> Option<Native> {
 
 /// Coerces a string input to the field's native type (`None` = unchanged).
 #[must_use]
-pub fn coerce_input(f: &SchemaField, val: &Native) -> Option<Native> {
+pub(crate) fn coerce_input(f: &SchemaField, val: &Native) -> Option<Native> {
     let Native::Str(s) = val else {
         return None;
     };
@@ -498,7 +498,7 @@ pub fn coerce_input(f: &SchemaField, val: &Native) -> Option<Native> {
 
 /// A field's default in the native value model.
 #[must_use]
-pub fn default_value(f: &SchemaField) -> Option<Native> {
+pub(crate) fn default_value(f: &SchemaField) -> Option<Native> {
     match f.kind.as_ref()? {
         K::Float(k) => k.default.map(|v| Native::Double(f64::from(v))),
         K::Double(k) => k.default.map(Native::Double),
@@ -523,7 +523,7 @@ pub fn default_value(f: &SchemaField) -> Option<Native> {
 
 /// The allowed values for a top-level choice field given the form.
 #[must_use]
-pub fn choice_options(e: &Engine, name: &str, root: &NativeStruct) -> Option<Vec<Native>> {
+pub(crate) fn choice_options(e: &Engine, name: &str, root: &NativeStruct) -> Option<Vec<Native>> {
     let f = e.schema.fields.iter().find(|x| x.name == name)?;
     let Some(K::Choice(ch)) = f.kind.as_ref() else {
         return None;
@@ -545,7 +545,7 @@ pub fn choice_options(e: &Engine, name: &str, root: &NativeStruct) -> Option<Vec
 
 /// The required length of a top-level list field per its `count_expr`.
 #[must_use]
-pub fn list_count(e: &Engine, name: &str, root: &NativeStruct) -> Option<i64> {
+pub(crate) fn list_count(e: &Engine, name: &str, root: &NativeStruct) -> Option<i64> {
     let f = e.schema.fields.iter().find(|x| x.name == name)?;
     let Some(K::List(l)) = f.kind.as_ref() else {
         return None;

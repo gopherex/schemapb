@@ -26,8 +26,16 @@ from schemapb.formats import FormatRegistry, core_formats
 from schemapb.render import ascii_lower, ascii_upper
 
 if TYPE_CHECKING:
-    from schemapb._gen.schemapb import Schema, SchemaField, ValidationError
-    from schemapb.value import Native
+    from schemapb._gen.schemapb import (
+        Baked,
+        Schema,
+        SchemaField,
+        StructValue,
+        ValidationError,
+        ValidationResult,
+    )
+    from schemapb.bake import BakeOutcome
+    from schemapb.value import Native, NativeStruct
 
 # The strings-extension subset registered as custom functions (celpy has no
 # built-in strings extension; the rest of the extension is a tracked gap).
@@ -86,6 +94,67 @@ class Engine:
         deps: list[str] = []
         _walk_deps(compiled.tree, deps)
         return deps
+
+    # -- the public operation surface ---------------------------------------
+    # Everything a consumer does with a compiled schema is a method here;
+    # the per-module functions stay importable for functional style.
+    # Imports are local to dodge the module cycle.
+
+    def validate(self, values: NativeStruct) -> ValidationResult:
+        """Validate values: resolve + every constraint check, errors as data."""
+        from schemapb.validate import validate  # noqa: PLC0415 - module-cycle escape
+
+        return validate(self, values)
+
+    def resolve(self, values: NativeStruct) -> list[ValidationError]:
+        """Resolve values in place: defaults, coercion, normalize, computed."""
+        from schemapb.compute import resolve  # noqa: PLC0415 - module-cycle escape
+
+        return resolve(self, values)
+
+    def bake(self, values: NativeStruct) -> BakeOutcome:
+        """Validate + resolve, then seal in canonical wire form."""
+        from schemapb.bake import bake  # noqa: PLC0415 - module-cycle escape
+
+        return bake(self, values)
+
+    def merge(
+        self, baked: Baked, overrides: StructValue, *, replace_lists: bool = False
+    ) -> BakeOutcome:
+        """Layer overrides onto a baked form and re-seal on this engine."""
+        from schemapb.bake import merge  # noqa: PLC0415 - module-cycle escape
+
+        return merge(self, baked, overrides, replace_lists=replace_lists)
+
+    def render(self, name: str, values: NativeStruct) -> str | None:
+        """Render a schema-carried Mustache template against resolved values."""
+        from schemapb.bake import render  # noqa: PLC0415 - module-cycle escape
+
+        return render(self, name, values)
+
+    def render_baked(self, baked: Baked, name: str) -> str | None:
+        """Render a Baked snapshot with a template of its embedded schema."""
+        from schemapb.bake import render_baked  # noqa: PLC0415 - module-cycle escape
+
+        return render_baked(self, baked, name)
+
+    def build_render_context(self, values: NativeStruct) -> dict[str, object]:
+        """The contract render context; inactive fields excluded entirely."""
+        from schemapb.bake import build_render_context  # noqa: PLC0415 - module-cycle escape
+
+        return build_render_context(self, values)
+
+    def choice_options(self, name: str, root: NativeStruct) -> list[Native] | None:
+        """The dynamic options of a Choice field (static + options_expr)."""
+        from schemapb.compute import choice_options  # noqa: PLC0415 - module-cycle escape
+
+        return choice_options(self, name, root)
+
+    def list_count(self, name: str, root: NativeStruct) -> int | None:
+        """The dynamic required element count of a list field (count_expr)."""
+        from schemapb.compute import list_count  # noqa: PLC0415 - module-cycle escape
+
+        return list_count(self, name, root)
 
 
 def _as_index(v: object) -> int:

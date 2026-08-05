@@ -15,6 +15,7 @@ import { ErrorCode, ValidationResultSchema } from "../src/gen/schemapb/errors_pb
 import { SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
 import { StructValueSchema } from "../src/gen/schemapb/value_pb.js";
 import { messageTemplates } from "../src/messages.js";
+import { templateName } from "../src/typed.js";
 import { validate } from "../src/validate.js";
 import type { NativeStruct } from "../src/value.js";
 
@@ -107,8 +108,8 @@ describe("conformance against Go goldens", () => {
     if (outcome.baked === undefined) {
       return;
     }
-    const conf = renderBaked(e, outcome.baked, "conf" as never);
-    const report = renderBaked(e, outcome.baked, "report" as never);
+    const conf = renderBaked(e, outcome.baked, templateName("conf"));
+    const report = renderBaked(e, outcome.baked, templateName("report"));
     expect(`${conf}---\n${report}`).toBe(golden("full-rendered.txt"));
   });
 

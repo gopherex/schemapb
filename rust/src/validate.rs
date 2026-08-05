@@ -23,7 +23,7 @@ use crate::value::{
 
 /// Validates form values against the compiled schema (values resolve in
 /// place); every outcome lives in the `ValidationResult`.
-pub fn validate(e: &Engine, values: &mut NativeStruct) -> ValidationResult {
+pub(crate) fn validate(e: &Engine, values: &mut NativeStruct) -> ValidationResult {
     let mut errs = Vec::new();
     let snapshot = values.clone();
     check_immutable(
@@ -57,7 +57,7 @@ pub const fn result_ok(r: &ValidationResult) -> bool {
 }
 
 #[must_use]
-pub fn result_blocking(r: &ValidationResult) -> bool {
+pub(crate) fn result_blocking(r: &ValidationResult) -> bool {
     r.errors
         .iter()
         .any(|e| e.severity != i32::from(Severity::Warning as u8))
@@ -1277,4 +1277,12 @@ fn check_ref(
         eval_rule(e, rule, path, val, root, None, &mut sub);
     }
     sub
+}
+
+impl ValidationResult {
+    /// Whether the result blocks a bake: any error-severity entry.
+    #[must_use]
+    pub fn blocking(&self) -> bool {
+        result_blocking(self)
+    }
 }

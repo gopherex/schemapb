@@ -17,7 +17,7 @@ pub struct BakeOutcome {
 }
 
 /// Validate + resolve, then seal in canonical wire form.
-pub fn bake(e: &Engine, values: &mut NativeStruct) -> BakeOutcome {
+pub(crate) fn bake(e: &Engine, values: &mut NativeStruct) -> BakeOutcome {
     let result = validate(e, values);
     if result_blocking(&result) {
         return BakeOutcome {
@@ -73,7 +73,7 @@ fn canonical_top(e: &Engine, f: Option<&SchemaField>, val: &Native) -> Value {
 
 /// Layers overrides onto a baked form and re-seals on this engine.
 #[must_use]
-pub fn merge(
+pub(crate) fn merge(
     e: &Engine,
     baked: &Baked,
     overrides: &StructValue,
@@ -110,25 +110,25 @@ fn merge_structs(dst: &NativeStruct, src: &NativeStruct, replace_lists: bool) ->
 
 /// Whether the baked schema is identical in content to `s`.
 #[must_use]
-pub fn baked_matches(baked: &Baked, s: &Schema) -> bool {
+pub(crate) fn baked_matches(baked: &Baked, s: &Schema) -> bool {
     baked.schema.as_ref() == Some(s)
 }
 
 /// Renders a schema-carried Mustache template against resolved values.
 #[must_use]
-pub fn render(e: &Engine, name: &str, values: &NativeStruct) -> Option<String> {
+pub(crate) fn render(e: &Engine, name: &str, values: &NativeStruct) -> Option<String> {
     e.render_template(name, &build_render_context(e, values))
 }
 
 /// Renders a Baked snapshot with a template of its embedded schema.
 #[must_use]
-pub fn render_baked(e: &Engine, baked: &Baked, name: &str) -> Option<String> {
+pub(crate) fn render_baked(e: &Engine, baked: &Baked, name: &str) -> Option<String> {
     render(e, name, &struct_to_native(baked.values.as_ref()))
 }
 
 /// The contract render context; inactive fields excluded entirely.
 #[must_use]
-pub fn build_render_context(e: &Engine, values: &NativeStruct) -> RenderContext {
+pub(crate) fn build_render_context(e: &Engine, values: &NativeStruct) -> RenderContext {
     let mut fields: Vec<RenderField> = Vec::new();
     let mut groups: Vec<RenderGroup> = Vec::new();
     let mut group_idx: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
@@ -169,5 +169,13 @@ pub fn build_render_context(e: &Engine, values: &NativeStruct) -> RenderContext 
         fields,
         groups,
         values: display,
+    }
+}
+
+impl Baked {
+    /// Whether the embedded schema is identical in content to `s`.
+    #[must_use]
+    pub fn matches(&self, s: &Schema) -> bool {
+        baked_matches(self, s)
     }
 }

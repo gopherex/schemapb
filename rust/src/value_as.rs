@@ -27,7 +27,7 @@ use crate::gen::schemapb::{StructValue, Value};
 
 /// The wire kind of a value as its spec short name.
 #[must_use]
-pub const fn value_kind_name(v: &Value) -> &'static str {
+pub(crate) const fn value_kind_name(v: &Value) -> &'static str {
     match v.kind.as_ref() {
         None | Some(Kind::NullValue(_)) => "null",
         Some(Kind::BoolValue(_)) => "bool",
@@ -226,6 +226,13 @@ impl<'a> TryFrom<&'a Value> for &'a [u8] {
 }
 
 impl Value {
+    /// The wire kind of the value as its spec short name ("int64",
+    /// "struct", "null", …).
+    #[must_use]
+    pub const fn kind_name(&self) -> &'static str {
+        value_kind_name(self)
+    }
+
     /// `Option` sugar over the `TryFrom<&Value>` impls:
     /// `v.get::<i64>()`, `v.get::<&str>()`, …
     #[must_use]

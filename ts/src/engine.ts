@@ -26,12 +26,29 @@ import { isMessage } from "@bufbuild/protobuf";
 import { isReflectMessage } from "@bufbuild/protobuf/reflect";
 import { DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
 import Mustache from "mustache";
+import type { BakeOutcome } from "./bake.js";
+import {
+  bake as bakeFn,
+  buildRenderContext as buildRenderContextFn,
+  merge as mergeFn,
+  renderBaked as renderBakedFn,
+  render as renderFn,
+} from "./bake.js";
+import {
+  choiceOptions as choiceOptionsFn,
+  listCount as listCountFn,
+  resolve as resolveFn,
+} from "./compute.js";
 import { checkDescriptor, joinPath, nestedSchemas, SchemaError, schemaErr } from "./descriptor.js";
 import type { CompileOptions, FormatFunc, FormatRegistry } from "./format.js";
 import { coreFormats } from "./format.js";
-import type { ValidationError } from "./gen/schemapb/errors_pb.js";
+import type { ValidationError, ValidationResult } from "./gen/schemapb/errors_pb.js";
+import type { Baked } from "./gen/schemapb/runtime_pb.js";
 import type { Schema, Schema_Field } from "./gen/schemapb/schema_pb.js";
-import type { Format } from "./typed.js";
+import type { StructValue } from "./gen/schemapb/value_pb.js";
+import type { RenderContext } from "./render.js";
+import type { Format, TemplateName } from "./typed.js";
+import { validate as validateFn } from "./validate.js";
 import type { Native, NativeStruct } from "./value.js";
 
 type Vars = {
@@ -246,6 +263,57 @@ export class Engine {
       }
     }
     return errs;
+  }
+
+  // -- the public operation surface ------------------------------------------
+  // Everything a consumer does with a compiled schema is a method here; the
+  // per-module functions stay exported for functional style / tree-shaking.
+  // (Imports are lazy via dynamic dispatch below to keep the module graph
+  // acyclic at load time: those modules import Engine as a type only.)
+
+  /** Validates values: resolve + every constraint check, errors as data. */
+  validate(values: NativeStruct): ValidationResult {
+    return validateFn(this, values);
+  }
+
+  /** Resolves values in place: defaults, coercion, normalize, computed. */
+  resolve(values: NativeStruct): ValidationError[] {
+    return resolveFn(this, values);
+  }
+
+  /** Validate + resolve, then seal in canonical wire form. */
+  bake(values: NativeStruct): BakeOutcome {
+    return bakeFn(this, values);
+  }
+
+  /** Layers overrides onto a baked form and re-seals on this engine. */
+  merge(baked: Baked, overrides: StructValue, replaceLists = false): BakeOutcome {
+    return mergeFn(this, baked, overrides, replaceLists);
+  }
+
+  /** Renders a schema-carried Mustache template against resolved values. */
+  render(name: TemplateName, values: NativeStruct): string | undefined {
+    return renderFn(this, name, values);
+  }
+
+  /** Renders a Baked snapshot with a template of its embedded schema. */
+  renderBaked(baked: Baked, name: TemplateName): string | undefined {
+    return renderBakedFn(this, baked, name);
+  }
+
+  /** The contract render context; inactive fields excluded entirely. */
+  buildRenderContext(values: NativeStruct): RenderContext {
+    return buildRenderContextFn(this, values);
+  }
+
+  /** The dynamic options of a Choice field (static + options_expr). */
+  choiceOptions(name: string, root: NativeStruct): Native[] | undefined {
+    return choiceOptionsFn(this, name, root);
+  }
+
+  /** The dynamic required element count of a list field (count_expr). */
+  listCount(name: string, root: NativeStruct): bigint | undefined {
+    return listCountFn(this, name, root);
   }
 }
 

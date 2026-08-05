@@ -28,7 +28,7 @@ pub struct Engine {
 }
 
 /// Compiles a schema; `SchemaError` on any defect.
-pub fn compile(schema: Schema, formats: FormatRegistry) -> Result<Engine, SchemaError> {
+pub(crate) fn compile(schema: Schema, formats: FormatRegistry) -> Result<Engine, SchemaError> {
     let mut errs: Vec<ValidationError> = check_descriptor(&schema);
 
     let mut registry = core_formats();
@@ -461,5 +461,88 @@ fn select_path(expr: &cel_parser::Expression) -> Option<String> {
             })
         }
         _ => None,
+    }
+}
+
+// =============================================================================
+// The public Engine surface: everything a consumer does with a compiled
+// schema is a method here (the per-module functions are crate-internal).
+// =============================================================================
+
+impl Engine {
+    /// Compiles a schema with extension formats; `SchemaError` on any
+    /// defect (structural, expression, pattern, template, cycle).
+    pub fn compile(schema: Schema, formats: FormatRegistry) -> Result<Self, SchemaError> {
+        compile(schema, formats)
+    }
+
+    /// Validates values against the schema: resolve (defaults, coercion,
+    /// computed) + every constraint check, errors as data.
+    pub fn validate(
+        &self,
+        values: &mut crate::value::NativeStruct,
+    ) -> crate::gen::schemapb::ValidationResult {
+        crate::validate::validate(self, values)
+    }
+
+    /// Resolves values in place: defaults, coercion, normalize, computed.
+    pub fn resolve(
+        &self,
+        values: &mut crate::value::NativeStruct,
+    ) -> Vec<crate::gen::schemapb::ValidationError> {
+        crate::compute::resolve(self, values)
+    }
+
+    /// Validate + resolve, then seal in canonical wire form.
+    pub fn bake(&self, values: &mut crate::value::NativeStruct) -> crate::bake::BakeOutcome {
+        crate::bake::bake(self, values)
+    }
+
+    /// Layers overrides onto a baked form and re-seals on this engine.
+    #[must_use]
+    pub fn merge(
+        &self,
+        baked: &crate::gen::schemapb::Baked,
+        overrides: &crate::gen::schemapb::StructValue,
+        replace_lists: bool,
+    ) -> crate::bake::BakeOutcome {
+        crate::bake::merge(self, baked, overrides, replace_lists)
+    }
+
+    /// Renders a schema-carried Mustache template against resolved values.
+    #[must_use]
+    pub fn render(&self, name: &str, values: &crate::value::NativeStruct) -> Option<String> {
+        crate::bake::render(self, name, values)
+    }
+
+    /// Renders a Baked snapshot with a template of its embedded schema.
+    #[must_use]
+    pub fn render_baked(&self, baked: &crate::gen::schemapb::Baked, name: &str) -> Option<String> {
+        crate::bake::render_baked(self, baked, name)
+    }
+
+    /// The contract render context; inactive fields excluded entirely.
+    #[must_use]
+    pub fn build_render_context(
+        &self,
+        values: &crate::value::NativeStruct,
+    ) -> crate::render::RenderContext {
+        crate::bake::build_render_context(self, values)
+    }
+
+    /// The dynamic options of a Choice field (static + `options_expr`).
+    #[must_use]
+    pub fn choice_options(
+        &self,
+        name: &str,
+        root: &crate::value::NativeStruct,
+    ) -> Option<Vec<crate::value::Native>> {
+        crate::compute::choice_options(self, name, root)
+    }
+
+    /// The dynamic required element count of a list field (`count_expr`).
+    #[must_use]
+    pub fn list_count(&self, name: &str, root: &crate::value::NativeStruct) -> Option<i64> {
+        crate::compute::list_count(self, name, root)
     }
 }

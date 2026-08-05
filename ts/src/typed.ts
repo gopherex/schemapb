@@ -23,6 +23,36 @@ export type GroupName = Branded<"GroupName">;
 export type VariantKey = Branded<"VariantKey">;
 export type Format = Branded<"Format">;
 
+// The constructor helpers the doc above promises: explicit, greppable
+// entry points from untyped strings into each domain.
+export function namespace(s: string): Namespace {
+  return s as Namespace;
+}
+export function schemaName(s: string): SchemaName {
+  return s as SchemaName;
+}
+export function fieldName(s: string): FieldName {
+  return s as FieldName;
+}
+export function defName(s: string): DefName {
+  return s as DefName;
+}
+export function templateName(s: string): TemplateName {
+  return s as TemplateName;
+}
+export function ruleId(s: string): RuleId {
+  return s as RuleId;
+}
+export function groupName(s: string): GroupName {
+  return s as GroupName;
+}
+export function variantKey(s: string): VariantKey {
+  return s as VariantKey;
+}
+export function format(s: string): Format {
+  return s as Format;
+}
+
 /** Core string formats of the spec's format registry. */
 export const FORMATS = {
   email: "email" as Format,
