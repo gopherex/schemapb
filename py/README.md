@@ -51,3 +51,7 @@ Known deviations (tracked):
   contract's nanoseconds; sub-microsecond durations round.
 - no CEL evaluation cost limit: `cel-python` does not expose one (the Go
   reference has `WithCostLimit`).
+- `value_as` type tokens are Python's own: `int` is unbounded (covers the
+  full int64 and uint64 wire ranges) and there is no float32 token — the
+  range-constrained refusals other implementations report cannot be
+  expressed with these tokens.

@@ -50,6 +50,15 @@ from schemapb.value import (
     struct_to_native,
     to_native,
 )
+from schemapb.value_as import (
+    ValueLookupError,
+    ValueLookupReason,
+    value_as,
+    value_field,
+    value_index,
+    value_kind_name,
+    value_lookup,
+)
 
 __all__ = [  # noqa: RUF022 - grouped by module
     "Baked",
@@ -88,6 +97,11 @@ __all__ = [  # noqa: RUF022 - grouped by module
     "kind_name",
     "list_item_def",
     "list_items",
+    "value_as",
+    "value_field",
+    "value_index",
+    "value_kind_name",
+    "value_lookup",
     "lookup",
     "lookup_path",
     "FormatRegistry",
@@ -104,6 +118,8 @@ __all__ = [  # noqa: RUF022 - grouped by module
     "Format",
     "LookupReason",
     "SchemaLookupError",
+    "ValueLookupError",
+    "ValueLookupReason",
     "Version",
     "make_id",
     "result_blocking",

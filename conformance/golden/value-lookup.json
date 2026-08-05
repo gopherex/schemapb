@@ -1,0 +1,180 @@
+{
+  "cases": [
+    {
+      "path": "name",
+      "value": {
+        "stringValue": "main"
+      }
+    },
+    {
+      "path": "flag",
+      "value": {
+        "boolValue": true
+      }
+    },
+    {
+      "path": "replicas",
+      "value": {
+        "listValue": {
+          "items": [
+            {
+              "structValue": {
+                "fields": {
+                  "name": {
+                    "stringValue": "r1"
+                  },
+                  "weight": {
+                    "int64Value": "1"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "replicas[0]",
+      "value": {
+        "structValue": {
+          "fields": {
+            "name": {
+              "stringValue": "r1"
+            },
+            "weight": {
+              "int64Value": "1"
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "replicas[0].name",
+      "value": {
+        "stringValue": "r1"
+      }
+    },
+    {
+      "path": "replicas[0].weight",
+      "value": {
+        "int64Value": "1"
+      }
+    },
+    {
+      "path": "endpoint_pair[0]",
+      "value": {
+        "stringValue": "db1"
+      }
+    },
+    {
+      "path": "endpoint_pair[1]",
+      "value": {
+        "int64Value": "5432"
+      }
+    },
+    {
+      "path": "tablespaces.main.location",
+      "value": {
+        "stringValue": "/var/lib/ts"
+      }
+    },
+    {
+      "path": "annotations.tier",
+      "value": {
+        "int64Value": "1"
+      }
+    },
+    {
+      "path": "timeout",
+      "value": {
+        "durationValue": "300s"
+      }
+    },
+    {
+      "path": "magic",
+      "value": {
+        "bytesValue": "3q0="
+      }
+    },
+    {
+      "path": "nope",
+      "error": {
+        "at": "",
+        "segment": "nope",
+        "reason": "not_found"
+      }
+    },
+    {
+      "path": "replicas[1]",
+      "error": {
+        "at": "replicas",
+        "segment": "[1]",
+        "reason": "index_out_of_range"
+      }
+    },
+    {
+      "path": "replicas[0].nope",
+      "error": {
+        "at": "replicas[0]",
+        "segment": "nope",
+        "reason": "not_found"
+      }
+    },
+    {
+      "path": "name.x",
+      "error": {
+        "at": "name",
+        "segment": "x",
+        "reason": "not_a_struct"
+      }
+    },
+    {
+      "path": "replicas.name",
+      "error": {
+        "at": "replicas",
+        "segment": "name",
+        "reason": "not_a_struct"
+      }
+    },
+    {
+      "path": "endpoint_pair[0][0]",
+      "error": {
+        "at": "endpoint_pair[0]",
+        "segment": "[0]",
+        "reason": "not_a_list"
+      }
+    },
+    {
+      "path": "replicas[x]",
+      "error": {
+        "at": "",
+        "segment": "replicas[x]",
+        "reason": "bad_path"
+      }
+    },
+    {
+      "path": "a..b",
+      "error": {
+        "at": "",
+        "segment": "a..b",
+        "reason": "bad_path"
+      }
+    },
+    {
+      "path": "a[0]x",
+      "error": {
+        "at": "",
+        "segment": "a[0]x",
+        "reason": "bad_path"
+      }
+    },
+    {
+      "path": "",
+      "error": {
+        "at": "",
+        "segment": "",
+        "reason": "empty_path"
+      }
+    }
+  ]
+}

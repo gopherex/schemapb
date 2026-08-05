@@ -1,3 +1,4 @@
+export * from "./as.js";
 export * from "./bake.js";
 export * from "./compute.js";
 export * from "./descriptor.js";
@@ -16,3 +17,4 @@ export * from "./render.js";
 export * from "./typed.js";
 export * from "./validate.js";
 export * from "./value.js";
+export * from "./value_lookup.js";

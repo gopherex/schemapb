@@ -47,7 +47,7 @@ type LookupError struct {
 }
 
 func (e *LookupError) Error() string {
-	where := "root"
+	where := lookupRoot
 	if e.At != "" {
 		where = fmt.Sprintf("%q", e.At)
 	}

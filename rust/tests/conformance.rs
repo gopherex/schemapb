@@ -264,3 +264,100 @@ fn field_name_rules() {
         );
     }
 }
+
+/// Value-as conformance: every case in value-as.json must convert (and
+/// re-encode as the target's wire kind) or refuse exactly as Go does.
+#[test]
+fn value_as_cases() {
+    use schemapb::gen::schemapb::Value;
+    use schemapb::value::{
+        bool_v, bytes_v, double_v, duration_v, float_v, int32_v, int64_v, list_v, str_v, struct_v,
+        timestamp_v, uint32_v, uint64_v,
+    };
+
+    let re_encode = |v: &Value, target: &str| -> Option<Value> {
+        match target {
+            "bool" => v.get::<bool>().map(bool_v),
+            "int32" => v.get::<i32>().map(int32_v),
+            "int64" => v.get::<i64>().map(int64_v),
+            "uint32" => v.get::<u32>().map(uint32_v),
+            "uint64" => v.get::<u64>().map(uint64_v),
+            "float" => v.get::<f32>().map(float_v),
+            "double" => v.get::<f64>().map(double_v),
+            "string" => v.get::<&str>().map(str_v),
+            "bytes" => v.get::<Vec<u8>>().map(bytes_v),
+            "duration" => v.get::<pbjson_types::Duration>().map(duration_v),
+            "timestamp" => v.get::<pbjson_types::Timestamp>().map(timestamp_v),
+            "list" => v.as_list().map(|items| list_v(items.to_vec())),
+            "struct" => v.as_struct().map(|fields| struct_v(fields.clone())),
+            _ => None,
+        }
+    };
+
+    let doc: serde_json::Value = serde_json::from_str(&golden("value-as.json")).unwrap();
+
+    for case in doc["cases"].as_array().unwrap() {
+        let v: Value = serde_json::from_value(case["value"].clone()).unwrap();
+        let target = case["target"].as_str().unwrap();
+        let got = re_encode(&v, target);
+
+        match got {
+            None => assert!(
+                case["result"].is_null(),
+                "as {target} <- {}: refused, want {}",
+                case["value"],
+                case["result"]
+            ),
+            Some(res) => {
+                assert!(
+                    !case["result"].is_null(),
+                    "as {target} <- {}: got value, want refusal",
+                    case["value"]
+                );
+                let want: Value = serde_json::from_value(case["result"].clone()).unwrap();
+                assert_eq!(res, want, "as {target} <- {}", case["value"]);
+            }
+        }
+    }
+}
+
+/// Value-lookup conformance over the baked kitchen-sink values.
+#[test]
+fn value_lookup_cases() {
+    use schemapb::gen::schemapb::Value;
+
+    let values: StructValue = serde_json::from_str(&golden("full-baked.json")).unwrap();
+    let doc: serde_json::Value = serde_json::from_str(&golden("value-lookup.json")).unwrap();
+
+    for case in doc["cases"].as_array().unwrap() {
+        let path = case["path"].as_str().unwrap();
+        match values.lookup(path) {
+            Ok(v) => {
+                assert!(
+                    case["error"].is_null(),
+                    "lookup {path:?}: resolved, want error"
+                );
+                let want: Value = serde_json::from_value(case["value"].clone()).unwrap();
+                assert_eq!(*v, want, "lookup {path:?}");
+            }
+            Err(e) => {
+                let want = &case["error"];
+                assert!(
+                    !want.is_null(),
+                    "lookup {path:?}: failed with {e}, want value"
+                );
+                assert_eq!(e.at, want["at"].as_str().unwrap(), "lookup {path:?}: at");
+                assert_eq!(
+                    e.segment,
+                    want["segment"].as_str().unwrap(),
+                    "lookup {path:?}: segment"
+                );
+                assert_eq!(
+                    e.reason.as_str(),
+                    want["reason"].as_str().unwrap(),
+                    "lookup {path:?}: reason"
+                );
+            }
+        }
+    }
+}

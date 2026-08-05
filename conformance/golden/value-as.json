@@ -1,0 +1,304 @@
+{
+  "cases": [
+    {
+      "value": {
+        "uint32Value": 5
+      },
+      "target": "int64",
+      "result": {
+        "int64Value": "5"
+      }
+    },
+    {
+      "value": {
+        "int32Value": -7
+      },
+      "target": "double",
+      "result": {
+        "doubleValue": -7
+      }
+    },
+    {
+      "value": {
+        "doubleValue": 3
+      },
+      "target": "int64",
+      "result": {
+        "int64Value": "3"
+      }
+    },
+    {
+      "value": {
+        "int64Value": "42"
+      },
+      "target": "double",
+      "result": {
+        "doubleValue": 42
+      }
+    },
+    {
+      "value": {
+        "int64Value": "300"
+      },
+      "target": "int32",
+      "result": {
+        "int32Value": 300
+      }
+    },
+    {
+      "value": {
+        "int64Value": "300"
+      },
+      "target": "uint32",
+      "result": {
+        "uint32Value": 300
+      }
+    },
+    {
+      "value": {
+        "doubleValue": 2.5
+      },
+      "target": "float",
+      "result": {
+        "floatValue": 2.5
+      }
+    },
+    {
+      "value": {
+        "floatValue": 2.5
+      },
+      "target": "double",
+      "result": {
+        "doubleValue": 2.5
+      }
+    },
+    {
+      "value": {
+        "uint64Value": "42"
+      },
+      "target": "int32",
+      "result": {
+        "int32Value": 42
+      }
+    },
+    {
+      "value": {
+        "uint64Value": "18446744073709551615"
+      },
+      "target": "int64"
+    },
+    {
+      "value": {
+        "int64Value": "-1"
+      },
+      "target": "uint64"
+    },
+    {
+      "value": {
+        "int64Value": "-1"
+      },
+      "target": "uint32"
+    },
+    {
+      "value": {
+        "doubleValue": 3.5
+      },
+      "target": "int64"
+    },
+    {
+      "value": {
+        "int64Value": "9007199254740992"
+      },
+      "target": "double",
+      "result": {
+        "doubleValue": 9007199254740992
+      }
+    },
+    {
+      "value": {
+        "int64Value": "9007199254740993"
+      },
+      "target": "double"
+    },
+    {
+      "value": {
+        "doubleValue": 0.1
+      },
+      "target": "float"
+    },
+    {
+      "value": {
+        "int64Value": "9223372036854775807"
+      },
+      "target": "double"
+    },
+    {
+      "value": {
+        "stringValue": "5"
+      },
+      "target": "int64"
+    },
+    {
+      "value": {
+        "stringValue": "hello"
+      },
+      "target": "string",
+      "result": {
+        "stringValue": "hello"
+      }
+    },
+    {
+      "value": {
+        "int64Value": "5"
+      },
+      "target": "string"
+    },
+    {
+      "value": {
+        "boolValue": true
+      },
+      "target": "bool",
+      "result": {
+        "boolValue": true
+      }
+    },
+    {
+      "value": {
+        "boolValue": true
+      },
+      "target": "int64"
+    },
+    {
+      "value": {
+        "int64Value": "1"
+      },
+      "target": "bool"
+    },
+    {
+      "value": {
+        "bytesValue": "3q0="
+      },
+      "target": "bytes",
+      "result": {
+        "bytesValue": "3q0="
+      }
+    },
+    {
+      "value": {
+        "stringValue": "3q0="
+      },
+      "target": "bytes"
+    },
+    {
+      "value": {
+        "durationValue": "90s"
+      },
+      "target": "duration",
+      "result": {
+        "durationValue": "90s"
+      }
+    },
+    {
+      "value": {
+        "durationValue": "90s"
+      },
+      "target": "int64"
+    },
+    {
+      "value": {
+        "timestampValue": "2023-11-14T22:13:20Z"
+      },
+      "target": "timestamp",
+      "result": {
+        "timestampValue": "2023-11-14T22:13:20Z"
+      }
+    },
+    {
+      "value": {
+        "nullValue": "NULL_VALUE"
+      },
+      "target": "int64"
+    },
+    {
+      "value": {
+        "nullValue": "NULL_VALUE"
+      },
+      "target": "string"
+    },
+    {
+      "value": {
+        "listValue": {
+          "items": [
+            {
+              "stringValue": "a"
+            },
+            {
+              "int64Value": "1"
+            }
+          ]
+        }
+      },
+      "target": "list",
+      "result": {
+        "listValue": {
+          "items": [
+            {
+              "stringValue": "a"
+            },
+            {
+              "int64Value": "1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "value": {
+        "listValue": {
+          "items": [
+            {
+              "stringValue": "a"
+            },
+            {
+              "int64Value": "1"
+            }
+          ]
+        }
+      },
+      "target": "struct"
+    },
+    {
+      "value": {
+        "structValue": {
+          "fields": {
+            "k": {
+              "boolValue": true
+            }
+          }
+        }
+      },
+      "target": "struct",
+      "result": {
+        "structValue": {
+          "fields": {
+            "k": {
+              "boolValue": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "value": {
+        "structValue": {
+          "fields": {
+            "k": {
+              "boolValue": true
+            }
+          }
+        }
+      },
+      "target": "list"
+    }
+  ]
+}

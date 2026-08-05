@@ -1,0 +1,26 @@
+    Checking schemapb v0.0.0 (/home/yaroher/devel/github/gopherex/schemapb/rust)
+error[E0658]: cannot perform conditionally-const deref coercion on `std::vec::Vec<gen::schemapb::Value>` in constant functions
+    --> src/value_as.rs:243:46
+     |
+ 243 |             Some(Kind::ListValue(l)) => Some(&l.items),
+     |                                              ^^^^^^^^
+     |
+     = note: attempting to deref into `[gen::schemapb::Value]`
+note: deref defined here
+    --> /home/yaroher/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:3783:5
+     |
+3783 |     type Target = [T];
+     |     ^^^^^^^^^^^
+     = note: calls in constant functions are limited to constant functions, tuple structs and tuple variants
+     = note: see issue #143874 <https://github.com/rust-lang/rust/issues/143874> for more information
+
+error: `std::ops::Deref` is not yet stable as a const trait
+   --> src/value_as.rs:243:46
+    |
+243 |             Some(Kind::ListValue(l)) => Some(&l.items),
+    |                                              ^^^^^^^^
+
+For more information about this error, try `rustc --explain E0658`.
+error: could not compile `schemapb` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `schemapb` (lib test) due to 2 previous errors

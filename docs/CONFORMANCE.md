@@ -15,6 +15,8 @@ fixtures, and TypeScript, Python and Rust must reproduce them exactly
 | `full-rendered.txt` | Mustache render of the schema's template against the resolved values — byte-equal, including escaping and Go-style duration display (`5m0s`). |
 | `messages.json` | The spec-owned message-template set, per `ErrorCode`. |
 | `lookup.json` | Schema path lookup over the kitchen-sink schema: each case pins either the resolved field's kind or the failing `(at, segment, reason)` triple. Error message texts are NOT pinned — each language words its lookup error idiomatically; the triple is the contract. |
+| `value-as.json` | The typed-extraction matrix: source wire value × target kind → re-encoded result or refusal. Pins the one rule — a conversion succeeds iff the value is represented in the target exactly (lossless round-trip); numerics convert across kinds, everything else is strict. |
+| `value-lookup.json` | Value path lookup in the error-path dialect (`replicas[0].name`) over the baked kitchen-sink values: resolved value (protoJSON) or the failing `(at, segment, reason)` triple. |
 | `full-coverage.json` | Which contract features the kitchen-sink schema exercises — a checklist that the goldens stay exhaustive. |
 
 The valid/broken inputs are defined in `go/schemapb/golden_test.go` and
