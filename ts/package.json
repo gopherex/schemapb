@@ -1,7 +1,7 @@
 {
   "name": "@gopherex/schemapb",
   "version": "0.0.0",
-  "description": "schemapb — proto-defined form/config schema descriptor: native TypeScript implementation (validation, CEL computed values, Mustache rendering)",
+  "description": "schemapb \u2014 proto-defined form/config schema descriptor: native TypeScript implementation (validation, CEL computed values, Mustache rendering)",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -20,6 +20,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./zod": {
+      "types": "./dist/zod.d.ts",
+      "import": "./dist/zod.js"
     }
   },
   "scripts": {
@@ -42,6 +46,15 @@
     "@types/semver": "^7.7.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.0",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "zod": "^4.5.4"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    }
   }
 }
