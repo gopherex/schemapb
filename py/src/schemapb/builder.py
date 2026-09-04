@@ -487,6 +487,16 @@ def object_(name: str, *fields: FieldB) -> ObjectB:
     return ObjectB(name, *fields)
 
 
+def map_of(name: str, value: FieldB) -> MapB:
+    """A map whose values are NOT objects: every value must satisfy the
+    single field definition (its name is ignored; error paths name the map
+    key)."""
+    b = MapB(name)
+    b._k.value_schema = None  # noqa: SLF001 - constructor variant of the same builder
+    b._k.value_field = value.done()  # noqa: SLF001
+    return b
+
+
 class MapB(FieldB):
     def __init__(self, name: str, *value_fields: FieldB) -> None:
         super().__init__(name)

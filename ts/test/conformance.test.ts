@@ -44,6 +44,7 @@ function validInput(): NativeStruct {
     tablespaces: {
       main: { location: "/var/lib/ts" },
     },
+    limits: { cpu: 2n, mem: 4096n },
     backup: { type: "s3", bucket: "backups" },
     data_volume: { path: "/data" },
     region: "somewhere-else",
@@ -76,6 +77,7 @@ function brokenInput(): NativeStruct {
     replicas: [{ name: "r1" }, { name: "r1" }, { weight: 2n }],
     logging: { collector: true, junk: 1n },
     tablespaces: { bad: {} },
+    limits: { cpu: -1n, mem: "lots" },
     backup: { type: "tape" },
     data_volume: { path: "/data", size_gb: 0n },
     garbage: 1n,

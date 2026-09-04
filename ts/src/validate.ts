@@ -1002,6 +1002,14 @@ function checkMap(
       verr(path, ErrorCode.MAX_ENTRIES_VIOLATED, "max_entries", uint64V(k.maxEntries), uint64V(n)),
     );
   }
+  const vf = k.valueField;
+  if (vf !== undefined) {
+    const sub: ValidationError[] = [];
+    for (const key of Object.keys(m).sort()) {
+      validateOne(e, vf, m[key] ?? null, true, joinPath(path, key), root, undefined, sub);
+    }
+    return [...out, ...sub];
+  }
   const vs = k.valueSchema;
   if (vs === undefined) {
     return out;

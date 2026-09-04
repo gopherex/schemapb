@@ -1177,6 +1177,23 @@ fn check_map(
             ));
         }
     }
+    if let Some(vf) = k.value_field.as_ref() {
+        let mut sub = Vec::new();
+        for (key, el) in m {
+            validate_one(
+                e,
+                vf,
+                Some(el),
+                true,
+                &join_path(path, key),
+                root,
+                None,
+                &mut sub,
+            );
+        }
+        out.extend(sub);
+        return out;
+    }
     let Some(vs) = k.value_schema.as_ref() else {
         return out;
     };

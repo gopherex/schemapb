@@ -719,6 +719,20 @@ export class MapB extends FieldB {
 }
 
 /** Free-key map field; valueFields describe the shared value schema. */
+/**
+ * A map whose values are NOT objects: every value must satisfy the single
+ * field definition (its name is ignored; error paths name the map key).
+ */
+export function mapOf(name: string, value: FieldB): MapB {
+  const sub = create(SchemaSchema, {});
+  const k = create(Schema_Field_MapSchema);
+  const b = new MapB(name, k, sub);
+  delete k.valueSchema;
+  k.valueField = value.done();
+  b.f.kind = { case: "map", value: k };
+  return b;
+}
+
 export function map(name: string, ...valueFields: FieldB[]): MapB {
   const sub = create(SchemaSchema, { fields: valueFields.map((f) => f.done()) });
   const k = create(Schema_Field_MapSchema);

@@ -149,6 +149,12 @@ func coverageSchema() *schemapb.Schema {
 				},
 				MinEntries: ptr(uint64(1)), MaxEntries: ptr(uint64(2)),
 			}}},
+			{Name: "map_scalar", Kind: &schemapb.Schema_Field_Map_{Map: &schemapb.Schema_Field_Map{
+				ValueField: &schemapb.Schema_Field{
+					Name: "value",
+					Kind: &schemapb.Schema_Field_Int64_{Int64: &schemapb.Schema_Field_Int64{Gte: ptr(int64(0))}},
+				},
+			}}},
 			{Name: "oneof_all", Kind: &schemapb.Schema_Field_OneOf_{OneOf: &schemapb.Schema_Field_OneOf{
 				Discriminator: "type",
 				Variants: map[string]*schemapb.Schema{

@@ -163,6 +163,12 @@ def _check_fields(fields: list[SchemaField], prefix: str) -> list[ValidationErro
             and f.map.min_entries > f.map.max_entries
         ):
             errs.append(schema_err(path, "map field: min_entries must be <= max_entries"))
+        if f.map is not None and f.map.value_schema is not None and f.map.value_field is not None:
+            errs.append(
+                schema_err(path, "map field: value_schema and value_field are mutually exclusive")
+            )
+        if f.map is not None and f.map.value_field is not None:
+            errs.extend(_check_fields([f.map.value_field], f"{path}[]"))
         for child in nested_schemas(f):
             errs.extend(_check_fields(child.fields, path))
     return errs

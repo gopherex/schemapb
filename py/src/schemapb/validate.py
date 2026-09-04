@@ -806,6 +806,20 @@ def _check_map(
                 uint64_v(n),
             ),
         )
+    if k.value_field is not None:
+        sub_vf: list[ValidationError] = []
+        for key in sorted(m):
+            _validate_one(
+                e,
+                k.value_field,
+                m[key],
+                exists=True,
+                path=join_path(path, key),
+                root=root,
+                index=None,
+                errs=sub_vf,
+            )
+        return out + sub_vf
     vs = k.value_schema
     if vs is None:
         return out

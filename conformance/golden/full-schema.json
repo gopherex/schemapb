@@ -384,6 +384,19 @@
       }
     },
     {
+      "name": "limits",
+      "map": {
+        "minEntries": "0",
+        "maxEntries": "8",
+        "valueField": {
+          "name": "value",
+          "int64": {
+            "gte": "0"
+          }
+        }
+      }
+    },
+    {
       "name": "backup",
       "oneOf": {
         "discriminator": "type",

@@ -228,6 +228,18 @@ fn check_fields(fields: &[SchemaField], prefix: &str) -> Vec<ValidationError> {
                         ));
                     }
                 }
+                if mp.value_schema.is_some() && mp.value_field.is_some() {
+                    errs.push(schema_err(
+                        &path,
+                        "map field: value_schema and value_field are mutually exclusive",
+                    ));
+                }
+                if let Some(vf) = mp.value_field.as_ref() {
+                    errs.extend(check_fields(
+                        std::slice::from_ref(vf.as_ref()),
+                        &format!("{path}[]"),
+                    ));
+                }
             }
             _ => {}
         }

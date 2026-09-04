@@ -986,6 +986,17 @@ func Map(name FieldName, valueFields ...FieldDef) *MapB {
 	return b
 }
 
+// MapOf declares a map whose values are NOT objects: every value must
+// satisfy the single field definition (its name is ignored; error paths
+// name the map key). The value_field counterpart of Map's value_schema.
+func MapOf(name FieldName, value FieldDef) *MapB {
+	b := &MapB{k: &Schema_Field_Map{ValueField: value.Done()}}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = &Schema_Field_Map_{Map: b.k}
+
+	return b
+}
+
 // Strict enables strict mode on the map's value schema: an unknown key inside
 // a map VALUE is rejected (the map's own keys are always free).
 func (b *MapB) Strict() *MapB {

@@ -1459,7 +1459,7 @@ class SchemaFieldMap(betterproto2.Message):
     )
     """
     Schema every map value must satisfy. Absent => values are accepted
-    unvalidated (any object). 
+    unvalidated (any object). Mutually exclusive with `value_field`. 
     """
 
     min_entries: "int | None" = betterproto2.field(
@@ -1474,6 +1474,19 @@ class SchemaFieldMap(betterproto2.Message):
     )
     """
     Maximum number of entries. 
+    """
+
+    value_field: "SchemaField | None" = betterproto2.field(
+        4, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Field definition every map value must satisfy — for maps whose
+    values are NOT objects (map<string, string>, map<string, int64>,
+    a list, ...). The definition's `name` is ignored; its kind and
+    constraints apply to each value, error paths name the map key
+    ("limits.cpu"). Mutually exclusive with `value_schema`. Value
+    fields are validated and canonicalized; resolve does not seed
+    defaults or run normalize/computed inside map values. 
     """
 
 

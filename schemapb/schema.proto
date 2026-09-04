@@ -357,12 +357,20 @@ message Schema {
      */
     message Map {
       /* Schema every map value must satisfy. Absent => values are accepted
-       * unvalidated (any object). */
+       * unvalidated (any object). Mutually exclusive with `value_field`. */
       optional Schema value_schema = 1;
       /* Minimum number of entries. */
       optional uint64 min_entries = 2;
       /* Maximum number of entries. */
       optional uint64 max_entries = 3;
+      /* Field definition every map value must satisfy — for maps whose
+       * values are NOT objects (map<string, string>, map<string, int64>,
+       * a list, ...). The definition's `name` is ignored; its kind and
+       * constraints apply to each value, error paths name the map key
+       * ("limits.cpu"). Mutually exclusive with `value_schema`. Value
+       * fields are validated and canonicalized; resolve does not seed
+       * defaults or run normalize/computed inside map values. */
+      optional Field value_field = 4;
     }
     /*
      * Computed field kind: a value derived from other values, not entered by

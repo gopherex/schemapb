@@ -75,6 +75,18 @@
     "license": {
       "bytesValue": "TElDLXgtRU5E"
     },
+    "limits": {
+      "structValue": {
+        "fields": {
+          "cpu": {
+            "int64Value": "2"
+          },
+          "mem": {
+            "int64Value": "4096"
+          }
+        }
+      }
+    },
     "magic": {
       "bytesValue": "3q0="
     },

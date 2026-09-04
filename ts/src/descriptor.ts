@@ -205,6 +205,14 @@ function checkFields(fields: Schema_Field[], prefix: string): ValidationError[] 
         break;
       }
       case "map": {
+        if (kind.value.valueSchema !== undefined && kind.value.valueField !== undefined) {
+          errs.push(
+            schemaErr(path, "map field: value_schema and value_field are mutually exclusive"),
+          );
+        }
+        if (kind.value.valueField !== undefined) {
+          errs.push(...checkFields([kind.value.valueField], `${path}[]`));
+        }
         const mp = kind.value;
         if (
           mp.minEntries !== undefined &&

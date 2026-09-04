@@ -682,7 +682,7 @@ pub mod schema {
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Map {
             /// Schema every map value must satisfy. Absent => values are accepted
-            /// unvalidated (any object). 
+            /// unvalidated (any object). Mutually exclusive with `value_field`. 
             #[prost(message, optional, tag="1")]
             pub value_schema: ::core::option::Option<super::super::Schema>,
             /// Minimum number of entries. 
@@ -691,6 +691,15 @@ pub mod schema {
             /// Maximum number of entries. 
             #[prost(uint64, optional, tag="3")]
             pub max_entries: ::core::option::Option<u64>,
+            /// Field definition every map value must satisfy — for maps whose
+            /// values are NOT objects (map<string, string>, map<string, int64>,
+            /// a list, ...). The definition's `name` is ignored; its kind and
+            /// constraints apply to each value, error paths name the map key
+            /// ("limits.cpu"). Mutually exclusive with `value_schema`. Value
+            /// fields are validated and canonicalized; resolve does not seed
+            /// defaults or run normalize/computed inside map values. 
+            #[prost(message, optional, boxed, tag="4")]
+            pub value_field: ::core::option::Option<::prost::alloc::boxed::Box<super::Field>>,
         }
         ///
         /// Computed field kind: a value derived from other values, not entered by
@@ -918,7 +927,7 @@ pub mod schema {
             Ref(Ref),
             /// Free-key, typed-value map field. 
             #[prost(message, tag="31")]
-            Map(Map),
+            Map(::prost::alloc::boxed::Box<Map>),
             /// Bytes field. 
             #[prost(message, tag="32")]
             Bytes(Bytes),

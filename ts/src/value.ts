@@ -345,9 +345,12 @@ export function canonicalValue(f: Schema_Field, x: Native): Value {
         fail(`field ${f.name}: not a map`);
       }
       const vs = kind.value.valueSchema;
+      const vf = kind.value.valueField;
       const fields: Record<string, Value> = {};
       for (const [key, el] of Object.entries(x)) {
-        if (vs !== undefined && isNativeStruct(el)) {
+        if (vf !== undefined) {
+          fields[key] = canonicalValue(vf, el);
+        } else if (vs !== undefined && isNativeStruct(el)) {
           fields[key] = canonicalStruct(vs, el);
         } else {
           fields[key] = fromNative(el);

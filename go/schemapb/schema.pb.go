@@ -2369,12 +2369,20 @@ func (x *Schema_Field_Object) GetSchema() *Schema {
 type Schema_Field_Map struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Schema every map value must satisfy. Absent => values are accepted
-	// unvalidated (any object).
+	// unvalidated (any object). Mutually exclusive with `value_field`.
 	ValueSchema *Schema `protobuf:"bytes,1,opt,name=value_schema,json=valueSchema,proto3,oneof" json:"value_schema,omitempty"`
 	// Minimum number of entries.
 	MinEntries *uint64 `protobuf:"varint,2,opt,name=min_entries,json=minEntries,proto3,oneof" json:"min_entries,omitempty"`
 	// Maximum number of entries.
-	MaxEntries    *uint64 `protobuf:"varint,3,opt,name=max_entries,json=maxEntries,proto3,oneof" json:"max_entries,omitempty"`
+	MaxEntries *uint64 `protobuf:"varint,3,opt,name=max_entries,json=maxEntries,proto3,oneof" json:"max_entries,omitempty"`
+	// Field definition every map value must satisfy — for maps whose
+	// values are NOT objects (map<string, string>, map<string, int64>,
+	// a list, ...). The definition's `name` is ignored; its kind and
+	// constraints apply to each value, error paths name the map key
+	// ("limits.cpu"). Mutually exclusive with `value_schema`. Value
+	// fields are validated and canonicalized; resolve does not seed
+	// defaults or run normalize/computed inside map values.
+	ValueField    *Schema_Field `protobuf:"bytes,4,opt,name=value_field,json=valueField,proto3,oneof" json:"value_field,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2428,6 +2436,13 @@ func (x *Schema_Field_Map) GetMaxEntries() uint64 {
 		return *x.MaxEntries
 	}
 	return 0
+}
+
+func (x *Schema_Field_Map) GetValueField() *Schema_Field {
+	if x != nil {
+		return x.ValueField
+	}
+	return nil
 }
 
 // Computed field kind: a value derived from other values, not entered by
@@ -2806,7 +2821,7 @@ var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\x808\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xce8\n" +
 	"\x06Schema\x12(\n" +
 	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
@@ -2818,7 +2833,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x06coerce\x18\b \x01(\bR\x06coerce\x12.\n" +
 	"\x04defs\x18\t \x03(\v2\x1a.schemapb.Schema.DefsEntryR\x04defs\x12=\n" +
 	"\ttemplates\x18\n" +
-	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\x8b3\n" +
+	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xd93\n" +
 	"\x05Field\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
@@ -3074,16 +3089,19 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\v_count_expr\x1aB\n" +
 	"\x06Object\x12-\n" +
 	"\x06schema\x18\x01 \x01(\v2\x10.schemapb.SchemaH\x00R\x06schema\x88\x01\x01B\t\n" +
-	"\a_schema\x1a\xbc\x01\n" +
+	"\a_schema\x1a\x8a\x02\n" +
 	"\x03Map\x128\n" +
 	"\fvalue_schema\x18\x01 \x01(\v2\x10.schemapb.SchemaH\x00R\vvalueSchema\x88\x01\x01\x12$\n" +
 	"\vmin_entries\x18\x02 \x01(\x04H\x01R\n" +
 	"minEntries\x88\x01\x01\x12$\n" +
 	"\vmax_entries\x18\x03 \x01(\x04H\x02R\n" +
-	"maxEntries\x88\x01\x01B\x0f\n" +
+	"maxEntries\x88\x01\x01\x12<\n" +
+	"\vvalue_field\x18\x04 \x01(\v2\x16.schemapb.Schema.FieldH\x03R\n" +
+	"valueField\x88\x01\x01B\x0f\n" +
 	"\r_value_schemaB\x0e\n" +
 	"\f_min_entriesB\x0e\n" +
-	"\f_max_entries\x1ai\n" +
+	"\f_max_entriesB\x0e\n" +
+	"\f_value_field\x1ai\n" +
 	"\bComputed\x12\x12\n" +
 	"\x04expr\x18\x01 \x01(\tR\x04expr\x12>\n" +
 	"\x06result\x18\x02 \x01(\x0e2!.schemapb.Schema.Field.ResultTypeH\x00R\x06result\x88\x01\x01B\t\n" +
@@ -3235,17 +3253,18 @@ var file_schemapb_schema_proto_depIdxs = []int32{
 	4,  // 40: schemapb.Schema.Field.List.items:type_name -> schemapb.Schema.Field
 	2,  // 41: schemapb.Schema.Field.Object.schema:type_name -> schemapb.Schema
 	2,  // 42: schemapb.Schema.Field.Map.value_schema:type_name -> schemapb.Schema
-	0,  // 43: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
-	1,  // 44: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
-	28, // 45: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
-	3,  // 46: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
-	29, // 47: schemapb.Schema.Field.Choice.Option.value:type_name -> schemapb.Value
-	2,  // 48: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
-	49, // [49:49] is the sub-list for method output_type
-	49, // [49:49] is the sub-list for method input_type
-	49, // [49:49] is the sub-list for extension type_name
-	49, // [49:49] is the sub-list for extension extendee
-	0,  // [0:49] is the sub-list for field type_name
+	4,  // 43: schemapb.Schema.Field.Map.value_field:type_name -> schemapb.Schema.Field
+	0,  // 44: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
+	1,  // 45: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
+	28, // 46: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
+	3,  // 47: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
+	29, // 48: schemapb.Schema.Field.Choice.Option.value:type_name -> schemapb.Value
+	2,  // 49: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
+	50, // [50:50] is the sub-list for method output_type
+	50, // [50:50] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_schema_proto_init() }

@@ -335,9 +335,13 @@ pub fn canonical_value(f: &SchemaField, x: &Native) -> Result<Value, CanonicalEr
             Native::Struct(m) => {
                 let mut fields = std::collections::HashMap::with_capacity(m.len());
                 for (key, el) in m {
-                    let v = match (mp.value_schema.as_ref(), el) {
-                        (Some(vs), Native::Struct(em)) => canonical_struct(vs, em)?,
-                        _ => from_native(el),
+                    let v = if let Some(vf) = mp.value_field.as_ref() {
+                        canonical_value(vf, el)?
+                    } else {
+                        match (mp.value_schema.as_ref(), el) {
+                            (Some(vs), Native::Struct(em)) => canonical_struct(vs, em)?,
+                            _ => from_native(el),
+                        }
                     };
                     fields.insert(key.clone(), v);
                 }

@@ -3591,6 +3591,9 @@ impl serde::Serialize for schema::field::Map {
         if self.max_entries.is_some() {
             len += 1;
         }
+        if self.value_field.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("schemapb.Schema.Field.Map", len)?;
         if let Some(v) = self.value_schema.as_ref() {
             struct_ser.serialize_field("valueSchema", v)?;
@@ -3604,6 +3607,9 @@ impl serde::Serialize for schema::field::Map {
             #[allow(clippy::needless_borrow)]
             #[allow(clippy::needless_borrows_for_generic_args)]
             struct_ser.serialize_field("maxEntries", ToString::to_string(&v).as_str())?;
+        }
+        if let Some(v) = self.value_field.as_ref() {
+            struct_ser.serialize_field("valueField", v)?;
         }
         struct_ser.end()
     }
@@ -3621,6 +3627,8 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
             "minEntries",
             "max_entries",
             "maxEntries",
+            "value_field",
+            "valueField",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -3628,6 +3636,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
             ValueSchema,
             MinEntries,
             MaxEntries,
+            ValueField,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -3652,6 +3661,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
                             "valueSchema" | "value_schema" => Ok(GeneratedField::ValueSchema),
                             "minEntries" | "min_entries" => Ok(GeneratedField::MinEntries),
                             "maxEntries" | "max_entries" => Ok(GeneratedField::MaxEntries),
+                            "valueField" | "value_field" => Ok(GeneratedField::ValueField),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -3674,6 +3684,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
                 let mut value_schema__ = None;
                 let mut min_entries__ = None;
                 let mut max_entries__ = None;
+                let mut value_field__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::ValueSchema => {
@@ -3698,12 +3709,19 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
                                 map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
                             ;
                         }
+                        GeneratedField::ValueField => {
+                            if value_field__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("valueField"));
+                            }
+                            value_field__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(schema::field::Map {
                     value_schema: value_schema__,
                     min_entries: min_entries__,
                     max_entries: max_entries__,
+                    value_field: value_field__,
                 })
             }
         }

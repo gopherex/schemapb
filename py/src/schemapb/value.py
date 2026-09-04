@@ -287,9 +287,12 @@ def canonical_value(f: SchemaField, x: Native) -> Value:
         if not isinstance(x, dict):
             return _fail(f"field {f.name}: not a map")
         vs = f.map.value_schema
+        vf = f.map.value_field
         fields: dict[str, Value] = {}
         for key, el in x.items():
-            if vs is not None and isinstance(el, dict):
+            if vf is not None:
+                fields[key] = canonical_value(vf, el)
+            elif vs is not None and isinstance(el, dict):
                 fields[key] = canonical_struct(vs, el)
             else:
                 fields[key] = from_native(el)

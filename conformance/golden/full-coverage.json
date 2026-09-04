@@ -272,6 +272,17 @@
         }
       },
       {
+        "name": "map_scalar",
+        "map": {
+          "valueField": {
+            "name": "value",
+            "int64": {
+              "gte": "0"
+            }
+          }
+        }
+      },
+      {
         "name": "oneof_all",
         "oneOf": {
           "discriminator": "type",
@@ -684,6 +695,17 @@
             }
           },
           {
+            "name": "map_scalar",
+            "map": {
+              "valueField": {
+                "name": "value",
+                "int64": {
+                  "gte": "0"
+                }
+              }
+            }
+          },
+          {
             "name": "oneof_all",
             "oneOf": {
               "discriminator": "type",
@@ -1059,6 +1081,17 @@
             },
             "minEntries": "1",
             "maxEntries": "2"
+          }
+        },
+        {
+          "name": "map_scalar",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "int64": {
+                "gte": "0"
+              }
+            }
           }
         },
         {

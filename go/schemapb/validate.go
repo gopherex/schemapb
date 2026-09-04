@@ -930,6 +930,15 @@ func (e *Engine) checkMap(path string, m map[string]any, mk *Schema_Field_Map, r
 			UInt64V(mk.GetMaxEntries()), UInt64V(n)))
 	}
 
+	if vf := mk.GetValueField(); vf != nil {
+		sub := &ValidationResult{}
+		for _, k := range slices.Sorted(maps.Keys(m)) {
+			e.validateOne(vf, m[k], true, joinPath(path, k), root, nil, sub)
+		}
+
+		return append(out, sub.GetErrors()...)
+	}
+
 	vs := mk.GetValueSchema()
 	if vs == nil {
 		return out

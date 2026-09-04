@@ -350,7 +350,7 @@ func asFloat64(x any) (float64, bool) {
 // A value that cannot represent the kind (wrong type, out of range) returns an
 // error; the validator reports such values as TYPE_MISMATCH before this point.
 //
-//nolint:gocognit,cyclop,gocyclo,funlen // flat exhaustive kind dispatch
+//nolint:gocognit,cyclop,gocyclo,funlen,maintidx // flat exhaustive kind dispatch
 func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
 	if x == nil {
 		return NullV(), nil
@@ -478,9 +478,21 @@ func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
 		}
 
 		vs := f.GetMap().GetValueSchema()
+		vf := f.GetMap().GetValueField()
 		fields := make(map[string]*Value, len(m))
 
 		for key, el := range m {
+			if vf != nil {
+				v, err := CanonicalValue(vf, el)
+				if err != nil {
+					return nil, fmt.Errorf("field %s.%s: %w", f.GetName(), key, err)
+				}
+
+				fields[key] = v
+
+				continue
+			}
+
 			if vs != nil {
 				em, isObj := el.(map[string]any)
 				if !isObj {

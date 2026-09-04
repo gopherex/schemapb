@@ -526,6 +526,31 @@
       "message": "required"
     },
     {
+      "path": "limits.cpu",
+      "code": "ERROR_CODE_GTE_VIOLATED",
+      "expected": {
+        "int64Value": "0"
+      },
+      "actual": {
+        "int64Value": "-1"
+      },
+      "constraint": "gte",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be >= 0"
+    },
+    {
+      "path": "limits.mem",
+      "code": "ERROR_CODE_TYPE_MISMATCH",
+      "expected": {
+        "stringValue": "integer"
+      },
+      "actual": {
+        "stringValue": "lots"
+      },
+      "severity": "SEVERITY_ERROR",
+      "message": "expected integer"
+    },
+    {
       "path": "backup",
       "code": "ERROR_CODE_UNKNOWN_VARIANT",
       "expected": {

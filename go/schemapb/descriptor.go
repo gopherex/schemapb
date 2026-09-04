@@ -180,6 +180,14 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 			if mp.MinEntries != nil && mp.MaxEntries != nil && mp.GetMinEntries() > mp.GetMaxEntries() {
 				errs = append(errs, schemaErr(path, "map field: min_entries must be <= max_entries"))
 			}
+
+			if mp.GetValueSchema() != nil && mp.GetValueField() != nil {
+				errs = append(errs, schemaErr(path, "map field: value_schema and value_field are mutually exclusive"))
+			}
+
+			if vf := mp.GetValueField(); vf != nil {
+				errs = append(errs, checkFields([]*Schema_Field{vf}, path+"[]")...)
+			}
 		}
 
 		for _, child := range nestedSchemas(f) {

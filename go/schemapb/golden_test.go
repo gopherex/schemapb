@@ -130,6 +130,10 @@ func goldenSchema(t *testing.T) *schemapb.Schema {
 			).Strict().MinEntries(0).MaxEntries(16).
 				Rule(schemapb.Rule("true", "map value rule")),
 
+			schemapb.MapOf("limits",
+				schemapb.Int64("value").Gte(0),
+			).MinEntries(0).MaxEntries(8),
+
 			schemapb.OneOf("backup", "type").
 				Variant("s3", schemapb.Str("bucket").Required()).
 				VariantOf("endpoint", endpoint),
@@ -189,6 +193,7 @@ func validInput() map[string]any {
 		"tablespaces": map[string]any{
 			"main": map[string]any{"location": "/var/lib/ts"},
 		},
+		"limits":        map[string]any{"cpu": int64(2), "mem": int64(4096)},
 		"backup":        map[string]any{"type": "s3", "bucket": "backups"},
 		"data_volume":   map[string]any{"path": "/data"},
 		"region":        "somewhere-else", // open choice: fine
@@ -225,6 +230,7 @@ func brokenInput() map[string]any {
 		},
 		"logging":       map[string]any{"collector": true, "junk": int64(1)},  // UNKNOWN_FIELD (strict object)
 		"tablespaces":   map[string]any{"bad": map[string]any{}},              // nested REQUIRED
+		"limits":        map[string]any{"cpu": int64(-1), "mem": "lots"},      // value_field: GTE + TYPE_MISMATCH
 		"backup":        map[string]any{"type": "tape"},                       // UNKNOWN_VARIANT
 		"data_volume":   map[string]any{"path": "/data", "size_gb": int64(0)}, // GT via def
 		"garbage":       int64(1),                                             // UNKNOWN_FIELD (strict root)
