@@ -12,6 +12,9 @@ pub mod formats;
 pub mod gen;
 pub mod lookup;
 pub mod messages;
+pub mod reflect;
+#[cfg(feature = "derive")]
+pub use schemapb_derive::Reflect;
 pub mod registry;
 pub mod render;
 pub mod typed;

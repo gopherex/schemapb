@@ -88,15 +88,21 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-      - run: cd rust && cargo clippy --all-targets -- -D warnings && cargo fmt --check
-      - run: cd rust && cargo test --quiet
-      - name: Stamp version from tag
+      - run: cd rust && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo fmt --all --check
+      - run: cd rust && cargo test --all-features --quiet
+      - name: Stamp version from tag (both crates, linked)
         run: |
           cd rust
           v="${GITHUB_REF_NAME#v}"
           sed -i "0,/^version = \"0.0.0\"/s//version = \"$v\"/" Cargo.toml
+          sed -i "s/^schemapb-derive = { version = \"0.0.0\"/schemapb-derive = { version = \"$v\"/" Cargo.toml
+          sed -i "0,/^version = \"0.0.0\"/s//version = \"$v\"/" derive/Cargo.toml
           grep -q "^version = \"$v\"" Cargo.toml
-      - name: Publish to crates.io
+          grep -q "^version = \"$v\"" derive/Cargo.toml
+      - name: Publish to crates.io (derive first, then the main crate)
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cd rust && cargo publish --allow-dirty
+        run: |
+          cd rust
+          cargo publish -p schemapb-derive --allow-dirty
+          cargo publish -p schemapb --allow-dirty

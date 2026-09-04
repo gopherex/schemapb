@@ -42,6 +42,20 @@ text = engine.render("conf", values)  # Mustache template from the schema
 
 Schemas arriving over the wire compile with `spb.compile_schema(schema)`.
 
+## Reflecting a pydantic model (`pip install schemapb[pydantic]`)
+
+```python
+import schemapb.pydantic as sp
+
+schema = sp.reflect(MyModel, spb.make_id("shared", "service", spb.Version.of(1, 0, 0)))
+```
+
+Field types, `X | None`, defaults, `Field(...)` constraints,
+`Literal[...]` choices, nested models and `dict[str, V]` maps all carry
+over; markers (`sp.Int32`, `sp.UInt64`, `sp.exact_len`, `sp.fmt`) close
+the gaps Python's type system cannot express. Pinned by
+conformance/golden/reflect.json.
+
 ## Using schemapb types from your own protos
 
 If your `.proto` files embed schemapb messages and you generate them with

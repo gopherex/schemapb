@@ -43,6 +43,20 @@ const text = engine.render(spb.templateName("conf"), values); // Mustache
 `Namespace`, `TemplateName`, …) are branded types with explicit
 constructors (`spb.fieldName("x")`, `spb.templateName("conf")`).
 
+## Reflecting a zod schema (`@gopherex/schemapb/zod`)
+
+```ts
+import { reflectZod } from "@gopherex/schemapb/zod";
+
+const schema = reflectZod(myZodObject, spb.id("shared", "service", spb.Version.of(1, 0, 0)));
+```
+
+zod's vocabulary carries over (checks, enums, records, lazy cycles);
+markers (`i32`, `u64`, `bytesField`, `durationField`, ...) close the gaps
+TypeScript cannot express. zod stays an optional peer dependency — the
+module reads only the published `_zod.def` shape. Pinned by
+conformance/golden/reflect.json.
+
 ## Using schemapb types from your own protos
 
 If your `.proto` files embed schemapb messages and you generate them with

@@ -44,6 +44,10 @@ baked, res, err := engine.Bake(values)     // canonical *Baked snapshot
 text, err := engine.Render("conf", values) // Mustache from the schema
 ```
 
+`Reflect` / `ReflectType[T]` turn an existing Go type into a Schema (json
+tags for names, the go-playground/validator vocabulary for constraints,
+`WithType` for domain-type overrides) — see the package docs.
+
 `example_test.go` walks the entire public API (builders, registry + `Link`,
 `Choice`, `OneOf`, `Ref`, tuples, secrets, merge) in one runnable example.
 

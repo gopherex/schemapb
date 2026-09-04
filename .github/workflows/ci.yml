@@ -87,6 +87,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-      - run: cd rust && cargo clippy --all-targets -- -D warnings
-      - run: cd rust && cargo fmt --check
-      - run: cd rust && cargo test --quiet
+      - run: cd rust && cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cd rust && cargo fmt --all --check
+      - run: cd rust && cargo test --all-features --quiet

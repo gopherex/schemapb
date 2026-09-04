@@ -120,12 +120,12 @@ test-go: ## Run Go tests
 	cd go && go test ./...
 
 .PHONY: lint-rust
-lint-rust: ## Lint Rust code (clippy pedantic+nursery + rustfmt check)
-	cd rust && cargo clippy --all-targets -- -D warnings && cargo fmt --check
+lint-rust: ## Lint Rust code (clippy pedantic+nursery + rustfmt check, workspace)
+	cd rust && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo fmt --all --check
 
 .PHONY: test-rust
-test-rust: ## Run Rust tests (conformance)
-	cd rust && cargo test --quiet
+test-rust: ## Run Rust tests (conformance + derive)
+	cd rust && cargo test --all-features --quiet
 
 # v2+ would require semantic import versioning for the Go module (/v2 in the
 # module path), which we don't support yet — keep releases on v0/v1.

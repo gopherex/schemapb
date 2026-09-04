@@ -1,0 +1,21 @@
+[package]
+name = "schemapb-derive"
+version = "0.0.0"
+edition = "2021"
+description = "#[derive(Reflect)] for schemapb — a Rust struct reflected into a schemapb Schema"
+license = "MIT"
+repository = "https://github.com/gopherex/schemapb"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

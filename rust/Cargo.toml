@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "derive"]
+
 [package]
 name = "schemapb"
 version = "0.0.0"
@@ -7,7 +10,12 @@ license = "MIT"
 repository = "https://github.com/gopherex/schemapb"
 readme = "README.md"
 
+[features]
+# The #[derive(Reflect)] macro: native struct -> Schema.
+derive = ["dep:schemapb-derive"]
+
 [dependencies]
+schemapb-derive = { version = "0.0.0", path = "derive", optional = true }
 prost = "0.14"
 pbjson = "0.8"
 pbjson-types = "0.8"

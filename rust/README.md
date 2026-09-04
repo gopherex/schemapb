@@ -31,6 +31,35 @@ Schemas are authored as plain `prost` struct literals of the generated
 types (with `..Default::default()`) — the idiomatic Rust equivalent of the
 builder APIs in the other ports.
 
+## Deriving a Schema from a struct (feature `derive`)
+
+```toml
+schemapb = { version = "...", features = ["derive"] }
+```
+
+```rust
+use schemapb::Reflect;
+use schemapb::reflect::reflect_schema;
+
+#[derive(Reflect)]
+struct Params {
+    #[schemapb(desc = "display name", min = 1, max = 64)]
+    name: String,
+    #[schemapb(gte = 1, lte = 9)]
+    replicas: i64,
+    opt: Option<String>, // optional + nullable
+}
+
+let schema = reflect_schema::<Params>(id)?;
+```
+
+Nested types recurse through the `ReflectField` trait — implementing it
+for your own type IS the override mechanism (serde-style). `Option<T>` is
+optional+nullable, `Vec<u8>` is Bytes, `[T; N]` a fixed-length list,
+string-keyed maps become Map, `serde_json::Value` JSON, `pbjson_types`
+Duration/Timestamp their kinds, and a type cycle degrades to JSON. The
+derive mirror model is pinned by conformance/golden/reflect.json.
+
 ## Using schemapb types from your own protos
 
 When your `.proto` files embed schemapb messages (`schemapb.Schema`,
