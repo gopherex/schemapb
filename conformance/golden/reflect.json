@@ -1,0 +1,257 @@
+{
+  "id": {
+    "namespace": "conformance",
+    "name": "mirror",
+    "version": "v1.0.0"
+  },
+  "fields": [
+    {
+      "name": "base",
+      "required": true,
+      "string": {}
+    },
+    {
+      "name": "name",
+      "description": "display name",
+      "required": true,
+      "string": {
+        "minLen": "1",
+        "maxLen": "64"
+      }
+    },
+    {
+      "name": "mail",
+      "required": true,
+      "string": {
+        "format": "email"
+      }
+    },
+    {
+      "name": "slug",
+      "required": true,
+      "string": {
+        "pattern": "^[a-z-]+$"
+      }
+    },
+    {
+      "name": "mode",
+      "required": true,
+      "choice": {
+        "options": [
+          {
+            "value": {
+              "stringValue": "fast"
+            }
+          },
+          {
+            "value": {
+              "stringValue": "safe"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "level",
+      "required": true,
+      "choice": {
+        "options": [
+          {
+            "value": {
+              "int64Value": "1"
+            }
+          },
+          {
+            "value": {
+              "int64Value": "2"
+            }
+          },
+          {
+            "value": {
+              "int64Value": "3"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "count",
+      "required": true,
+      "int32": {
+        "gte": 0,
+        "lte": 100
+      }
+    },
+    {
+      "name": "big",
+      "required": true,
+      "int64": {
+        "gt": "-10",
+        "lt": "10"
+      }
+    },
+    {
+      "name": "port",
+      "required": true,
+      "uint32": {
+        "lte": 65535
+      }
+    },
+    {
+      "name": "total",
+      "required": true,
+      "uint64": {}
+    },
+    {
+      "name": "ratio",
+      "required": true,
+      "float": {
+        "gte": 0
+      }
+    },
+    {
+      "name": "score",
+      "required": true,
+      "double": {
+        "lt": 1
+      }
+    },
+    {
+      "name": "flag",
+      "required": true,
+      "bool": {}
+    },
+    {
+      "name": "opt",
+      "nullable": true,
+      "string": {}
+    },
+    {
+      "name": "must",
+      "nullable": true,
+      "required": true,
+      "int64": {}
+    },
+    {
+      "name": "tags",
+      "required": true,
+      "list": {
+        "items": [
+          {
+            "name": "item",
+            "required": true,
+            "string": {}
+          }
+        ],
+        "minItems": "1",
+        "maxItems": "5"
+      }
+    },
+    {
+      "name": "pair",
+      "required": true,
+      "list": {
+        "items": [
+          {
+            "name": "item",
+            "required": true,
+            "string": {}
+          }
+        ],
+        "minItems": "2",
+        "maxItems": "2"
+      }
+    },
+    {
+      "name": "blob",
+      "required": true,
+      "bytes": {
+        "maxLen": "16"
+      }
+    },
+    {
+      "name": "magic",
+      "required": true,
+      "bytes": {
+        "len": "4"
+      }
+    },
+    {
+      "name": "limits",
+      "required": true,
+      "map": {
+        "valueField": {
+          "name": "value",
+          "required": true,
+          "int64": {}
+        }
+      }
+    },
+    {
+      "name": "extra",
+      "required": true,
+      "map": {
+        "valueSchema": {
+          "fields": [
+            {
+              "name": "on",
+              "required": true,
+              "bool": {}
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "nested",
+      "required": true,
+      "object": {
+        "schema": {
+          "fields": [
+            {
+              "name": "on",
+              "required": true,
+              "bool": {}
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "when",
+      "required": true,
+      "timestamp": {}
+    },
+    {
+      "name": "wait",
+      "required": true,
+      "duration": {}
+    },
+    {
+      "name": "raw",
+      "required": true,
+      "json": {}
+    },
+    {
+      "name": "anything",
+      "required": true,
+      "json": {}
+    },
+    {
+      "name": "chain",
+      "required": true,
+      "object": {
+        "schema": {
+          "fields": [
+            {
+              "name": "next",
+              "nullable": true,
+              "json": {}
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "coerce": true
+}
