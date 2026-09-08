@@ -12,10 +12,13 @@ import {
   CelScalar,
   type CelValue,
   celEnv,
+  celList,
+  celMethod,
   isCelError,
   isCelList,
   isCelMap,
   isCelUint,
+  listType,
   mapType,
   parse,
   plan,
@@ -78,9 +81,64 @@ function env(): CelEnv<Vars> {
       root: mapType(CelScalar.STRING, CelScalar.DYN),
       index: CelScalar.INT,
     },
-    funcs: strings,
+    funcs: [...strings, sortMethod()],
   });
   return sharedEnv;
+}
+
+/**
+ * The spec's `<list>.sort()`: ascending order over a homogeneous list of
+ * strings, ints, uints or doubles. Map iteration order is
+ * implementation-defined in CEL, so sorting is the ONLY portable way to
+ * derive a deterministic value from map keys — every implementation
+ * registers this same function.
+ */
+function sortMethod() {
+  return celMethod("sort", CelScalar.DYN, [], listType(CelScalar.DYN), function (this: unknown) {
+    if (!isCelList(this)) {
+      throw new Error("sort: not a list");
+    }
+    const items = [...this];
+    const kindOf = (v: unknown): string => {
+      if (typeof v === "string") {
+        return "string";
+      }
+      if (typeof v === "bigint") {
+        return "int";
+      }
+      if (isCelUint(v)) {
+        return "uint";
+      }
+      if (typeof v === "number") {
+        return "double";
+      }
+      return "unsupported";
+    };
+    const num = (v: unknown): number | bigint =>
+      isCelUint(v) ? (v as { value: bigint }).value : (v as number | bigint);
+    let kind: string | undefined;
+    for (const v of items) {
+      const k = kindOf(v);
+      if (k === "unsupported") {
+        throw new Error("sort: unsupported element type");
+      }
+      kind ??= k;
+      if (k !== kind) {
+        throw new Error(`sort: heterogeneous list (${kind} vs ${k})`);
+      }
+    }
+    items.sort((a, b) => {
+      if (kind === "string") {
+        const x = a as string;
+        const y = b as string;
+        return x < y ? -1 : x > y ? 1 : 0;
+      }
+      const x = num(a);
+      const y = num(b);
+      return x < y ? -1 : x > y ? 1 : 0;
+    });
+    return celList(items);
+  });
 }
 
 /** An immutable compiled schema. */

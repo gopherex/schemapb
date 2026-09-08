@@ -139,6 +139,11 @@ func goldenSchema(t *testing.T) *schemapb.Schema {
 
 			// value_field carrying a compiled pattern AND a CEL rule: pins
 			// that generic walkers see inside MapOf.
+			// Deterministic derivation from map keys (the spec's sort())
+			// and the spec string(bool) conversion.
+			schemapb.Computed("label_keys", "root.labels.map(k, k).sort()"),
+			schemapb.Computed("flag_text", "string(root.flag)"),
+
 			schemapb.MapOf("labels",
 				schemapb.Str("value").Pattern("^[a-z]+$").
 					Rules(schemapb.Rule(`this != "forbidden"`, "label value forbidden")),
@@ -204,7 +209,7 @@ func validInput() map[string]any {
 			"main": map[string]any{"location": "/var/lib/ts", "ttl": "5m"},
 		},
 		"limits":        map[string]any{"cpu": int64(2), "mem": int64(4096)},
-		"labels":        map[string]any{"team": "storage"},
+		"labels":        map[string]any{"team": "storage", "env": "prod"},
 		"backup":        map[string]any{"type": "s3", "bucket": "backups"},
 		"data_volume":   map[string]any{"path": "/data"},
 		"region":        "somewhere-else", // open choice: fine

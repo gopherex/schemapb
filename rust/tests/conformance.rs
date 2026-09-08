@@ -57,7 +57,10 @@ fn valid_input() -> NativeStruct {
         "limits".into(),
         obj(vec![("cpu", Native::Int(2)), ("mem", Native::Int(4096))]),
     );
-    m.insert("labels".into(), obj(vec![("team", s("storage"))]));
+    m.insert(
+        "labels".into(),
+        obj(vec![("team", s("storage")), ("env", s("prod"))]),
+    );
     m.insert(
         "backup".into(),
         obj(vec![("type", s("s3")), ("bucket", s("backups"))]),

@@ -401,6 +401,18 @@
       }
     },
     {
+      "name": "label_keys",
+      "computed": {
+        "expr": "root.labels.map(k, k).sort()"
+      }
+    },
+    {
+      "name": "flag_text",
+      "computed": {
+        "expr": "string(root.flag)"
+      }
+    },
+    {
       "name": "labels",
       "map": {
         "valueField": {

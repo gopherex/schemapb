@@ -66,15 +66,33 @@
     "flag": {
       "boolValue": true
     },
+    "flag_text": {
+      "stringValue": "true"
+    },
     "i32": {
       "int32Value": 8
     },
     "i64": {
       "int64Value": "256"
     },
+    "label_keys": {
+      "listValue": {
+        "items": [
+          {
+            "stringValue": "env"
+          },
+          {
+            "stringValue": "team"
+          }
+        ]
+      }
+    },
     "labels": {
       "structValue": {
         "fields": {
+          "env": {
+            "stringValue": "prod"
+          },
           "team": {
             "stringValue": "storage"
           }

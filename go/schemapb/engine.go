@@ -3,6 +3,7 @@ package schemapb
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"sync"
 
 	"github.com/cbroglie/mustache"
@@ -41,8 +42,70 @@ var celEnv = sync.OnceValues(func() (*cel.Env, error) {
 		cel.Variable("index", cel.IntType),
 		ext.Strings(),
 		cel.CrossTypeNumericComparisons(true),
+		sortFunction(),
 	)
 })
+
+// sortFunction is the spec's `<list>.sort()`: ascending order over a
+// homogeneous list of strings, ints, uints or doubles. Map iteration order
+// is implementation-defined in CEL, so sorting is the ONLY portable way to
+// derive a deterministic value from map keys — every implementation
+// registers this same function.
+func sortFunction() cel.EnvOption {
+	return cel.Function("sort",
+		cel.MemberOverload("list_sort",
+			[]*cel.Type{cel.ListType(cel.DynType)}, cel.ListType(cel.DynType),
+			cel.UnaryBinding(func(v ref.Val) ref.Val {
+				lister, ok := v.(traits.Lister)
+				if !ok {
+					return types.NewErr("sort: not a list")
+				}
+
+				n, _ := lister.Size().Value().(int64)
+				items := make([]ref.Val, 0, n)
+
+				for i := range n {
+					items = append(items, lister.Get(types.Int(i)))
+				}
+
+				if err := sortRefVals(items); err != nil {
+					return types.NewErr("%s", err.Error())
+				}
+
+				return types.DefaultTypeAdapter.NativeToValue(items)
+			})))
+}
+
+// sortRefVals orders a homogeneous scalar list in place.
+func sortRefVals(items []ref.Val) error {
+	var failed error
+
+	sort.SliceStable(items, func(i, j int) bool {
+		a, aOK := items[i].(traits.Comparer)
+		if !aOK {
+			failed = fmt.Errorf("sort: element %s is not comparable", items[i].Type())
+			return false
+		}
+
+		if items[i].Type() != items[j].Type() {
+			failed = fmt.Errorf("sort: heterogeneous list (%s vs %s)", items[i].Type(), items[j].Type())
+			return false
+		}
+
+		switch items[i].Type() {
+		case types.StringType, types.IntType, types.UintType, types.DoubleType:
+		default:
+			failed = fmt.Errorf("sort: unsupported element type %s", items[i].Type())
+			return false
+		}
+
+		cmp, ok := a.Compare(items[j]).(types.Int)
+
+		return ok && cmp < 0
+	})
+
+	return failed
+}
 
 // Compile checks the descriptor, compiles every expression and pattern in the
 // schema (including defs), and statically rejects top-level computed-field

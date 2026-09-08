@@ -33,7 +33,7 @@ def valid_input() -> spb.NativeStruct:
         "replicas": [{"name": "r1"}],
         "tablespaces": {"main": {"location": "/var/lib/ts", "ttl": "5m"}},
         "limits": {"cpu": 2, "mem": 4096},
-        "labels": {"team": "storage"},
+        "labels": {"team": "storage", "env": "prod"},
         "backup": {"type": "s3", "bucket": "backups"},
         "data_volume": {"path": "/data"},
         "region": "somewhere-else",

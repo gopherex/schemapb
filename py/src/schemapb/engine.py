@@ -39,10 +39,45 @@ if TYPE_CHECKING:
 
 # The strings-extension subset registered as custom functions (celpy has no
 # built-in strings extension; the rest of the extension is a tracked gap).
+_SORT_KINDS = (celtypes.StringType, celtypes.IntType, celtypes.UintType, celtypes.DoubleType)
+
+
+def _cel_sort(lst: object) -> celtypes.ListType:
+    """The spec's `<list>.sort()`: ascending over a homogeneous list of
+    strings, ints, uints or doubles. Map iteration order is
+    implementation-defined in CEL, so sorting is the ONLY portable way to
+    derive a deterministic value from map keys — every implementation
+    registers this same function."""
+    if not isinstance(lst, list):
+        msg = "sort: not a list"
+        raise celpy.CELEvalError(msg)
+    kind: type | None = None
+    for v in lst:
+        k = next((t for t in _SORT_KINDS if isinstance(v, t) and not isinstance(v, bool)), None)
+        if k is None:
+            msg = "sort: unsupported element type"
+            raise celpy.CELEvalError(msg)
+        kind = kind or k
+        if not isinstance(v, kind):
+            msg = "sort: heterogeneous list"
+            raise celpy.CELEvalError(msg)
+    return celtypes.ListType(sorted(lst))
+
+
+def _cel_string(v: object) -> celtypes.StringType:
+    """Celpy's string() renders BoolType via Python str() ("True"): patch
+    the spec form ("true"/"false"), delegate everything else."""
+    if isinstance(v, bool | celtypes.BoolType):
+        return celtypes.StringType("true" if v else "false")
+    return celtypes.StringType(v)
+
+
 _CUSTOM_FUNCTIONS: dict[str, Any] = {
     "lowerAscii": lambda s: celtypes.StringType(ascii_lower(str(s))),
     "upperAscii": lambda s: celtypes.StringType(ascii_upper(str(s))),
     "trim": lambda s: celtypes.StringType(str(s).strip()),
+    "sort": _cel_sort,
+    "string": _cel_string,
 }
 
 

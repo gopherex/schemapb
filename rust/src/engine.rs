@@ -213,6 +213,72 @@ fn register_string_ext(ctx: &mut Context) {
     ctx.add_function("lowerAscii", |This(s): This<Arc<String>>| ascii_lower(&s));
     ctx.add_function("upperAscii", |This(s): This<Arc<String>>| ascii_upper(&s));
     ctx.add_function("trim", |This(s): This<Arc<String>>| s.trim().to_owned());
+
+    // cel-interpreter's builtin string() has no Bool arm ("cannot convert
+    // Bool(true) to string"): override with the spec conversion, keeping
+    // every builtin arm intact.
+    ctx.add_function("string", cel_string);
+
+    // The spec's `<list>.sort()`: ascending over a homogeneous list of
+    // strings, ints, uints or doubles. Map iteration order is
+    // implementation-defined in CEL, so sorting is the ONLY portable way
+    // to derive a deterministic value from map keys — every implementation
+    // registers this same function.
+    ctx.add_function("sort", cel_sort);
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn cel_string(
+    ftx: &cel_interpreter::FunctionContext,
+    This(this): This<Cel>,
+) -> Result<Cel, cel_interpreter::ExecutionError> {
+    match this {
+        Cel::Bool(b) => Ok(Cel::String(Arc::new(
+            if b { "true" } else { "false" }.to_owned(),
+        ))),
+        other => cel_interpreter::functions::string(ftx, This(other)),
+    }
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn cel_sort(
+    ftx: &cel_interpreter::FunctionContext,
+    This(this): This<Cel>,
+) -> Result<Cel, cel_interpreter::ExecutionError> {
+    let Cel::List(items) = this else {
+        return Err(ftx.error("sort: not a list"));
+    };
+
+    let kind_of = |v: &Cel| match v {
+        Cel::String(_) => Some(0u8),
+        Cel::Int(_) => Some(1),
+        Cel::UInt(_) => Some(2),
+        Cel::Float(_) => Some(3),
+        _ => None,
+    };
+
+    let mut kind: Option<u8> = None;
+
+    for v in items.iter() {
+        let Some(k) = kind_of(v) else {
+            return Err(ftx.error("sort: unsupported element type"));
+        };
+
+        if *kind.get_or_insert(k) != k {
+            return Err(ftx.error("sort: heterogeneous list"));
+        }
+    }
+
+    let mut sorted: Vec<Cel> = items.as_ref().clone();
+    sorted.sort_by(|a, b| match (a, b) {
+        (Cel::String(x), Cel::String(y)) => x.cmp(y),
+        (Cel::Int(x), Cel::Int(y)) => x.cmp(y),
+        (Cel::UInt(x), Cel::UInt(y)) => x.cmp(y),
+        (Cel::Float(x), Cel::Float(y)) => x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal),
+        _ => std::cmp::Ordering::Equal,
+    });
+
+    Ok(Cel::List(Arc::new(sorted)))
 }
 
 // =============================================================================
