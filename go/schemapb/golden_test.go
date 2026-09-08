@@ -127,12 +127,22 @@ func goldenSchema(t *testing.T) *schemapb.Schema {
 
 			schemapb.Map("tablespaces",
 				schemapb.Str("location").Required(),
+				// A nested duration with a string input pins coerce
+				// inheritance: only the ROOT declares Coerce().
+				schemapb.Duration("ttl"),
 			).Strict().MinEntries(0).MaxEntries(16).
 				Rule(schemapb.Rule("true", "map value rule")),
 
 			schemapb.MapOf("limits",
 				schemapb.Int64("value").Gte(0),
 			).MinEntries(0).MaxEntries(8),
+
+			// value_field carrying a compiled pattern AND a CEL rule: pins
+			// that generic walkers see inside MapOf.
+			schemapb.MapOf("labels",
+				schemapb.Str("value").Pattern("^[a-z]+$").
+					Rules(schemapb.Rule(`this != "forbidden"`, "label value forbidden")),
+			),
 
 			schemapb.OneOf("backup", "type").
 				Variant("s3", schemapb.Str("bucket").Required()).
@@ -191,9 +201,10 @@ func validInput() map[string]any {
 		"replica_count": int64(1),
 		"replicas":      []any{map[string]any{"name": "r1"}},
 		"tablespaces": map[string]any{
-			"main": map[string]any{"location": "/var/lib/ts"},
+			"main": map[string]any{"location": "/var/lib/ts", "ttl": "5m"},
 		},
 		"limits":        map[string]any{"cpu": int64(2), "mem": int64(4096)},
+		"labels":        map[string]any{"team": "storage"},
 		"backup":        map[string]any{"type": "s3", "bucket": "backups"},
 		"data_volume":   map[string]any{"path": "/data"},
 		"region":        "somewhere-else", // open choice: fine
@@ -231,6 +242,7 @@ func brokenInput() map[string]any {
 		"logging":       map[string]any{"collector": true, "junk": int64(1)},  // UNKNOWN_FIELD (strict object)
 		"tablespaces":   map[string]any{"bad": map[string]any{}},              // nested REQUIRED
 		"limits":        map[string]any{"cpu": int64(-1), "mem": "lots"},      // value_field: GTE + TYPE_MISMATCH
+		"labels":        map[string]any{"bad": "UPPER", "nope": "forbidden"},  // value_field: PATTERN + RULE
 		"backup":        map[string]any{"type": "tape"},                       // UNKNOWN_VARIANT
 		"data_volume":   map[string]any{"path": "/data", "size_gb": int64(0)}, // GT via def
 		"garbage":       int64(1),                                             // UNKNOWN_FIELD (strict root)

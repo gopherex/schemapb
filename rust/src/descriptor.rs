@@ -88,18 +88,28 @@ pub fn join_path(prefix: &str, name: &str) -> String {
 
 /// The schemas directly embedded in a field (not Refs).
 #[must_use]
-pub fn nested_schemas(f: &SchemaField) -> Vec<&Schema> {
-    let mut out = Vec::new();
+pub fn nested_schemas(f: &SchemaField) -> Vec<std::borrow::Cow<'_, Schema>> {
+    use std::borrow::Cow;
+    let mut out: Vec<Cow<'_, Schema>> = Vec::new();
     match f.kind.as_ref() {
         Some(K::Object(o)) => {
             if let Some(s) = o.schema.as_ref() {
-                out.push(s);
+                out.push(Cow::Borrowed(s));
             }
         }
-        Some(K::OneOf(oo)) => out.extend(oo.variants.values()),
+        Some(K::OneOf(oo)) => out.extend(oo.variants.values().map(Cow::Borrowed)),
         Some(K::Map(mp)) => {
             if let Some(s) = mp.value_schema.as_ref() {
-                out.push(s);
+                out.push(Cow::Borrowed(s));
+            }
+            // A map value_field walks as a synthetic one-field schema, so
+            // every generic traversal (descriptor checks, expression/
+            // pattern/ref walkers, def hoisting) sees inside it.
+            if let Some(vf) = mp.value_field.as_ref() {
+                out.push(Cow::Owned(Schema {
+                    fields: vec![vf.as_ref().clone()],
+                    ..Default::default()
+                }));
             }
         }
         Some(K::List(l)) => {
@@ -232,12 +242,6 @@ fn check_fields(fields: &[SchemaField], prefix: &str) -> Vec<ValidationError> {
                     errs.push(schema_err(
                         &path,
                         "map field: value_schema and value_field are mutually exclusive",
-                    ));
-                }
-                if let Some(vf) = mp.value_field.as_ref() {
-                    errs.extend(check_fields(
-                        std::slice::from_ref(vf.as_ref()),
-                        &format!("{path}[]"),
                     ));
                 }
             }

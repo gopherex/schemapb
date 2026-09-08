@@ -185,9 +185,6 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 				errs = append(errs, schemaErr(path, "map field: value_schema and value_field are mutually exclusive"))
 			}
 
-			if vf := mp.GetValueField(); vf != nil {
-				errs = append(errs, checkFields([]*Schema_Field{vf}, path+"[]")...)
-			}
 		}
 
 		for _, child := range nestedSchemas(f) {

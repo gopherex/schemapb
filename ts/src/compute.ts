@@ -127,8 +127,11 @@ function seed(
   tasks: ComputeTask[],
   root: NativeStruct,
   errs: ValidationError[],
+  inherited = false,
 ): void {
-  const coerce = schema.coerce;
+  // The root's Coerce applies to the whole tree: a nested schema need not
+  // re-declare it.
+  const coerce = schema.coerce || inherited;
   for (const f of schema.fields) {
     const name = f.name;
     const path = joinPath(prefix, name);
@@ -162,7 +165,7 @@ function seed(
       case "object": {
         const sub = kind.value.schema;
         if (sub !== undefined && cur !== undefined && isNativeStruct(cur)) {
-          seed(e, sub, cur, path, tasks, root, errs);
+          seed(e, sub, cur, path, tasks, root, errs, coerce);
         }
         break;
       }
@@ -172,7 +175,7 @@ function seed(
             const it = listItemDef(kind.value, i);
             if (it?.kind.case === "object" && it.kind.value.schema !== undefined) {
               if (isNativeStruct(el)) {
-                seed(e, it.kind.value.schema, el, `${path}[${i}]`, tasks, root, errs);
+                seed(e, it.kind.value.schema, el, `${path}[${i}]`, tasks, root, errs, coerce);
               }
             }
           });
@@ -184,7 +187,7 @@ function seed(
         if (vs !== undefined && cur !== undefined && isNativeStruct(cur)) {
           for (const [k, el] of Object.entries(cur)) {
             if (isNativeStruct(el)) {
-              seed(e, vs, el, joinPath(path, k), tasks, root, errs);
+              seed(e, vs, el, joinPath(path, k), tasks, root, errs, coerce);
             }
           }
         }
@@ -193,14 +196,14 @@ function seed(
       case "oneOf": {
         const sel = selectVariant(kind.value, cur ?? null);
         if (sel !== undefined) {
-          seed(e, sel[0], sel[1], path, tasks, root, errs);
+          seed(e, sel[0], sel[1], path, tasks, root, errs, coerce);
         }
         break;
       }
       case "ref": {
         const def = e.schema.defs[refDefKey(kind.value)];
         if (def !== undefined && cur !== undefined && isNativeStruct(cur)) {
-          seed(e, def, cur, path, tasks, root, errs);
+          seed(e, def, cur, path, tasks, root, errs, coerce);
         }
         break;
       }

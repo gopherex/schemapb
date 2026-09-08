@@ -69,6 +69,7 @@ pub(crate) fn resolve(e: &Engine, values: &mut NativeStruct) -> Vec<ValidationEr
         &mut Vec::new(),
         &mut task_paths,
         &mut errs,
+        false,
     );
     let root_snapshot = values.clone();
     run_normalize(e, &schema, values, &root_snapshot, &mut errs);
@@ -120,6 +121,7 @@ fn scope_at<'a>(root: &'a mut NativeStruct, keys: &[String]) -> Option<&'a mut N
 }
 
 #[allow(clippy::too_many_lines)] // container traversal mirrors the schema tree
+#[allow(clippy::too_many_arguments)] // internal traversal state
 fn seed(
     e: &Engine,
     schema: &Schema,
@@ -128,8 +130,11 @@ fn seed(
     scope_keys: &mut Vec<String>,
     tasks: &mut Vec<(Vec<String>, String)>,
     errs: &mut Vec<ValidationError>,
+    inherited: bool,
 ) {
-    let coerce = schema.coerce;
+    // The root's Coerce applies to the whole tree: a nested schema need
+    // not re-declare it.
+    let coerce = schema.coerce || inherited;
     for f in &schema.fields {
         let path = join_path(prefix, &f.name);
         let root_snapshot = root.clone();
@@ -158,7 +163,7 @@ fn seed(
                 if let Some(sub) = o.schema.as_ref() {
                     if matches!(scope.get(&f.name), Some(Native::Struct(_))) {
                         scope_keys.push(f.name.clone());
-                        seed(e, sub, root, &path, scope_keys, tasks, errs);
+                        seed(e, sub, root, &path, scope_keys, tasks, errs, coerce);
                         scope_keys.pop();
                     }
                 }
@@ -188,6 +193,7 @@ fn seed(
                         scope_keys,
                         tasks,
                         errs,
+                        coerce,
                     );
                     scope_keys.pop();
                     scope_keys.pop();
@@ -206,7 +212,16 @@ fn seed(
                     for k in keys {
                         scope_keys.push(f.name.clone());
                         scope_keys.push(k.clone());
-                        seed(e, vs, root, &join_path(&path, &k), scope_keys, tasks, errs);
+                        seed(
+                            e,
+                            vs,
+                            root,
+                            &join_path(&path, &k),
+                            scope_keys,
+                            tasks,
+                            errs,
+                            coerce,
+                        );
                         scope_keys.pop();
                         scope_keys.pop();
                     }
@@ -219,7 +234,7 @@ fn seed(
                     .cloned();
                 if let Some(variant) = variant {
                     scope_keys.push(f.name.clone());
-                    seed(e, &variant, root, &path, scope_keys, tasks, errs);
+                    seed(e, &variant, root, &path, scope_keys, tasks, errs, coerce);
                     scope_keys.pop();
                 }
             }
@@ -228,7 +243,7 @@ fn seed(
                 if let Some(def) = def {
                     if matches!(scope.get(&f.name), Some(Native::Struct(_))) {
                         scope_keys.push(f.name.clone());
-                        seed(e, &def, root, &path, scope_keys, tasks, errs);
+                        seed(e, &def, root, &path, scope_keys, tasks, errs, coerce);
                         scope_keys.pop();
                     }
                 }

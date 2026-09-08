@@ -369,6 +369,10 @@
               "name": "location",
               "required": true,
               "string": {}
+            },
+            {
+              "name": "ttl",
+              "duration": {}
             }
           ],
           "rules": [
@@ -392,6 +396,23 @@
           "name": "value",
           "int64": {
             "gte": "0"
+          }
+        }
+      }
+    },
+    {
+      "name": "labels",
+      "map": {
+        "valueField": {
+          "name": "value",
+          "rules": [
+            {
+              "expr": "this != \"forbidden\"",
+              "message": "label value forbidden"
+            }
+          ],
+          "string": {
+            "pattern": "^[a-z]+$"
           }
         }
       }

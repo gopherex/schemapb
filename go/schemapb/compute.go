@@ -90,7 +90,19 @@ func (e *Engine) seed(
 	schema *Schema, scope map[string]any, prefix string,
 	tasks *[]computeTask, root map[string]any, res *ValidationResult,
 ) {
-	coerce := schema.GetCoerce()
+	e.seedWith(schema, scope, prefix, tasks, root, res, false)
+}
+
+// seedWith runs seed with the parent's effective coerce flag: root Coerce
+// applies to the whole tree (a nested schema need not re-declare it).
+//
+//nolint:gocognit,cyclop,gocyclo // container traversal mirrors the schema tree
+func (e *Engine) seedWith(
+	schema *Schema, scope map[string]any, prefix string,
+	tasks *[]computeTask, root map[string]any, res *ValidationResult,
+	inherited bool,
+) {
+	coerce := schema.GetCoerce() || inherited
 
 	for _, f := range schema.GetFields() {
 		name := f.GetName()
@@ -125,7 +137,7 @@ func (e *Engine) seed(
 			*tasks = append(*tasks, computeTask{field: f, scope: scope, path: path})
 		case f.GetObject() != nil && f.GetObject().GetSchema() != nil:
 			if child, ok := scope[name].(map[string]any); ok {
-				e.seed(f.GetObject().GetSchema(), child, path, tasks, root, res)
+				e.seedWith(f.GetObject().GetSchema(), child, path, tasks, root, res, coerce)
 			}
 		case f.GetList() != nil && len(f.GetList().GetItems()) >= 1:
 			if arr, ok := scope[name].([]any); ok {
@@ -137,7 +149,7 @@ func (e *Engine) seed(
 
 					if o := it.GetObject(); o != nil && o.GetSchema() != nil {
 						if m, isObj := el.(map[string]any); isObj {
-							e.seed(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks, root, res)
+							e.seedWith(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks, root, res, coerce)
 						}
 					}
 				}
@@ -146,18 +158,18 @@ func (e *Engine) seed(
 			if mm, ok := scope[name].(map[string]any); ok {
 				for k, el := range mm {
 					if m, isObj := el.(map[string]any); isObj {
-						e.seed(f.GetMap().GetValueSchema(), m, joinPath(path, k), tasks, root, res)
+						e.seedWith(f.GetMap().GetValueSchema(), m, joinPath(path, k), tasks, root, res, coerce)
 					}
 				}
 			}
 		case f.GetOneOf() != nil:
 			if variant, m := selectVariant(f.GetOneOf(), scope[name]); variant != nil {
-				e.seed(variant, m, path, tasks, root, res)
+				e.seedWith(variant, m, path, tasks, root, res, coerce)
 			}
 		case f.GetRef() != nil:
 			if def := e.schema.GetDefs()[refDefKey(f.GetRef())]; def != nil {
 				if child, ok := scope[name].(map[string]any); ok {
-					e.seed(def, child, path, tasks, root, res)
+					e.seedWith(def, child, path, tasks, root, res, coerce)
 				}
 			}
 		}

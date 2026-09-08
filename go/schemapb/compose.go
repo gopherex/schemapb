@@ -137,6 +137,13 @@ func nestedSchemas(f *Schema_Field) []*Schema {
 		out = append(out, mp.GetValueSchema())
 	}
 
+	// A map value_field walks as a synthetic one-field schema, so every
+	// generic traversal (descriptor checks, expression/pattern/ref walkers,
+	// def hoisting) sees inside it.
+	if mp := f.GetMap(); mp != nil && mp.GetValueField() != nil {
+		out = append(out, &Schema{Fields: []*Schema_Field{mp.GetValueField()}})
+	}
+
 	if l := f.GetList(); l != nil {
 		for _, it := range l.GetItems() {
 			out = append(out, nestedSchemas(it)...)

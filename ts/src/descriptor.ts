@@ -12,7 +12,7 @@ import {
   ValidationResultSchema,
 } from "./gen/schemapb/errors_pb.js";
 import type { Schema, Schema_Field } from "./gen/schemapb/schema_pb.js";
-import { Schema_Field_Severity } from "./gen/schemapb/schema_pb.js";
+import { Schema_Field_Severity, SchemaSchema } from "./gen/schemapb/schema_pb.js";
 
 /** A malformed schema descriptor (programmatic failure, principle 5). */
 export class SchemaError extends Error {
@@ -58,6 +58,12 @@ export function nestedSchemas(f: Schema_Field): Schema[] {
     case "map":
       if (kind.value.valueSchema !== undefined) {
         out.push(kind.value.valueSchema);
+      }
+      // A map value_field walks as a synthetic one-field schema, so every
+      // generic traversal (descriptor checks, expression/pattern/ref
+      // walkers) sees inside it.
+      if (kind.value.valueField !== undefined) {
+        out.push(create(SchemaSchema, { fields: [kind.value.valueField] }));
       }
       break;
     case "list":
@@ -209,9 +215,6 @@ function checkFields(fields: Schema_Field[], prefix: string): ValidationError[] 
           errs.push(
             schemaErr(path, "map field: value_schema and value_field are mutually exclusive"),
           );
-        }
-        if (kind.value.valueField !== undefined) {
-          errs.push(...checkFields([kind.value.valueField], `${path}[]`));
         }
         const mp = kind.value;
         if (

@@ -72,6 +72,15 @@
     "i64": {
       "int64Value": "256"
     },
+    "labels": {
+      "structValue": {
+        "fields": {
+          "team": {
+            "stringValue": "storage"
+          }
+        }
+      }
+    },
     "license": {
       "bytesValue": "TElDLXgtRU5E"
     },
@@ -137,6 +146,9 @@
               "fields": {
                 "location": {
                   "stringValue": "/var/lib/ts"
+                },
+                "ttl": {
+                  "durationValue": "300s"
                 }
               }
             }

@@ -551,6 +551,26 @@
       "message": "expected integer"
     },
     {
+      "path": "labels.bad",
+      "code": "ERROR_CODE_PATTERN_MISMATCH",
+      "expected": {
+        "stringValue": "^[a-z]+$"
+      },
+      "actual": {
+        "stringValue": "UPPER"
+      },
+      "constraint": "pattern",
+      "severity": "SEVERITY_ERROR",
+      "message": "must match pattern ^[a-z]+$"
+    },
+    {
+      "path": "labels.nope",
+      "code": "ERROR_CODE_RULE_VIOLATED",
+      "expr": "this != \"forbidden\"",
+      "severity": "SEVERITY_ERROR",
+      "message": "label value forbidden"
+    },
+    {
       "path": "backup",
       "code": "ERROR_CODE_UNKNOWN_VARIANT",
       "expected": {

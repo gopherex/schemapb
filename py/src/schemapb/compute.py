@@ -108,8 +108,12 @@ def _seed(
     tasks: list[tuple[SchemaField, NativeStruct, str]],
     root: NativeStruct,
     errs: list[ValidationError],
+    *,
+    inherited: bool = False,
 ) -> None:
-    coerce = schema.coerce
+    # The root's Coerce applies to the whole tree: a nested schema need not
+    # re-declare it.
+    coerce = schema.coerce or inherited
     for f in schema.fields:
         name = f.name
         path = join_path(prefix, name)
@@ -128,7 +132,7 @@ def _seed(
         if f.computed is not None:
             tasks.append((f, scope, path))
         elif f.object is not None and f.object.schema is not None and isinstance(cur, dict):
-            _seed(e, f.object.schema, cur, path, tasks, root, errs)
+            _seed(e, f.object.schema, cur, path, tasks, root, errs, inherited=coerce)
         elif f.list is not None and len(f.list.items) >= 1 and isinstance(cur, list):
             for i, el in enumerate(cur):
                 it = list_item_def(f.list, i)
@@ -138,19 +142,30 @@ def _seed(
                     and it.object.schema is not None
                     and isinstance(el, dict)
                 ):
-                    _seed(e, it.object.schema, el, f"{path}[{i}]", tasks, root, errs)
+                    _seed(
+                        e, it.object.schema, el, f"{path}[{i}]", tasks, root, errs, inherited=coerce
+                    )
         elif f.map is not None and f.map.value_schema is not None and isinstance(cur, dict):
             for k, el in cur.items():
                 if isinstance(el, dict):
-                    _seed(e, f.map.value_schema, el, join_path(path, k), tasks, root, errs)
+                    _seed(
+                        e,
+                        f.map.value_schema,
+                        el,
+                        join_path(path, k),
+                        tasks,
+                        root,
+                        errs,
+                        inherited=coerce,
+                    )
         elif f.one_of is not None:
             sel = select_variant(f.one_of, cur)
             if sel is not None:
-                _seed(e, sel[0], sel[1], path, tasks, root, errs)
+                _seed(e, sel[0], sel[1], path, tasks, root, errs, inherited=coerce)
         elif f.ref is not None:
             def_ = e.schema.defs.get(ref_def_key(f.ref))
             if def_ is not None and isinstance(cur, dict):
-                _seed(e, def_, cur, path, tasks, root, errs)
+                _seed(e, def_, cur, path, tasks, root, errs, inherited=coerce)
 
 
 def _run_normalize(

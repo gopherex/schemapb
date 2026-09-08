@@ -44,6 +44,11 @@ def nested_schemas(f: SchemaField) -> list[Schema]:
         out.extend(f.one_of.variants.values())
     if f.map is not None and f.map.value_schema is not None:
         out.append(f.map.value_schema)
+    # A map value_field walks as a synthetic one-field schema, so every
+    # generic traversal (descriptor checks, expression/pattern/ref walkers)
+    # sees inside it.
+    if f.map is not None and f.map.value_field is not None:
+        out.append(Schema(fields=[f.map.value_field]))
     if f.list is not None:
         for it in f.list.items:
             out.extend(nested_schemas(it))
@@ -167,8 +172,6 @@ def _check_fields(fields: list[SchemaField], prefix: str) -> list[ValidationErro
             errs.append(
                 schema_err(path, "map field: value_schema and value_field are mutually exclusive")
             )
-        if f.map is not None and f.map.value_field is not None:
-            errs.extend(_check_fields([f.map.value_field], f"{path}[]"))
         for child in nested_schemas(f):
             errs.extend(_check_fields(child.fields, path))
     return errs

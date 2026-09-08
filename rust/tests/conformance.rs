@@ -48,12 +48,16 @@ fn valid_input() -> NativeStruct {
     );
     m.insert(
         "tablespaces".into(),
-        obj(vec![("main", obj(vec![("location", s("/var/lib/ts"))]))]),
+        obj(vec![(
+            "main",
+            obj(vec![("location", s("/var/lib/ts")), ("ttl", s("5m"))]),
+        )]),
     );
     m.insert(
         "limits".into(),
         obj(vec![("cpu", Native::Int(2)), ("mem", Native::Int(4096))]),
     );
+    m.insert("labels".into(), obj(vec![("team", s("storage"))]));
     m.insert(
         "backup".into(),
         obj(vec![("type", s("s3")), ("bucket", s("backups"))]),
@@ -108,6 +112,10 @@ fn broken_input() -> NativeStruct {
     m.insert(
         "limits".into(),
         obj(vec![("cpu", Native::Int(-1)), ("mem", s("lots"))]),
+    );
+    m.insert(
+        "labels".into(),
+        obj(vec![("bad", s("UPPER")), ("nope", s("forbidden"))]),
     );
     m.insert("backup".into(), obj(vec![("type", s("tape"))]));
     m.insert(
