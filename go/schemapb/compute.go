@@ -84,8 +84,6 @@ type computeTask struct {
 // default) and collects Computed fields as tasks, recursing into present
 // containers. It never materializes an absent object, so optional sub-forms
 // stay absent and don't spuriously trip their children's "required" checks.
-//
-//nolint:gocognit,cyclop,gocyclo // container traversal mirrors the schema tree
 func (e *Engine) seed(
 	schema *Schema, scope map[string]any, prefix string,
 	tasks *[]computeTask, root map[string]any, res *ValidationResult,
