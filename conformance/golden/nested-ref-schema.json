@@ -1,0 +1,479 @@
+{
+  "id": {
+    "namespace": "conformance",
+    "name": "nested_ref",
+    "version": "v1.0.0"
+  },
+  "fields": [
+    {
+      "name": "factor",
+      "int64": {
+        "default": "2"
+      }
+    },
+    {
+      "name": "segments",
+      "list": {
+        "items": [
+          {
+            "nullable": true,
+            "ref": {
+              "name": "segment"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "identity_segments",
+      "list": {
+        "items": [
+          {
+            "ref": {
+              "id": {
+                "namespace": "workload",
+                "name": "segment",
+                "version": "v1.0.0"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "pair",
+      "list": {
+        "items": [
+          {
+            "ref": {
+              "name": "segment"
+            }
+          },
+          {
+            "ref": {
+              "name": "limits"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "direct",
+      "ref": {
+        "name": "segment"
+      }
+    },
+    {
+      "name": "wrapper",
+      "object": {
+        "schema": {
+          "fields": [
+            {
+              "name": "segment",
+              "ref": {
+                "name": "segment"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "mapped",
+      "map": {
+        "valueSchema": {
+          "fields": [
+            {
+              "name": "segment",
+              "ref": {
+                "name": "segment"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "variant",
+      "oneOf": {
+        "discriminator": "kind",
+        "variants": {
+          "run": {
+            "fields": [
+              {
+                "name": "kind",
+                "string": {}
+              },
+              {
+                "name": "segment",
+                "ref": {
+                  "name": "segment"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "variants",
+      "list": {
+        "items": [
+          {
+            "oneOf": {
+              "discriminator": "kind",
+              "variants": {
+                "run": {
+                  "fields": [
+                    {
+                      "name": "kind",
+                      "string": {}
+                    },
+                    {
+                      "name": "segment",
+                      "ref": {
+                        "name": "segment"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "quiet_segments",
+      "list": {
+        "items": [
+          {
+            "ref": {
+              "name": "quiet"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "coerce": true,
+  "defs": {
+    "limits": {
+      "fields": [
+        {
+          "name": "cpu",
+          "int32": {
+            "default": 2
+          }
+        },
+        {
+          "name": "derived",
+          "computed": {
+            "expr": "'leaf'",
+            "result": "RESULT_TYPE_STRING"
+          }
+        }
+      ]
+    },
+    "quiet": {
+      "fields": [
+        {
+          "name": "run",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "executor",
+                  "string": {
+                    "default": "local"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "log_level",
+          "string": {
+            "default": " INFO "
+          },
+          "normalize": "this.trim().lowerAscii()"
+        },
+        {
+          "name": "replicas",
+          "int32": {
+            "default": 1
+          }
+        },
+        {
+          "name": "workers",
+          "uint32": {
+            "default": 2
+          }
+        },
+        {
+          "name": "ratio",
+          "float": {
+            "default": 1.25
+          }
+        },
+        {
+          "name": "timeout",
+          "duration": {
+            "default": "1.500s"
+          }
+        },
+        {
+          "name": "derived",
+          "computed": {
+            "expr": "root.factor * 3",
+            "result": "RESULT_TYPE_INT64"
+          }
+        },
+        {
+          "name": "limits",
+          "ref": {
+            "name": "limits"
+          }
+        },
+        {
+          "name": "children",
+          "list": {
+            "items": [
+              {
+                "ref": {
+                  "name": "limits"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "optional",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "required_child",
+                  "required": true,
+                  "string": {}
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "inactive",
+          "string": {
+            "default": "hidden"
+          },
+          "when": "false"
+        }
+      ]
+    },
+    "segment": {
+      "fields": [
+        {
+          "name": "run",
+          "rules": [
+            {
+              "expr": "this.executor == 'local'",
+              "message": "executor must be local"
+            }
+          ],
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "executor",
+                  "string": {
+                    "default": "local"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "log_level",
+          "string": {
+            "default": " INFO "
+          },
+          "normalize": "this.trim().lowerAscii()"
+        },
+        {
+          "name": "replicas",
+          "int32": {
+            "default": 1
+          }
+        },
+        {
+          "name": "workers",
+          "uint32": {
+            "default": 2
+          }
+        },
+        {
+          "name": "ratio",
+          "float": {
+            "default": 1.25
+          }
+        },
+        {
+          "name": "timeout",
+          "duration": {
+            "default": "1.500s"
+          }
+        },
+        {
+          "name": "derived",
+          "computed": {
+            "expr": "root.factor * 3",
+            "result": "RESULT_TYPE_INT64"
+          }
+        },
+        {
+          "name": "limits",
+          "ref": {
+            "name": "limits"
+          }
+        },
+        {
+          "name": "children",
+          "list": {
+            "items": [
+              {
+                "ref": {
+                  "name": "limits"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "optional",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "required_child",
+                  "required": true,
+                  "string": {}
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "inactive",
+          "string": {
+            "default": "hidden"
+          },
+          "when": "false"
+        }
+      ]
+    },
+    "workload\u0000segment\u0000v1.0.0": {
+      "fields": [
+        {
+          "name": "run",
+          "rules": [
+            {
+              "expr": "this.executor == 'local'",
+              "message": "executor must be local"
+            }
+          ],
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "executor",
+                  "string": {
+                    "default": "local"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "log_level",
+          "string": {
+            "default": " INFO "
+          },
+          "normalize": "this.trim().lowerAscii()"
+        },
+        {
+          "name": "replicas",
+          "int32": {
+            "default": 1
+          }
+        },
+        {
+          "name": "workers",
+          "uint32": {
+            "default": 2
+          }
+        },
+        {
+          "name": "ratio",
+          "float": {
+            "default": 1.25
+          }
+        },
+        {
+          "name": "timeout",
+          "duration": {
+            "default": "1.500s"
+          }
+        },
+        {
+          "name": "derived",
+          "computed": {
+            "expr": "root.factor * 3",
+            "result": "RESULT_TYPE_INT64"
+          }
+        },
+        {
+          "name": "limits",
+          "ref": {
+            "name": "limits"
+          }
+        },
+        {
+          "name": "children",
+          "list": {
+            "items": [
+              {
+                "ref": {
+                  "name": "limits"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "optional",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "required_child",
+                  "required": true,
+                  "string": {}
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "inactive",
+          "string": {
+            "default": "hidden"
+          },
+          "when": "false"
+        }
+      ]
+    }
+  }
+}

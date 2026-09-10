@@ -7,7 +7,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fromJson } from "@bufbuild/protobuf";
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { bake, renderBaked } from "../src/bake.js";
 import { Engine } from "../src/engine.js";
@@ -17,7 +17,7 @@ import { StructValueSchema } from "../src/gen/schemapb/value_pb.js";
 import { messageTemplates } from "../src/messages.js";
 import { templateName } from "../src/typed.js";
 import { validate } from "../src/validate.js";
-import type { NativeStruct } from "../src/value.js";
+import { type NativeStruct, structToNative } from "../src/value.js";
 
 const goldenDir = join(__dirname, "..", "..", "conformance", "golden");
 
@@ -130,3 +130,37 @@ describe("conformance against Go goldens", () => {
 function errKey(e: { path: string; code: ErrorCode }): string {
   return `${e.path}:${ErrorCode[e.code]}`;
 }
+
+// All ports consume the same typed inputs; no hand-maintained native mirrors.
+const nestedRefCases = JSON.parse(golden("nested-ref-cases.json")) as {
+  name: string;
+  input: JsonValue;
+  result: JsonValue;
+  baked?: JsonValue;
+}[];
+
+describe("nested ref conformance", () => {
+  for (const c of nestedRefCases) {
+    it(c.name, () => {
+      const e = Engine.compile(
+        fromJson(SchemaSchema, JSON.parse(golden("nested-ref-schema.json"))),
+      );
+      const input = fromJson(StructValueSchema, c.input);
+      const outcome = e.bake(structToNative(input));
+      expect(outcome.result).toStrictEqual(fromJson(ValidationResultSchema, c.result));
+      if (c.baked === undefined) {
+        expect(outcome.baked).toBeUndefined();
+        return;
+      }
+      const expected = fromJson(StructValueSchema, c.baked);
+      expect(outcome.baked?.values).toStrictEqual(expected);
+      const resolved = structToNative(input);
+      expect(e.resolve(resolved)).toStrictEqual([]);
+      for (const values of [resolved, structToNative(outcome.baked?.values)]) {
+        const again = e.bake(values);
+        expect(again.result.errors).toStrictEqual([]);
+        expect(again.baked?.values).toStrictEqual(expected);
+      }
+    });
+  }
+});

@@ -22,6 +22,7 @@
 import { create, isMessage } from "@bufbuild/protobuf";
 import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
 import { DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { objectSchema } from "./compute.js";
 import type { Schema, Schema_Field } from "./gen/schemapb/schema_pb.js";
 import type { StructValue, Value } from "./gen/schemapb/value_pb.js";
 import {
@@ -271,7 +272,11 @@ function fail(msg: string): never {
  * cannot represent the kind — the validator reports those as TYPE_MISMATCH
  * before this point.
  */
-export function canonicalValue(f: Schema_Field, x: Native): Value {
+export function canonicalValue(
+  f: Schema_Field,
+  x: Native,
+  defs: Record<string, Schema> = {},
+): Value {
   if (x === null) {
     return nullV();
   }
@@ -329,7 +334,7 @@ export function canonicalValue(f: Schema_Field, x: Native): Value {
       return listV(
         ...x.map((el, i) => {
           const item = items.length === 1 ? items[0] : items[i];
-          return item === undefined ? fromNative(el) : canonicalValue(item, el);
+          return item === undefined ? fromNative(el) : canonicalValue(item, el, defs);
         }),
       );
     }
@@ -338,7 +343,7 @@ export function canonicalValue(f: Schema_Field, x: Native): Value {
         fail(`field ${f.name}: not an object`);
       }
       const schema = kind.value.schema;
-      return schema === undefined ? fromNative(x) : canonicalStruct(schema, x);
+      return schema === undefined ? fromNative(x) : canonicalStruct(schema, x, defs);
     }
     case "map": {
       if (!isNativeStruct(x)) {
@@ -349,9 +354,9 @@ export function canonicalValue(f: Schema_Field, x: Native): Value {
       const fields: Record<string, Value> = {};
       for (const [key, el] of Object.entries(x)) {
         if (vf !== undefined) {
-          fields[key] = canonicalValue(vf, el);
+          fields[key] = canonicalValue(vf, el, defs);
         } else if (vs !== undefined && isNativeStruct(el)) {
-          fields[key] = canonicalStruct(vs, el);
+          fields[key] = canonicalStruct(vs, el, defs);
         } else {
           fields[key] = fromNative(el);
         }
@@ -360,19 +365,23 @@ export function canonicalValue(f: Schema_Field, x: Native): Value {
     }
     case "json":
       return fromNative(x);
-    default:
-      // Computed / OneOf / Ref values canonicalize structurally; the engine
-      // resolves through their target schemas instead.
-      return fromNative(x);
+    default: {
+      const sub = objectSchema(f, x, defs);
+      return sub === undefined ? fromNative(x) : canonicalStruct(sub[0], sub[1], defs);
+    }
   }
 }
 
 /** Canonicalizes a native map against a schema's declared fields. */
-export function canonicalStruct(s: Schema, m: NativeStruct): Value {
+export function canonicalStruct(
+  s: Schema,
+  m: NativeStruct,
+  defs: Record<string, Schema> = s.defs,
+): Value {
   const fields: Record<string, Value> = {};
   for (const [key, el] of Object.entries(m)) {
     const fld = s.fields.find((f) => f.name === key);
-    fields[key] = fld === undefined ? fromNative(el) : canonicalValue(fld, el);
+    fields[key] = fld === undefined ? fromNative(el) : canonicalValue(fld, el, defs);
   }
   return structV(fields);
 }

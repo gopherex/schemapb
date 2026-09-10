@@ -145,10 +145,8 @@ func (e *Engine) seedWith(
 						continue
 					}
 
-					if o := it.GetObject(); o != nil && o.GetSchema() != nil {
-						if m, isObj := el.(map[string]any); isObj {
-							e.seedWith(o.GetSchema(), m, fmt.Sprintf("%s[%d]", path, i), tasks, root, res, coerce)
-						}
+					if sub, m := objectSchema(it, el, e.schema.GetDefs()); sub != nil {
+						e.seedWith(sub, m, fmt.Sprintf("%s[%d]", path, i), tasks, root, res, coerce)
 					}
 				}
 			}
@@ -217,6 +215,26 @@ func selectVariant(oo *Schema_Field_OneOf, val any) (*Schema, map[string]any) {
 	return v, m
 }
 
+// objectSchema resolves an object-valued field, including list/tuple items,
+// against the root defs. Only present objects have a scope to resolve.
+func objectSchema(f *Schema_Field, val any, defs map[string]*Schema) (*Schema, map[string]any) {
+	m, ok := val.(map[string]any)
+	if !ok {
+		return nil, nil
+	}
+
+	switch {
+	case f.GetObject() != nil:
+		return f.GetObject().GetSchema(), m
+	case f.GetRef() != nil:
+		return defs[refDefKey(f.GetRef())], m
+	case f.GetOneOf() != nil:
+		return selectVariant(f.GetOneOf(), val)
+	default:
+		return nil, nil
+	}
+}
+
 // runNormalize applies normalize expressions to present, active fields,
 // recursing into containers. Runs after seed (defaults in place) and before
 // runCompute (Computed reads normalized values).
@@ -261,10 +279,8 @@ func (e *Engine) runNormalize(schema *Schema, scope, root map[string]any, res *V
 						continue
 					}
 
-					if obj := it.GetObject(); obj != nil && obj.GetSchema() != nil {
-						if m, isObj := el.(map[string]any); isObj {
-							e.runNormalize(obj.GetSchema(), m, root, res)
-						}
+					if sub, m := objectSchema(it, el, e.schema.GetDefs()); sub != nil {
+						e.runNormalize(sub, m, root, res)
 					}
 				}
 			}

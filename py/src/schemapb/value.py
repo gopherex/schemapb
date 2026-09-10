@@ -224,7 +224,9 @@ def _fail(msg: str) -> Value:
     raise CanonicalError(msg)
 
 
-def canonical_value(f: SchemaField, x: Native) -> Value:
+def canonical_value(f: SchemaField, x: Native, defs: dict[str, Schema] | None = None) -> Value:
+    from schemapb.compute import object_schema  # noqa: PLC0415 - compute imports native value types
+
     if x is None:
         return null_v()
     if f.float is not None:
@@ -276,13 +278,13 @@ def canonical_value(f: SchemaField, x: Native) -> Value:
         out: list[Value] = []
         for i, el in enumerate(x):
             item = items[0] if len(items) == 1 else (items[i] if i < len(items) else None)
-            out.append(from_native(el) if item is None else canonical_value(item, el))
+            out.append(from_native(el) if item is None else canonical_value(item, el, defs))
         return list_v(*out)
     if f.object is not None:
         if not isinstance(x, dict):
             return _fail(f"field {f.name}: not an object")
         sub = f.object.schema
-        return from_native(x) if sub is None else canonical_struct(sub, x)
+        return from_native(x) if sub is None else canonical_struct(sub, x, defs)
     if f.map is not None:
         if not isinstance(x, dict):
             return _fail(f"field {f.name}: not a map")
@@ -291,21 +293,22 @@ def canonical_value(f: SchemaField, x: Native) -> Value:
         fields: dict[str, Value] = {}
         for key, el in x.items():
             if vf is not None:
-                fields[key] = canonical_value(vf, el)
+                fields[key] = canonical_value(vf, el, defs)
             elif vs is not None and isinstance(el, dict):
-                fields[key] = canonical_struct(vs, el)
+                fields[key] = canonical_struct(vs, el, defs)
             else:
                 fields[key] = from_native(el)
         return struct_v(fields)
-    # Computed / OneOf / Ref canonicalize structurally; the engine resolves
-    # through their target schemas instead.
-    return from_native(x)
+    sub_scope = object_schema(f, x, {} if defs is None else defs)
+    return from_native(x) if sub_scope is None else canonical_struct(*sub_scope, defs)
 
 
-def canonical_struct(s: Schema, m: NativeStruct) -> Value:
+def canonical_struct(s: Schema, m: NativeStruct, defs: dict[str, Schema] | None = None) -> Value:
+    if defs is None:
+        defs = s.defs
     fields: dict[str, Value] = {}
     by_name = {f.name: f for f in s.fields}
     for key, el in m.items():
         fld = by_name.get(key)
-        fields[key] = from_native(el) if fld is None else canonical_value(fld, el)
+        fields[key] = from_native(el) if fld is None else canonical_value(fld, el, defs)
     return struct_v(fields)

@@ -378,3 +378,37 @@ fn value_lookup_cases() {
         }
     }
 }
+
+/// Typed inputs and full outputs are shared with Go, TS and Python.
+#[test]
+fn nested_ref_conformance() {
+    use schemapb::value::struct_to_native;
+    let schema: Schema = serde_json::from_str(&golden("nested-ref-schema.json")).unwrap();
+    let e = Engine::compile(schema, schemapb::formats::FormatRegistry::new()).unwrap();
+    let cases: serde_json::Value = serde_json::from_str(&golden("nested-ref-cases.json")).unwrap();
+    for case in cases.as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let input: StructValue = serde_json::from_value(case["input"].clone()).unwrap();
+        let outcome = e.bake(&mut struct_to_native(Some(&input)));
+        let result: ValidationResult = serde_json::from_value(case["result"].clone()).unwrap();
+        assert_eq!(outcome.result, result, "{name}: validation");
+        if case.get("baked").is_none() {
+            assert!(outcome.baked.is_none(), "{name}: must not bake");
+            continue;
+        }
+        let expected: StructValue = serde_json::from_value(case["baked"].clone()).unwrap();
+        let baked = outcome.baked.unwrap();
+        assert_eq!(baked.values.as_ref(), Some(&expected), "{name}: baked");
+        let mut resolved = struct_to_native(Some(&input));
+        assert!(e.resolve(&mut resolved).is_empty(), "{name}: resolve");
+        for mut values in [resolved, struct_to_native(baked.values.as_ref())] {
+            let again = e.bake(&mut values);
+            assert!(again.result.errors.is_empty(), "{name}: rebake validation");
+            assert_eq!(
+                again.baked.unwrap().values,
+                Some(expected.clone()),
+                "{name}: rebake"
+            );
+        }
+    }
+}

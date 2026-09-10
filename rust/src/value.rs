@@ -266,6 +266,14 @@ pub struct CanonicalError(pub String);
 /// Converts a native value to the exact wire variant the declared kind
 /// mandates.
 pub fn canonical_value(f: &SchemaField, x: &Native) -> Result<Value, CanonicalError> {
+    canonical_value_with_defs(f, x, &std::collections::HashMap::new())
+}
+
+pub(crate) fn canonical_value_with_defs(
+    f: &SchemaField,
+    x: &Native,
+    defs: &std::collections::HashMap<String, Schema>,
+) -> Result<Value, CanonicalError> {
     use schema::field::Kind as K;
     if x.is_null() {
         return Ok(null_v());
@@ -318,7 +326,7 @@ pub fn canonical_value(f: &SchemaField, x: &Native) -> Result<Value, CanonicalEr
                         l.items.get(i)
                     };
                     out.push(match item {
-                        Some(def) => canonical_value(def, el)?,
+                        Some(def) => canonical_value_with_defs(def, el, defs)?,
                         None => from_native(el),
                     });
                 }
@@ -327,7 +335,7 @@ pub fn canonical_value(f: &SchemaField, x: &Native) -> Result<Value, CanonicalEr
             _ => fail("not a list"),
         },
         K::Object(o) => match (x, o.schema.as_ref()) {
-            (Native::Struct(m), Some(sub)) => canonical_struct(sub, m),
+            (Native::Struct(m), Some(sub)) => canonical_struct_with_defs(sub, m, defs),
             (Native::Struct(_), None) => Ok(from_native(x)),
             _ => fail("not an object"),
         },
@@ -336,10 +344,12 @@ pub fn canonical_value(f: &SchemaField, x: &Native) -> Result<Value, CanonicalEr
                 let mut fields = std::collections::HashMap::with_capacity(m.len());
                 for (key, el) in m {
                     let v = if let Some(vf) = mp.value_field.as_ref() {
-                        canonical_value(vf, el)?
+                        canonical_value_with_defs(vf, el, defs)?
                     } else {
                         match (mp.value_schema.as_ref(), el) {
-                            (Some(vs), Native::Struct(em)) => canonical_struct(vs, em)?,
+                            (Some(vs), Native::Struct(em)) => {
+                                canonical_struct_with_defs(vs, em, defs)?
+                            }
                             _ => from_native(el),
                         }
                     };
@@ -349,19 +359,31 @@ pub fn canonical_value(f: &SchemaField, x: &Native) -> Result<Value, CanonicalEr
             }
             _ => fail("not a map"),
         },
-        // Choice / Json canonicalize best-fit; Computed by result type at the
-        // engine; OneOf / Ref structurally through their target schemas.
-        K::Choice(_) | K::Json(_) | K::Computed(_) | K::OneOf(_) | K::Ref(_) => Ok(from_native(x)),
+        K::OneOf(_) | K::Ref(_) => {
+            match (crate::compute::object_schema(f, x, defs), x.as_struct()) {
+                (Some(sub), Some(m)) => canonical_struct_with_defs(sub, m, defs),
+                _ => Ok(from_native(x)),
+            }
+        }
+        K::Choice(_) | K::Json(_) | K::Computed(_) => Ok(from_native(x)),
     }
 }
 
 /// Canonicalizes a native map against a schema's declared fields.
 pub fn canonical_struct(s: &Schema, m: &NativeStruct) -> Result<Value, CanonicalError> {
+    canonical_struct_with_defs(s, m, &s.defs)
+}
+
+fn canonical_struct_with_defs(
+    s: &Schema,
+    m: &NativeStruct,
+    defs: &std::collections::HashMap<String, Schema>,
+) -> Result<Value, CanonicalError> {
     let mut fields = std::collections::HashMap::with_capacity(m.len());
     for (key, el) in m {
         let fld = s.fields.iter().find(|f| &f.name == key);
         let v = match fld {
-            Some(f) => canonical_value(f, el)?,
+            Some(f) => canonical_value_with_defs(f, el, defs)?,
             None => from_native(el),
         };
         fields.insert(key.clone(), v);

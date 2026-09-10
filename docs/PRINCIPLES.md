@@ -78,6 +78,14 @@ error codes and ordering, canonical forms, display formatting, message
 templates (`conformance/golden/messages.json`). No port grows features the
 others lack.
 
+List and tuple elements of kind Object, Ref or OneOf resolve their object
+schema before validation rules run: seed defaults and inherited coercion,
+normalize, then evaluate computed fields. An absent optional object stays
+absent. Ref targets use the root schema's defs, including identity keys;
+canonicalization retains that root context through nested containers so
+declared wire kinds survive composition. A nested computed field uses its
+own descriptor even when another scope contains a field with the same name.
+
 ## 9. Determinism is spec, not accident
 
 Map iteration is sorted wherever order reaches output; string casing helpers

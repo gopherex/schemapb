@@ -1,0 +1,1180 @@
+[
+  {
+    "name": "named-list",
+    "input": {
+      "fields": {
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "limits": {
+                      "structValue": {}
+                    },
+                    "run": {
+                      "structValue": {}
+                    }
+                  }
+                }
+              },
+              {
+                "structValue": {
+                  "fields": {
+                    "limits": {
+                      "structValue": {}
+                    },
+                    "log_level": {
+                      "stringValue": " DEBUG "
+                    },
+                    "replicas": {
+                      "stringValue": "3"
+                    },
+                    "run": {
+                      "structValue": {}
+                    },
+                    "timeout": {
+                      "stringValue": "2s"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "derived": {
+                      "int64Value": "6"
+                    },
+                    "limits": {
+                      "structValue": {
+                        "fields": {
+                          "cpu": {
+                            "int32Value": 2
+                          },
+                          "derived": {
+                            "stringValue": "leaf"
+                          }
+                        }
+                      }
+                    },
+                    "log_level": {
+                      "stringValue": "info"
+                    },
+                    "ratio": {
+                      "floatValue": 1.25
+                    },
+                    "replicas": {
+                      "int32Value": 1
+                    },
+                    "run": {
+                      "structValue": {
+                        "fields": {
+                          "executor": {
+                            "stringValue": "local"
+                          }
+                        }
+                      }
+                    },
+                    "timeout": {
+                      "durationValue": "1.500s"
+                    },
+                    "workers": {
+                      "uint32Value": 2
+                    }
+                  }
+                }
+              },
+              {
+                "structValue": {
+                  "fields": {
+                    "derived": {
+                      "int64Value": "6"
+                    },
+                    "limits": {
+                      "structValue": {
+                        "fields": {
+                          "cpu": {
+                            "int32Value": 2
+                          },
+                          "derived": {
+                            "stringValue": "leaf"
+                          }
+                        }
+                      }
+                    },
+                    "log_level": {
+                      "stringValue": "debug"
+                    },
+                    "ratio": {
+                      "floatValue": 1.25
+                    },
+                    "replicas": {
+                      "int32Value": 3
+                    },
+                    "run": {
+                      "structValue": {
+                        "fields": {
+                          "executor": {
+                            "stringValue": "local"
+                          }
+                        }
+                      }
+                    },
+                    "timeout": {
+                      "durationValue": "2s"
+                    },
+                    "workers": {
+                      "uint32Value": 2
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "identity-list",
+    "input": {
+      "fields": {
+        "identity_segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "limits": {
+                      "structValue": {}
+                    },
+                    "run": {
+                      "structValue": {}
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "identity_segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "derived": {
+                      "int64Value": "6"
+                    },
+                    "limits": {
+                      "structValue": {
+                        "fields": {
+                          "cpu": {
+                            "int32Value": 2
+                          },
+                          "derived": {
+                            "stringValue": "leaf"
+                          }
+                        }
+                      }
+                    },
+                    "log_level": {
+                      "stringValue": "info"
+                    },
+                    "ratio": {
+                      "floatValue": 1.25
+                    },
+                    "replicas": {
+                      "int32Value": 1
+                    },
+                    "run": {
+                      "structValue": {
+                        "fields": {
+                          "executor": {
+                            "stringValue": "local"
+                          }
+                        }
+                      }
+                    },
+                    "timeout": {
+                      "durationValue": "1.500s"
+                    },
+                    "workers": {
+                      "uint32Value": 2
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "tuple",
+    "input": {
+      "fields": {
+        "pair": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "limits": {
+                      "structValue": {}
+                    },
+                    "run": {
+                      "structValue": {}
+                    }
+                  }
+                }
+              },
+              {
+                "structValue": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "pair": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "derived": {
+                      "int64Value": "6"
+                    },
+                    "limits": {
+                      "structValue": {
+                        "fields": {
+                          "cpu": {
+                            "int32Value": 2
+                          },
+                          "derived": {
+                            "stringValue": "leaf"
+                          }
+                        }
+                      }
+                    },
+                    "log_level": {
+                      "stringValue": "info"
+                    },
+                    "ratio": {
+                      "floatValue": 1.25
+                    },
+                    "replicas": {
+                      "int32Value": 1
+                    },
+                    "run": {
+                      "structValue": {
+                        "fields": {
+                          "executor": {
+                            "stringValue": "local"
+                          }
+                        }
+                      }
+                    },
+                    "timeout": {
+                      "durationValue": "1.500s"
+                    },
+                    "workers": {
+                      "uint32Value": 2
+                    }
+                  }
+                }
+              },
+              {
+                "structValue": {
+                  "fields": {
+                    "cpu": {
+                      "int32Value": 2
+                    },
+                    "derived": {
+                      "stringValue": "leaf"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "direct-ref",
+    "input": {
+      "fields": {
+        "direct": {
+          "structValue": {
+            "fields": {
+              "limits": {
+                "structValue": {}
+              },
+              "run": {
+                "structValue": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "direct": {
+          "structValue": {
+            "fields": {
+              "derived": {
+                "int64Value": "6"
+              },
+              "limits": {
+                "structValue": {
+                  "fields": {
+                    "cpu": {
+                      "int32Value": 2
+                    },
+                    "derived": {
+                      "stringValue": "leaf"
+                    }
+                  }
+                }
+              },
+              "log_level": {
+                "stringValue": "info"
+              },
+              "ratio": {
+                "floatValue": 1.25
+              },
+              "replicas": {
+                "int32Value": 1
+              },
+              "run": {
+                "structValue": {
+                  "fields": {
+                    "executor": {
+                      "stringValue": "local"
+                    }
+                  }
+                }
+              },
+              "timeout": {
+                "durationValue": "1.500s"
+              },
+              "workers": {
+                "uint32Value": 2
+              }
+            }
+          }
+        },
+        "factor": {
+          "int64Value": "2"
+        }
+      }
+    }
+  },
+  {
+    "name": "nested-object",
+    "input": {
+      "fields": {
+        "wrapper": {
+          "structValue": {
+            "fields": {
+              "segment": {
+                "structValue": {
+                  "fields": {
+                    "limits": {
+                      "structValue": {}
+                    },
+                    "run": {
+                      "structValue": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "wrapper": {
+          "structValue": {
+            "fields": {
+              "segment": {
+                "structValue": {
+                  "fields": {
+                    "derived": {
+                      "int64Value": "6"
+                    },
+                    "limits": {
+                      "structValue": {
+                        "fields": {
+                          "cpu": {
+                            "int32Value": 2
+                          },
+                          "derived": {
+                            "stringValue": "leaf"
+                          }
+                        }
+                      }
+                    },
+                    "log_level": {
+                      "stringValue": "info"
+                    },
+                    "ratio": {
+                      "floatValue": 1.25
+                    },
+                    "replicas": {
+                      "int32Value": 1
+                    },
+                    "run": {
+                      "structValue": {
+                        "fields": {
+                          "executor": {
+                            "stringValue": "local"
+                          }
+                        }
+                      }
+                    },
+                    "timeout": {
+                      "durationValue": "1.500s"
+                    },
+                    "workers": {
+                      "uint32Value": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "map-schema",
+    "input": {
+      "fields": {
+        "mapped": {
+          "structValue": {
+            "fields": {
+              "a": {
+                "structValue": {
+                  "fields": {
+                    "segment": {
+                      "structValue": {
+                        "fields": {
+                          "limits": {
+                            "structValue": {}
+                          },
+                          "run": {
+                            "structValue": {}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "mapped": {
+          "structValue": {
+            "fields": {
+              "a": {
+                "structValue": {
+                  "fields": {
+                    "segment": {
+                      "structValue": {
+                        "fields": {
+                          "derived": {
+                            "int64Value": "6"
+                          },
+                          "limits": {
+                            "structValue": {
+                              "fields": {
+                                "cpu": {
+                                  "int32Value": 2
+                                },
+                                "derived": {
+                                  "stringValue": "leaf"
+                                }
+                              }
+                            }
+                          },
+                          "log_level": {
+                            "stringValue": "info"
+                          },
+                          "ratio": {
+                            "floatValue": 1.25
+                          },
+                          "replicas": {
+                            "int32Value": 1
+                          },
+                          "run": {
+                            "structValue": {
+                              "fields": {
+                                "executor": {
+                                  "stringValue": "local"
+                                }
+                              }
+                            }
+                          },
+                          "timeout": {
+                            "durationValue": "1.500s"
+                          },
+                          "workers": {
+                            "uint32Value": 2
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "oneof",
+    "input": {
+      "fields": {
+        "variant": {
+          "structValue": {
+            "fields": {
+              "kind": {
+                "stringValue": "run"
+              },
+              "segment": {
+                "structValue": {
+                  "fields": {
+                    "limits": {
+                      "structValue": {}
+                    },
+                    "run": {
+                      "structValue": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "variant": {
+          "structValue": {
+            "fields": {
+              "kind": {
+                "stringValue": "run"
+              },
+              "segment": {
+                "structValue": {
+                  "fields": {
+                    "derived": {
+                      "int64Value": "6"
+                    },
+                    "limits": {
+                      "structValue": {
+                        "fields": {
+                          "cpu": {
+                            "int32Value": 2
+                          },
+                          "derived": {
+                            "stringValue": "leaf"
+                          }
+                        }
+                      }
+                    },
+                    "log_level": {
+                      "stringValue": "info"
+                    },
+                    "ratio": {
+                      "floatValue": 1.25
+                    },
+                    "replicas": {
+                      "int32Value": 1
+                    },
+                    "run": {
+                      "structValue": {
+                        "fields": {
+                          "executor": {
+                            "stringValue": "local"
+                          }
+                        }
+                      }
+                    },
+                    "timeout": {
+                      "durationValue": "1.500s"
+                    },
+                    "workers": {
+                      "uint32Value": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "list-oneof",
+    "input": {
+      "fields": {
+        "variants": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "kind": {
+                      "stringValue": "run"
+                    },
+                    "segment": {
+                      "structValue": {
+                        "fields": {
+                          "limits": {
+                            "structValue": {}
+                          },
+                          "run": {
+                            "structValue": {}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "variants": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "kind": {
+                      "stringValue": "run"
+                    },
+                    "segment": {
+                      "structValue": {
+                        "fields": {
+                          "derived": {
+                            "int64Value": "6"
+                          },
+                          "limits": {
+                            "structValue": {
+                              "fields": {
+                                "cpu": {
+                                  "int32Value": 2
+                                },
+                                "derived": {
+                                  "stringValue": "leaf"
+                                }
+                              }
+                            }
+                          },
+                          "log_level": {
+                            "stringValue": "info"
+                          },
+                          "ratio": {
+                            "floatValue": 1.25
+                          },
+                          "replicas": {
+                            "int32Value": 1
+                          },
+                          "run": {
+                            "structValue": {
+                              "fields": {
+                                "executor": {
+                                  "stringValue": "local"
+                                }
+                              }
+                            }
+                          },
+                          "timeout": {
+                            "durationValue": "1.500s"
+                          },
+                          "workers": {
+                            "uint32Value": 2
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "without-rules",
+    "input": {
+      "fields": {
+        "quiet_segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "limits": {
+                      "structValue": {}
+                    },
+                    "run": {
+                      "structValue": {}
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "quiet_segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "derived": {
+                      "int64Value": "6"
+                    },
+                    "limits": {
+                      "structValue": {
+                        "fields": {
+                          "cpu": {
+                            "int32Value": 2
+                          },
+                          "derived": {
+                            "stringValue": "leaf"
+                          }
+                        }
+                      }
+                    },
+                    "log_level": {
+                      "stringValue": "info"
+                    },
+                    "ratio": {
+                      "floatValue": 1.25
+                    },
+                    "replicas": {
+                      "int32Value": 1
+                    },
+                    "run": {
+                      "structValue": {
+                        "fields": {
+                          "executor": {
+                            "stringValue": "local"
+                          }
+                        }
+                      }
+                    },
+                    "timeout": {
+                      "durationValue": "1.500s"
+                    },
+                    "workers": {
+                      "uint32Value": 2
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "nested-list",
+    "input": {
+      "fields": {
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "children": {
+                      "listValue": {
+                        "items": [
+                          {
+                            "structValue": {}
+                          },
+                          {
+                            "structValue": {}
+                          }
+                        ]
+                      }
+                    },
+                    "limits": {
+                      "structValue": {}
+                    },
+                    "run": {
+                      "structValue": {}
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "children": {
+                      "listValue": {
+                        "items": [
+                          {
+                            "structValue": {
+                              "fields": {
+                                "cpu": {
+                                  "int32Value": 2
+                                },
+                                "derived": {
+                                  "stringValue": "leaf"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "structValue": {
+                              "fields": {
+                                "cpu": {
+                                  "int32Value": 2
+                                },
+                                "derived": {
+                                  "stringValue": "leaf"
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "derived": {
+                      "int64Value": "6"
+                    },
+                    "limits": {
+                      "structValue": {
+                        "fields": {
+                          "cpu": {
+                            "int32Value": 2
+                          },
+                          "derived": {
+                            "stringValue": "leaf"
+                          }
+                        }
+                      }
+                    },
+                    "log_level": {
+                      "stringValue": "info"
+                    },
+                    "ratio": {
+                      "floatValue": 1.25
+                    },
+                    "replicas": {
+                      "int32Value": 1
+                    },
+                    "run": {
+                      "structValue": {
+                        "fields": {
+                          "executor": {
+                            "stringValue": "local"
+                          }
+                        }
+                      }
+                    },
+                    "timeout": {
+                      "durationValue": "1.500s"
+                    },
+                    "workers": {
+                      "uint32Value": 2
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "absent-objects",
+    "input": {
+      "fields": {
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "derived": {
+                      "int64Value": "6"
+                    },
+                    "log_level": {
+                      "stringValue": "info"
+                    },
+                    "ratio": {
+                      "floatValue": 1.25
+                    },
+                    "replicas": {
+                      "int32Value": 1
+                    },
+                    "timeout": {
+                      "durationValue": "1.500s"
+                    },
+                    "workers": {
+                      "uint32Value": 2
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "empty-list",
+    "input": {
+      "fields": {
+        "segments": {
+          "listValue": {}
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "segments": {
+          "listValue": {}
+        }
+      }
+    }
+  },
+  {
+    "name": "null-item",
+    "input": {
+      "fields": {
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "nullValue": "NULL_VALUE"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        },
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "nullValue": "NULL_VALUE"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "absent-list",
+    "input": {},
+    "result": {},
+    "baked": {
+      "fields": {
+        "factor": {
+          "int64Value": "2"
+        }
+      }
+    }
+  },
+  {
+    "name": "rule-failure",
+    "input": {
+      "fields": {
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "run": {
+                      "structValue": {
+                        "fields": {
+                          "executor": {
+                            "stringValue": "remote"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "segments[0].run",
+          "code": "ERROR_CODE_RULE_VIOLATED",
+          "expr": "this.executor == 'local'",
+          "severity": "SEVERITY_ERROR",
+          "message": "executor must be local"
+        }
+      ]
+    }
+  },
+  {
+    "name": "wrong-item-type",
+    "input": {
+      "fields": {
+        "segments": {
+          "listValue": {
+            "items": [
+              {
+                "int64Value": "7"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "segments[0]",
+          "code": "ERROR_CODE_TYPE_MISMATCH",
+          "expected": {
+            "stringValue": "object"
+          },
+          "actual": {
+            "int64Value": "7"
+          },
+          "severity": "SEVERITY_ERROR",
+          "message": "expected object"
+        }
+      ]
+    }
+  }
+]

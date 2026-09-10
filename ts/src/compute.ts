@@ -80,6 +80,20 @@ export function selectVariant(
   return variant === undefined ? undefined : [variant, val];
 }
 
+/** The schema of a present Object, Ref or selected OneOf (also list/tuple items). */
+export function objectSchema(
+  f: Schema_Field,
+  val: Native,
+  defs: Record<string, Schema>,
+): [Schema, NativeStruct] | undefined {
+  if (!isNativeStruct(val)) return undefined;
+  const k = f.kind;
+  if (k.case === "oneOf") return selectVariant(k.value, val);
+  const sub =
+    k.case === "object" ? k.value.schema : k.case === "ref" ? defs[refDefKey(k.value)] : undefined;
+  return sub === undefined ? undefined : [sub, val];
+}
+
 interface ComputeTask {
   field: Schema_Field;
   scope: NativeStruct;
@@ -173,10 +187,9 @@ function seed(
         if (Array.isArray(cur)) {
           cur.forEach((el, i) => {
             const it = listItemDef(kind.value, i);
-            if (it?.kind.case === "object" && it.kind.value.schema !== undefined) {
-              if (isNativeStruct(el)) {
-                seed(e, it.kind.value.schema, el, `${path}[${i}]`, tasks, root, errs, coerce);
-              }
+            const sub = it === undefined ? undefined : objectSchema(it, el, e.schema.defs);
+            if (sub !== undefined) {
+              seed(e, sub[0], sub[1], `${path}[${i}]`, tasks, root, errs, coerce);
             }
           });
         }
@@ -250,10 +263,9 @@ function runNormalize(
         if (Array.isArray(cur)) {
           cur.forEach((el, i) => {
             const it = listItemDef(kind.value, i);
-            if (it?.kind.case === "object" && it.kind.value.schema !== undefined) {
-              if (isNativeStruct(el)) {
-                runNormalize(e, it.kind.value.schema, el, root, errs);
-              }
+            const sub = it === undefined ? undefined : objectSchema(it, el, e.schema.defs);
+            if (sub !== undefined) {
+              runNormalize(e, sub[0], sub[1], root, errs);
             }
           });
         }

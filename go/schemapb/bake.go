@@ -49,29 +49,10 @@ func (e *Engine) canonicalStruct(values map[string]any) (*StructValue, error) {
 
 		var err error
 
-		switch {
-		case f == nil:
+		if f == nil {
 			v, err = FromGo(val)
-		case f.GetRef() != nil:
-			if def := e.schema.GetDefs()[refDefKey(f.GetRef())]; def != nil {
-				if m, ok := val.(map[string]any); ok {
-					v, err = canonicalStruct(def, m, name)
-
-					break
-				}
-			}
-
-			v, err = FromGo(val)
-		case f.GetOneOf() != nil:
-			if variant, m := selectVariant(f.GetOneOf(), val); variant != nil {
-				v, err = canonicalStruct(variant, m, name)
-
-				break
-			}
-
-			v, err = FromGo(val)
-		default:
-			v, err = CanonicalValue(f, val)
+		} else {
+			v, err = canonicalValue(f, val, e.schema.GetDefs())
 		}
 
 		if err != nil {

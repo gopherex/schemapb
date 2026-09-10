@@ -1,14 +1,12 @@
 //! Bake / merge / render, mirroring the Go reference bake.go + render.go.
 
-use crate::compute::{field_is_active, ref_def_key, select_variant};
+use crate::compute::field_is_active;
 use crate::engine::Engine;
-use crate::gen::schemapb::schema::field::Kind as K;
 use crate::gen::schemapb::{Baked, Schema, StructValue, ValidationResult, Value};
 use crate::render::{display_string, render_field, RenderContext, RenderField, RenderGroup};
 use crate::validate::{result_blocking, validate};
 use crate::value::{
-    canonical_struct, canonical_value, from_native, struct_to_native, Native, NativeStruct,
-    SchemaField,
+    canonical_value_with_defs, from_native, struct_to_native, Native, NativeStruct, SchemaField,
 };
 
 pub struct BakeOutcome {
@@ -50,25 +48,7 @@ fn canonical_top(e: &Engine, f: Option<&SchemaField>, val: &Native) -> Value {
     let Some(f) = f else {
         return from_native(val);
     };
-    match f.kind.as_ref() {
-        Some(K::Ref(r)) => {
-            if let (Some(def), Some(m)) = (e.schema.defs.get(&ref_def_key(r)), val.as_struct()) {
-                if let Ok(v) = canonical_struct(def, m) {
-                    return v;
-                }
-            }
-            from_native(val)
-        }
-        Some(K::OneOf(oo)) => {
-            if let (Some(variant), Some(m)) = (select_variant(oo, val), val.as_struct()) {
-                if let Ok(v) = canonical_struct(variant, m) {
-                    return v;
-                }
-            }
-            from_native(val)
-        }
-        _ => canonical_value(f, val).unwrap_or_else(|_| from_native(val)),
-    }
+    canonical_value_with_defs(f, val, &e.schema.defs).unwrap_or_else(|_| from_native(val))
 }
 
 /// Layers overrides onto a baked form and re-seals on this engine.

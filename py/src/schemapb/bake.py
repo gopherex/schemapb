@@ -17,14 +17,13 @@ from schemapb._gen.schemapb import (
     ValidationResult,
     Value,
 )
-from schemapb.compute import field_is_active, ref_def_key, select_variant
+from schemapb.compute import field_is_active
 from schemapb.render import RenderField, display_string, render_field
 from schemapb.validate import result_blocking, validate
 from schemapb.value import (
     CanonicalError,
     Native,
     NativeStruct,
-    canonical_struct,
     canonical_value,
     from_native,
     struct_to_native,
@@ -60,18 +59,8 @@ def _canonical_engine_struct(e: Engine, values: NativeStruct) -> StructValue:
 def _canonical_top(e: Engine, f: SchemaField | None, val: Native) -> Value:
     if f is None:
         return from_native(val)
-    if f.ref is not None:
-        def_ = e.schema.defs.get(ref_def_key(f.ref))
-        if def_ is not None and isinstance(val, dict):
-            return canonical_struct(def_, val)
-        return from_native(val)
-    if f.one_of is not None:
-        sel = select_variant(f.one_of, val)
-        if sel is not None:
-            return canonical_struct(sel[0], sel[1])
-        return from_native(val)
     try:
-        return canonical_value(f, val)
+        return canonical_value(f, val, e.schema.defs)
     except CanonicalError:
         return from_native(val)
 

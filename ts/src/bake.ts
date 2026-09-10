@@ -5,7 +5,7 @@
 
 import { create, equals } from "@bufbuild/protobuf";
 import Mustache from "mustache";
-import { fieldIsActive, refDefKey, selectVariant } from "./compute.js";
+import { fieldIsActive } from "./compute.js";
 import type { Engine } from "./engine.js";
 import type { ValidationResult } from "./gen/schemapb/errors_pb.js";
 import type { Baked, Filled } from "./gen/schemapb/runtime_pb.js";
@@ -18,7 +18,6 @@ import { displayString, type RenderContext, type RenderField, renderField } from
 import type { TemplateName } from "./typed.js";
 import { resultBlocking, validate } from "./validate.js";
 import {
-  canonicalStruct,
   canonicalValue,
   fromNative,
   isNativeStruct,
@@ -62,22 +61,8 @@ function canonicalTop(e: Engine, f: Schema_Field | undefined, val: Native): Valu
   if (f === undefined) {
     return fromNative(val);
   }
-  if (f.kind.case === "ref") {
-    const def = e.schema.defs[refDefKey(f.kind.value)];
-    if (def !== undefined && isNativeStruct(val)) {
-      return canonicalStruct(def, val);
-    }
-    return fromNative(val);
-  }
-  if (f.kind.case === "oneOf") {
-    const sel = selectVariant(f.kind.value, val);
-    if (sel !== undefined) {
-      return canonicalStruct(sel[0], sel[1]);
-    }
-    return fromNative(val);
-  }
   try {
-    return canonicalValue(f, val);
+    return canonicalValue(f, val, e.schema.defs);
   } catch {
     return fromNative(val);
   }

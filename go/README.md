@@ -51,6 +51,17 @@ tags for names, the go-playground/validator vocabulary for constraints,
 `example_test.go` walks the entire public API (builders, registry + `Link`,
 `Choice`, `OneOf`, `Ref`, tuples, secrets, merge) in one runnable example.
 
+`List(Ref(...))` resolves each present element before its validation rules:
+defaults, inherited coercion, normalization and computed fields apply inside
+the referenced schema. Bake preserves declared wire kinds throughout nested
+refs, including when re-baking a snapshot.
+
+Resolve and `StructValue.ToGo()` use native Go values: durations are
+`time.Duration` and timestamps are `time.Time`. Bake stores typed protobuf
+values. An application exposing a plain JSON map should format durations at
+its DTO boundary; `encoding/json` encodes a native `time.Duration` as a
+number of nanoseconds.
+
 ## Development
 
 From the repository root: `make configure` once, then `make lint-go` /

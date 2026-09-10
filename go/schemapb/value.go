@@ -349,9 +349,14 @@ func asFloat64(x any) (float64, bool) {
 // value is always int64_value, a Float field's always float_value, and so on.
 // A value that cannot represent the kind (wrong type, out of range) returns an
 // error; the validator reports such values as TYPE_MISMATCH before this point.
+func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
+	return canonicalValue(f, x, nil)
+}
+
+// canonicalValue carries the root defs through every container boundary.
 //
 //nolint:gocognit,cyclop,gocyclo,funlen,maintidx // flat exhaustive kind dispatch
-func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
+func canonicalValue(f *Schema_Field, x any, defs map[string]*Schema) (*Value, error) {
 	if x == nil {
 		return NullV(), nil
 	}
@@ -451,7 +456,7 @@ func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
 
 			var err error
 			if item := listItemDef(f.GetList(), i); item != nil {
-				v, err = CanonicalValue(item, el)
+				v, err = canonicalValue(item, el, defs)
 			} else {
 				v, err = FromGo(el)
 			}
@@ -470,7 +475,7 @@ func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
 			return nil, fmt.Errorf("field %s: %T is not an object", f.GetName(), x)
 		}
 
-		return canonicalStruct(f.GetObject().GetSchema(), m, f.GetName())
+		return canonicalStruct(f.GetObject().GetSchema(), m, f.GetName(), defs)
 	case *Schema_Field_Map_:
 		m, ok := x.(map[string]any)
 		if !ok {
@@ -483,7 +488,7 @@ func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
 
 		for key, el := range m {
 			if vf != nil {
-				v, err := CanonicalValue(vf, el)
+				v, err := canonicalValue(vf, el, defs)
 				if err != nil {
 					return nil, fmt.Errorf("field %s.%s: %w", f.GetName(), key, err)
 				}
@@ -499,7 +504,7 @@ func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
 					return nil, fmt.Errorf("field %s.%s: %T is not an object", f.GetName(), key, el)
 				}
 
-				v, err := canonicalStruct(vs, em, f.GetName()+"."+key)
+				v, err := canonicalStruct(vs, em, f.GetName()+"."+key, defs)
 				if err != nil {
 					return nil, err
 				}
@@ -524,15 +529,17 @@ func CanonicalValue(f *Schema_Field, x any) (*Value, error) {
 		// Computed values canonicalize by the declared result type.
 		return canonicalResult(f.GetComputed().GetResult(), x)
 	default:
-		// OneOf / Ref values canonicalize structurally (variant/def schemas are
-		// resolved by the engine, which canonicalizes through them instead).
+		if sub, m := objectSchema(f, x, defs); sub != nil {
+			return canonicalStruct(sub, m, f.GetName(), defs)
+		}
+
 		return FromGo(x)
 	}
 }
 
 // canonicalStruct canonicalizes a native map against a schema's declared
 // fields; keys without a declared field fall back to best-fit conversion.
-func canonicalStruct(s *Schema, m map[string]any, path string) (*Value, error) {
+func canonicalStruct(s *Schema, m map[string]any, path string, defs map[string]*Schema) (*Value, error) {
 	fields := make(map[string]*Value, len(m))
 
 	for key, el := range m {
@@ -550,7 +557,7 @@ func canonicalStruct(s *Schema, m map[string]any, path string) (*Value, error) {
 
 		var err error
 		if fld != nil {
-			v, err = CanonicalValue(fld, el)
+			v, err = canonicalValue(fld, el, defs)
 		} else {
 			v, err = FromGo(el)
 		}

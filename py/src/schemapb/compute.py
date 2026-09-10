@@ -72,6 +72,24 @@ def select_variant(
     return None if variant is None else (variant, val)
 
 
+def object_schema(
+    f: SchemaField,
+    val: Native,
+    defs: dict[str, Schema],
+) -> tuple[Schema, NativeStruct] | None:
+    """Resolve present Object/Ref/OneOf scopes, including list/tuple items."""
+    if not isinstance(val, dict):
+        return None
+    if f.one_of is not None:
+        return select_variant(f.one_of, val)
+    sub = None
+    if f.object is not None:
+        sub = f.object.schema
+    elif f.ref is not None:
+        sub = defs.get(ref_def_key(f.ref))
+    return None if sub is None else (sub, val)
+
+
 def resolve(e: Engine, values: NativeStruct) -> list[ValidationError]:
     """Defaults, coercion, normalize, computed — in place."""
     errs: list[ValidationError] = []
@@ -136,15 +154,9 @@ def _seed(
         elif f.list is not None and len(f.list.items) >= 1 and isinstance(cur, list):
             for i, el in enumerate(cur):
                 it = list_item_def(f.list, i)
-                if (
-                    it is not None
-                    and it.object is not None
-                    and it.object.schema is not None
-                    and isinstance(el, dict)
-                ):
-                    _seed(
-                        e, it.object.schema, el, f"{path}[{i}]", tasks, root, errs, inherited=coerce
-                    )
+                sub = None if it is None else object_schema(it, el, e.schema.defs)
+                if sub is not None:
+                    _seed(e, sub[0], sub[1], f"{path}[{i}]", tasks, root, errs, inherited=coerce)
         elif f.map is not None and f.map.value_schema is not None and isinstance(cur, dict):
             for k, el in cur.items():
                 if isinstance(el, dict):
@@ -195,13 +207,9 @@ def _run_normalize(
         elif f.list is not None and len(f.list.items) >= 1 and isinstance(cur, list):
             for i, el in enumerate(cur):
                 it = list_item_def(f.list, i)
-                if (
-                    it is not None
-                    and it.object is not None
-                    and it.object.schema is not None
-                    and isinstance(el, dict)
-                ):
-                    _run_normalize(e, it.object.schema, el, root, errs)
+                sub = None if it is None else object_schema(it, el, e.schema.defs)
+                if sub is not None:
+                    _run_normalize(e, sub[0], sub[1], root, errs)
         elif f.map is not None and f.map.value_schema is not None and isinstance(cur, dict):
             for el in cur.values():
                 if isinstance(el, dict):

@@ -56,11 +56,33 @@ pub(crate) fn select_variant<'a>(oo: &'a OneOf, val: &Native) -> Option<&'a Sche
     }
 }
 
+/// Resolve a present Object/Ref/OneOf, including a list or tuple item.
+pub(crate) fn object_schema<'a>(
+    f: &'a SchemaField,
+    val: &Native,
+    defs: &'a std::collections::HashMap<String, Schema>,
+) -> Option<&'a Schema> {
+    val.as_struct()?;
+    match f.kind.as_ref()? {
+        K::Object(o) => o.schema.as_ref(),
+        K::Ref(r) => defs.get(&ref_def_key(r)),
+        K::OneOf(oo) => select_variant(oo, val),
+        _ => None,
+    }
+}
+
+// Keep the actual descriptor: names can repeat in different nested scopes.
+struct ComputeTask {
+    keys: Vec<String>,
+    name: String,
+    computed: crate::gen::schemapb::schema::field::Computed,
+}
+
 /// Resolves values in place: defaults, coercion, normalize, computed.
 pub(crate) fn resolve(e: &Engine, values: &mut NativeStruct) -> Vec<ValidationError> {
     let mut errs = Vec::new();
     let schema = e.schema.clone();
-    let mut task_paths: Vec<(Vec<String>, String)> = Vec::new();
+    let mut task_paths: Vec<ComputeTask> = Vec::new();
     seed(
         e,
         &schema,
@@ -128,7 +150,7 @@ fn seed(
     root: &mut NativeStruct,
     prefix: &str,
     scope_keys: &mut Vec<String>,
-    tasks: &mut Vec<(Vec<String>, String)>,
+    tasks: &mut Vec<ComputeTask>,
     errs: &mut Vec<ValidationError>,
     inherited: bool,
 ) {
@@ -158,7 +180,11 @@ fn seed(
         }
 
         match f.kind.as_ref() {
-            Some(K::Computed(_)) => tasks.push((scope_keys.clone(), f.name.clone())),
+            Some(K::Computed(c)) => tasks.push(ComputeTask {
+                keys: scope_keys.clone(),
+                name: f.name.clone(),
+                computed: c.clone(),
+            }),
             Some(K::Object(o)) => {
                 if let Some(sub) = o.schema.as_ref() {
                     if matches!(scope.get(&f.name), Some(Native::Struct(_))) {
@@ -177,10 +203,12 @@ fn seed(
                     let Some(item) = list_item_def(l, i) else {
                         continue;
                     };
-                    let Some(K::Object(o)) = item.kind.as_ref() else {
+                    let Some(Native::List(items)) =
+                        scope_at(root, scope_keys).and_then(|m| m.get(&f.name))
+                    else {
                         continue;
                     };
-                    let Some(sub) = o.schema.as_ref() else {
+                    let Some(sub) = object_schema(item, &items[i], &e.schema.defs) else {
                         continue;
                     };
                     scope_keys.push(f.name.clone());
@@ -288,11 +316,10 @@ fn run_normalize(
             }
             (Some(K::List(l)), Native::List(items)) => {
                 for (i, el) in items.iter_mut().enumerate() {
-                    if let (Some(item), Native::Struct(m)) = (list_item_def(l, i), el) {
-                        if let Some(K::Object(o)) = item.kind.as_ref() {
-                            if let Some(sub) = o.schema.as_ref() {
-                                run_normalize(e, sub, m, root, errs);
-                            }
+                    if let Some(item) = list_item_def(l, i) {
+                        let sub = object_schema(item, el, &e.schema.defs);
+                        if let (Some(sub), Native::Struct(m)) = (sub, el) {
+                            run_normalize(e, sub, m, root, errs);
                         }
                     }
                 }
@@ -328,7 +355,7 @@ fn run_normalize(
 fn run_compute(
     e: &Engine,
     root: &mut NativeStruct,
-    tasks: &[(Vec<String>, String)],
+    tasks: &[ComputeTask],
     errs: &mut Vec<ValidationError>,
 ) {
     if tasks.is_empty() {
@@ -351,10 +378,9 @@ fn run_compute(
 
     let mut by_path: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     let mut exprs: Vec<String> = Vec::new();
-    for (i, (keys, name)) in tasks.iter().enumerate() {
-        by_path.insert(task_path(keys, name), i);
-        let expr = scope_at_ref(&e.schema, keys, name);
-        exprs.push(expr);
+    for (i, task) in tasks.iter().enumerate() {
+        by_path.insert(task_path(&task.keys, &task.name), i);
+        exprs.push(task.computed.expr.clone());
     }
     let deps: Vec<Vec<String>> = tasks
         .iter()
@@ -397,13 +423,13 @@ fn run_compute(
 
     for i in 0..tasks.len() {
         if color[i] != 2 && !visit(i, &deps, &by_path, &mut color, &mut order) {
-            let (keys, name) = &tasks[i];
+            let ComputeTask { keys, name, .. } = &tasks[i];
             errs.push(schema_err(&task_path(keys, name), "computed field cycle"));
         }
     }
 
     for i in order {
-        let (keys, name) = &tasks[i];
+        let ComputeTask { keys, name, .. } = &tasks[i];
         let src = exprs[i].clone();
         if src.is_empty() {
             continue;
@@ -420,7 +446,7 @@ fn run_compute(
                 &format!("compute: {msg}"),
             )),
             Ok(v) => {
-                let rt = find_computed(&e.schema, keys, name).and_then(|c| c.result);
+                let rt = tasks[i].computed.result;
                 match shape_result(rt, v) {
                     Some(shaped) => {
                         scope.insert(name.clone(), shaped);
@@ -434,36 +460,6 @@ fn run_compute(
             }
         }
     }
-}
-
-/// The computed expression at a task address (walking the schema by keys).
-fn scope_at_ref(schema: &Schema, _keys: &[String], name: &str) -> String {
-    // Top-level computed fields cover the conformance surface; nested
-    // computed fields resolve through the same schema walk.
-    schema
-        .fields
-        .iter()
-        .find(|f| f.name == *name)
-        .and_then(|f| match f.kind.as_ref() {
-            Some(K::Computed(c)) => Some(c.expr.clone()),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
-
-fn find_computed<'a>(
-    schema: &'a Schema,
-    _keys: &[String],
-    name: &str,
-) -> Option<&'a crate::gen::schemapb::schema::field::Computed> {
-    schema
-        .fields
-        .iter()
-        .find(|f| f.name == *name)
-        .and_then(|f| match f.kind.as_ref() {
-            Some(K::Computed(c)) => Some(c),
-            _ => None,
-        })
 }
 
 /// Converts a computed result to its declared `ResultType`'s native form.

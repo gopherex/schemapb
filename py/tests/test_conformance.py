@@ -111,3 +111,26 @@ def test_message_templates() -> None:
     want = json.loads(golden("messages.json"))
     got = {f"ERROR_CODE_{code.name}": tpl for code, tpl in spb.MESSAGE_TEMPLATES.items()}
     assert got == want
+
+
+@pytest.mark.parametrize(
+    "case", json.loads(golden("nested-ref-cases.json")), ids=lambda c: c["name"]
+)
+def test_nested_ref_conformance(case: dict[str, object]) -> None:
+    e = spb.compile_schema(Schema().from_json(golden("nested-ref-schema.json")))
+    wire_input = StructValue().from_json(json.dumps(case["input"]))
+    outcome = e.bake(spb.struct_to_native(wire_input))
+    assert outcome.result == ValidationResult().from_json(json.dumps(case["result"]))
+    if "baked" not in case:
+        assert outcome.baked is None
+        return
+    expected = StructValue().from_json(json.dumps(case["baked"]))
+    assert outcome.baked is not None
+    assert outcome.baked.values == expected
+    resolved = spb.struct_to_native(wire_input)
+    assert e.resolve(resolved) == []
+    for values in (resolved, spb.struct_to_native(outcome.baked.values)):
+        again = e.bake(values)
+        assert again.result.errors == []
+        assert again.baked is not None
+        assert again.baked.values == expected
