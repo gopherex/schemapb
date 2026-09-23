@@ -3,8 +3,10 @@ package schemapb
 import (
 	"fmt"
 	"regexp"
+	"runtime"
 	"sort"
 	"sync"
+	"weak"
 
 	"github.com/cbroglie/mustache"
 	"github.com/google/cel-go/cel"
@@ -22,7 +24,11 @@ import (
 //
 // An Engine is immutable and safe for concurrent use.
 type Engine struct {
+	// schema is the strong reference of an engine the caller compiled and
+	// holds (Compile). An engine the CACHE holds keeps its schema weakly
+	// instead — see held — or the cache would pin every schema ever built.
 	schema    *Schema
+	held      weak.Pointer[Schema]
 	progs     map[string]cel.Program
 	asts      map[string]*cel.Ast
 	regexps   map[string]*regexp.Regexp
@@ -205,14 +211,30 @@ func Compile(s *Schema, opts ...CompileOption) (*Engine, error) {
 	return e, nil
 }
 
-// Schema returns the schema this engine was compiled from.
-func (e *Engine) Schema() *Schema { return e.schema }
+// Schema returns the schema this engine was compiled from. For an engine
+// the cache holds it is nil once the schema has been collected — such an
+// engine is only ever reached through its live schema.
+func (e *Engine) Schema() *Schema { return e.sch() }
+
+// sch is the schema behind the engine: the strong reference of a compiled
+// engine, the weak one of a cached engine.
+func (e *Engine) sch() *Schema {
+	if e.schema != nil {
+		return e.schema
+	}
+
+	return e.held.Value()
+}
 
 // engineCache backs the convenience methods on *Schema (s.Validate, s.Resolve,
-// ...): one compiled engine per schema pointer.
+// ...): one compiled engine per LIVE schema. The key is a weak pointer and
+// the cached engine holds its schema weakly too, so the cache never keeps a
+// schema alive: when the schema is collected, its cleanup drops the entry.
+// A program that builds schemas as it goes (one per request, one per test
+// run) pays one compile per schema and gets the memory back with it.
 //
 //nolint:gochecknoglobals // process-wide compile cache is the point
-var engineCache sync.Map // *Schema -> engineEntry
+var engineCache sync.Map // weak.Pointer[Schema] -> engineEntry
 
 type engineEntry struct {
 	engine *Engine
@@ -220,18 +242,29 @@ type engineEntry struct {
 }
 
 // engine returns the cached compiled engine for s, compiling on first use.
-// The cache is keyed by pointer: mutating a schema after first use is not
-// supported (compile explicitly with Compile for that).
+// The cache is keyed by the schema's identity: mutating a schema after first
+// use is not supported (compile explicitly with Compile for that).
 func (s *Schema) engine() (*Engine, error) {
-	if v, ok := engineCache.Load(s); ok {
+	key := weak.Make(s)
+	if v, ok := engineCache.Load(key); ok {
 		if entry, isEntry := v.(engineEntry); isEntry {
 			return entry.engine, entry.err
 		}
 	}
 
 	eng, err := Compile(s)
+	if eng != nil {
+		// The cache must not reach the schema strongly through the engine.
+		eng.schema, eng.held = nil, key
+	}
 
-	v, _ := engineCache.LoadOrStore(s, engineEntry{engine: eng, err: err})
+	v, loaded := engineCache.LoadOrStore(key, engineEntry{engine: eng, err: err})
+	if !loaded {
+		// The entry lives exactly as long as the schema. The cleanup gets
+		// the key, never s: an argument referencing s would keep it alive.
+		runtime.AddCleanup(s, func(k weak.Pointer[Schema]) { engineCache.Delete(k) }, key)
+	}
+
 	if entry, isEntry := v.(engineEntry); isEntry {
 		return entry.engine, entry.err
 	}
@@ -561,7 +594,7 @@ func (e *Engine) checkComputedCycles() []*ValidationError {
 
 	var names []string
 
-	for _, f := range e.schema.GetFields() {
+	for _, f := range e.sch().GetFields() {
 		if f.GetComputed() != nil {
 			computed[f.GetName()] = f
 			names = append(names, f.GetName())

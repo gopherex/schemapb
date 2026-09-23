@@ -33,7 +33,7 @@ func (e *Engine) Bake(values map[string]any) (*Baked, *ValidationResult, error) 
 		return nil, res, fmt.Errorf("schemapb: bake: %w", err)
 	}
 
-	return &Baked{Schema: e.schema, Values: st}, res, nil
+	return &Baked{Schema: e.sch(), Values: st}, res, nil
 }
 
 // canonicalStruct projects a resolved native form into the contract's
@@ -43,7 +43,7 @@ func (e *Engine) canonicalStruct(values map[string]any) (*StructValue, error) {
 	fields := make(map[string]*Value, len(values))
 
 	for name, val := range values {
-		f := findField(e.schema.GetFields(), name)
+		f := findField(e.sch().GetFields(), name)
 
 		var v *Value
 
@@ -52,7 +52,7 @@ func (e *Engine) canonicalStruct(values map[string]any) (*StructValue, error) {
 		if f == nil {
 			v, err = FromGo(val)
 		} else {
-			v, err = canonicalValue(f, val, e.schema.GetDefs())
+			v, err = canonicalValue(f, val, e.sch().GetDefs())
 		}
 
 		if err != nil {

@@ -65,13 +65,13 @@ func (e *Engine) renderContext(values map[string]any) map[string]any {
 		values = map[string]any{}
 	}
 
-	fields := make([]map[string]any, 0, len(e.schema.GetFields()))
+	fields := make([]map[string]any, 0, len(e.sch().GetFields()))
 
 	var groups []map[string]any
 
 	groupIdx := map[string]int{}
 
-	for _, f := range e.schema.GetFields() {
+	for _, f := range e.sch().GetFields() {
 		if f.GetWhen() != "" {
 			if ok, err := e.evalBool(f.GetWhen(), map[string]any{"this": nil, "root": values}); err != nil || !ok {
 				continue

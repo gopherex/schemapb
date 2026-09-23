@@ -37,12 +37,12 @@ func (e *Engine) Validate(values map[string]any) *ValidationResult {
 	res := &ValidationResult{}
 	// Immutable changes are checked on the raw input, before resolve forces
 	// the values back to their defaults.
-	e.checkImmutable(e.schema.GetFields(), values, "", values, res)
+	e.checkImmutable(e.sch().GetFields(), values, "", values, res)
 	_, resolved := e.Resolve(values)
 	res.Errors = append(res.Errors, resolved.GetErrors()...)
-	e.validateFields(e.schema, values, values, "", res)
+	e.validateFields(e.sch(), values, values, "", res)
 
-	for _, r := range e.schema.GetRules() {
+	for _, r := range e.sch().GetRules() {
 		e.evalRule(r, ruleErrPath(r), nil, values, nil, res)
 	}
 
@@ -999,7 +999,7 @@ func (e *Engine) checkOneOf(
 
 func (e *Engine) checkRef(path string, val any, ref *Schema_Field_Ref, root map[string]any) []*ValidationError {
 	key := refDefKey(ref)
-	def := e.schema.GetDefs()[key]
+	def := e.sch().GetDefs()[key]
 
 	if def == nil {
 		label := key

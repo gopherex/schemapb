@@ -36,8 +36,8 @@ func (e *Engine) Resolve(values map[string]any) (map[string]any, *ValidationResu
 
 	var tasks []computeTask
 
-	e.seed(e.schema, values, "", &tasks, values, res)
-	e.runNormalize(e.schema, values, values, res)
+	e.seed(e.sch(), values, "", &tasks, values, res)
+	e.runNormalize(e.sch(), values, values, res)
 	e.runCompute(values, tasks, res)
 
 	return values, res
@@ -145,7 +145,7 @@ func (e *Engine) seedWith(
 						continue
 					}
 
-					if sub, m := objectSchema(it, el, e.schema.GetDefs()); sub != nil {
+					if sub, m := objectSchema(it, el, e.sch().GetDefs()); sub != nil {
 						e.seedWith(sub, m, fmt.Sprintf("%s[%d]", path, i), tasks, root, res, coerce)
 					}
 				}
@@ -163,7 +163,7 @@ func (e *Engine) seedWith(
 				e.seedWith(variant, m, path, tasks, root, res, coerce)
 			}
 		case f.GetRef() != nil:
-			if def := e.schema.GetDefs()[refDefKey(f.GetRef())]; def != nil {
+			if def := e.sch().GetDefs()[refDefKey(f.GetRef())]; def != nil {
 				if child, ok := scope[name].(map[string]any); ok {
 					e.seedWith(def, child, path, tasks, root, res, coerce)
 				}
@@ -279,7 +279,7 @@ func (e *Engine) runNormalize(schema *Schema, scope, root map[string]any, res *V
 						continue
 					}
 
-					if sub, m := objectSchema(it, el, e.schema.GetDefs()); sub != nil {
+					if sub, m := objectSchema(it, el, e.sch().GetDefs()); sub != nil {
 						e.runNormalize(sub, m, root, res)
 					}
 				}
@@ -303,7 +303,7 @@ func (e *Engine) runNormalize(schema *Schema, scope, root map[string]any, res *V
 		}
 
 		if ref := f.GetRef(); ref != nil {
-			if def := e.schema.GetDefs()[refDefKey(ref)]; def != nil {
+			if def := e.sch().GetDefs()[refDefKey(ref)]; def != nil {
 				if m, ok := cur.(map[string]any); ok {
 					e.runNormalize(def, m, root, res)
 				}
@@ -586,7 +586,7 @@ func (s *Schema) FieldActive(name FieldName, root map[string]any) (bool, error) 
 
 // FieldActive is the compiled-engine form of (*Schema).FieldActive.
 func (e *Engine) FieldActive(name FieldName, root map[string]any) (bool, error) {
-	f := findField(e.schema.GetFields(), string(name))
+	f := findField(e.sch().GetFields(), string(name))
 	if f == nil {
 		return false, fmt.Errorf("schemapb: unknown field %q", name)
 	}
@@ -612,7 +612,7 @@ func (s *Schema) ChoiceOptions(name FieldName, root map[string]any) ([]*Value, e
 
 // ChoiceOptions is the compiled-engine form of (*Schema).ChoiceOptions.
 func (e *Engine) ChoiceOptions(name FieldName, root map[string]any) ([]*Value, error) {
-	f := findField(e.schema.GetFields(), string(name))
+	f := findField(e.sch().GetFields(), string(name))
 	if f == nil || f.GetChoice() == nil {
 		return nil, fmt.Errorf("schemapb: field %q is not a choice", name)
 	}
@@ -674,7 +674,7 @@ func (s *Schema) ListCount(name FieldName, root map[string]any) (int64, error) {
 
 // ListCount is the compiled-engine form of (*Schema).ListCount.
 func (e *Engine) ListCount(name FieldName, root map[string]any) (int64, error) {
-	f := findField(e.schema.GetFields(), string(name))
+	f := findField(e.sch().GetFields(), string(name))
 	if f == nil || f.GetList() == nil {
 		return 0, fmt.Errorf("schemapb: field %q is not a list", name)
 	}
