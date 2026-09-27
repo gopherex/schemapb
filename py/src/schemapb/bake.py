@@ -11,6 +11,7 @@ import chevron
 from schemapb._gen.schemapb import (
     Baked,
     Filled,
+    ResolveReport,
     Schema,
     SchemaField,
     StructValue,
@@ -37,30 +38,36 @@ if TYPE_CHECKING:
 class BakeOutcome:
     result: ValidationResult
     baked: Baked | None = None
+    report: ResolveReport | None = None
 
 
-def bake(e: Engine, values: NativeStruct) -> BakeOutcome:
+def bake(e: Engine, values: NativeStruct, report: ResolveReport | None = None) -> BakeOutcome:
     """Validate + resolve, then seal in canonical wire form."""
-    result = validate(e, values)
+    result = validate(e, values, report)
     if result_blocking(result):
-        return BakeOutcome(result=result)
+        return BakeOutcome(result=result, report=report)
     return BakeOutcome(
         result=result,
+        report=report,
         baked=Baked(schema=e.schema, values=_canonical_engine_struct(e, values)),
     )
 
 
 def _canonical_engine_struct(e: Engine, values: NativeStruct) -> StructValue:
     by_name = {f.name: f for f in e.schema.fields}
-    fields = {name: _canonical_top(e, by_name.get(name), val) for name, val in values.items()}
+    fields = {
+        name: _canonical_top(e, by_name.get(name), val, values) for name, val in values.items()
+    }
     return StructValue(fields=fields)
 
 
-def _canonical_top(e: Engine, f: SchemaField | None, val: Native) -> Value:
+def _canonical_top(e: Engine, f: SchemaField | None, val: Native, root: NativeStruct) -> Value:
     if f is None:
         return from_native(val)
     try:
-        return canonical_value(f, val, e.schema.defs)
+        return canonical_value(
+            f, val, e.schema.defs, lambda field: field_is_active(e, field, root, "", None)
+        )
     except CanonicalError:
         return from_native(val)
 
@@ -134,3 +141,7 @@ def build_render_context(e: Engine, values: NativeStruct) -> dict[str, object]:
 
     display = {name: "" if val is None else display_string(val) for name, val in values.items()}
     return {"fields": fields, "groups": groups, "values": display}
+
+
+def bake_detailed(e: Engine, values: NativeStruct) -> BakeOutcome:
+    return bake(e, values, ResolveReport())

@@ -5,6 +5,7 @@ celpy's celtypes. Mirrors the Go reference engine.go.
 
 from __future__ import annotations
 
+import ast
 import datetime as dt
 import re
 from dataclasses import dataclass, field
@@ -146,6 +147,11 @@ class Engine:
         from schemapb.compute import resolve  # noqa: PLC0415 - module-cycle escape
 
         return resolve(self, values)
+
+    def bake_detailed(self, values: NativeStruct) -> BakeOutcome:
+        from schemapb.bake import bake_detailed  # noqa: PLC0415 - operation modules import Engine
+
+        return bake_detailed(self, values)
 
     def bake(self, values: NativeStruct) -> BakeOutcome:
         """Validate + resolve, then seal in canonical wire form."""
@@ -427,30 +433,29 @@ def _select_path(node: Tree[Token]) -> str | None:
         if base is None:
             return None
         name = str(node.children[1])
-        return name if base == "" else f"{base}.{name}"
+        return join_path(base, name)
     if node.data == "member_index":
         head = node.children[0]
         base = _select_path(head) if isinstance(head, Tree) else None
         if base is None:
             return None
-        key = _string_literal(node.children[1])
+        key = _index_literal(node.children[1])
         if key is None:
             return None
-        return key if base == "" else f"{base}.{key}"
+        return f"{base}[{key}]" if isinstance(key, int) else join_path(base, key)
     if node.data == "ident":
         token = node.children[0]
         return "" if str(token) == "root" else None
     return None
 
 
-def _string_literal(node: Any) -> str | None:  # noqa: ANN401
+def _index_literal(node: Any) -> str | int | None:  # noqa: ANN401
     if isinstance(node, Tree):
-        for child in node.children:
-            found = _string_literal(child)
-            if found is not None:
-                return found
-        return None
+        return _index_literal(node.children[0]) if len(node.children) == 1 else None
     text = str(node)
-    if len(text) >= 2 and text[0] in "'\"" and text[-1] == text[0]:
-        return text[1:-1]
+    if text.isdigit():
+        return int(text)
+    if len(text) >= 2 and text[0] in "\"'" and text[-1] == text[0]:
+        value = ast.literal_eval(text)
+        return value if isinstance(value, str) else None
     return None

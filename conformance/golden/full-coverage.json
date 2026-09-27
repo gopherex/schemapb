@@ -250,7 +250,8 @@
                 "bool": {}
               }
             ]
-          }
+          },
+          "default": {}
         }
       },
       {
@@ -304,7 +305,8 @@
       {
         "name": "ref_by_name",
         "ref": {
-          "name": "def_a"
+          "name": "def_a",
+          "default": {}
         }
       },
       {
@@ -314,7 +316,8 @@
             "namespace": "conformance",
             "name": "def_a",
             "version": "v1.0.0"
-          }
+          },
+          "default": {}
         }
       },
       {
@@ -673,7 +676,8 @@
                     "bool": {}
                   }
                 ]
-              }
+              },
+              "default": {}
             }
           },
           {
@@ -727,7 +731,8 @@
           {
             "name": "ref_by_name",
             "ref": {
-              "name": "def_a"
+              "name": "def_a",
+              "default": {}
             }
           },
           {
@@ -737,7 +742,8 @@
                 "namespace": "conformance",
                 "name": "def_a",
                 "version": "v1.0.0"
-              }
+              },
+              "default": {}
             }
           },
           {
@@ -1062,7 +1068,8 @@
                   "bool": {}
                 }
               ]
-            }
+            },
+            "default": {}
           }
         },
         {
@@ -1116,7 +1123,8 @@
         {
           "name": "ref_by_name",
           "ref": {
-            "name": "def_a"
+            "name": "def_a",
+            "default": {}
           }
         },
         {
@@ -1126,7 +1134,8 @@
               "namespace": "conformance",
               "name": "def_a",
               "version": "v1.0.0"
-            }
+            },
+            "default": {}
           }
         },
         {
@@ -1182,6 +1191,22 @@
       }
     }
   },
+  "resolveReport": {
+    "events": [
+      {
+        "path": "servers[0]",
+        "pathSegments": [
+          {
+            "key": "servers"
+          },
+          {
+            "index": "0"
+          }
+        ],
+        "operation": "RESOLVE_OPERATION_COERCED"
+      }
+    ]
+  },
   "validationResult": {
     "errors": [
       {
@@ -1197,7 +1222,12 @@
         "expr": "true",
         "ruleId": "fr",
         "severity": "SEVERITY_WARNING",
-        "message": "must be >= 4"
+        "message": "must be >= 4",
+        "pathSegments": [
+          {
+            "key": "float_all"
+          }
+        ]
       }
     ]
   }

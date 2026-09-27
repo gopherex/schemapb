@@ -63,3 +63,12 @@ message ListValue {
 message StructValue {
   map<string, Value> fields = 1;
 }
+
+/* Unambiguous location in a value tree. Keys may contain any characters.
+ */
+message PathSegment {
+  oneof segment {
+    string key = 1;
+    uint64 index = 2;
+  }
+}

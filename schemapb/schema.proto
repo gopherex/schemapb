@@ -344,6 +344,11 @@ message Schema {
     message Object {
       /* Nested object schema. */
       optional Schema schema = 1;
+      /* Only an empty object is supported. When absent, materialize a fresh
+       * object and resolve its children. Explicit null and inactive fields
+       * are never replaced. Nonempty defaults are invalid schemas.
+       */
+      optional StructValue default = 2;
     }
     /*
      * Map field kind: free-form string keys (never rejected — e.g. user-chosen
@@ -368,8 +373,10 @@ message Schema {
        * a list, ...). The definition's `name` is ignored; its kind and
        * constraints apply to each value, error paths name the map key
        * ("limits.cpu"). Mutually exclusive with `value_schema`. Value
-       * fields are validated and canonicalized; resolve does not seed
-       * defaults or run normalize/computed inside map values. */
+       * fields undergo the same recursive resolve as ordinary fields,
+       * including inherited coercion, normalize and computed. Missing map
+       * entries are never invented; explicit null retains its presence.
+       */
       optional Field value_field = 4;
     }
     /*
@@ -471,15 +478,20 @@ message Schema {
         /* Identity of a registered schema (resolved via defs / Link). */
         SchemaIdentity id = 2;
       }
+      /* Same empty-object default contract as Object.default.
+       */
+      optional StructValue default = 3;
     }
 
     /* Field name; the key under which the value lives in the form. */
     string name = 1;
     /* Human description of the field. */
     optional string description = 2;
-    /* If true, the value may be null/empty. */
+    /* If true, an explicitly present null is allowed, even when required.
+     */
     bool nullable = 3;
-    /* If true, the value must be present. */
+    /* If true, the key must be present. Null is governed by nullable.
+     */
     bool required = 4;
     /* Cross-field CEL validation rules (`this` is bound to this field). */
     repeated Rule rules = 5;

@@ -2,7 +2,7 @@
 //! codes, deterministic order, typed expected/actual, secret masking.
 
 use crate::compute::{
-    default_value, expr_err, field_is_active, is_tuple, list_item_def, ref_def_key, resolve,
+    default_value, expr_err, field_is_active, is_tuple, list_item_def, object_schema, ref_def_key,
 };
 use crate::descriptor::join_path;
 use crate::duration::{duration_nanos, parse_go_duration, parse_rfc3339, timestamp_nanos};
@@ -24,6 +24,14 @@ use crate::value::{
 /// Validates form values against the compiled schema (values resolve in
 /// place); every outcome lives in the `ValidationResult`.
 pub(crate) fn validate(e: &Engine, values: &mut NativeStruct) -> ValidationResult {
+    validate_detailed(e, values, None)
+}
+
+pub(crate) fn validate_detailed(
+    e: &Engine,
+    values: &mut NativeStruct,
+    report: Option<&mut crate::gen::schemapb::ResolveReport>,
+) -> ValidationResult {
     let mut errs = Vec::new();
     let snapshot = values.clone();
     check_immutable(
@@ -34,7 +42,7 @@ pub(crate) fn validate(e: &Engine, values: &mut NativeStruct) -> ValidationResul
         &snapshot,
         &mut errs,
     );
-    errs.extend(resolve(e, values));
+    errs.extend(crate::resolve::resolve(e, values, report));
     let root = values.clone();
     validate_fields(e, &e.schema.clone(), values, &root, "", &mut errs);
     for r in &e.schema.rules {
@@ -47,6 +55,9 @@ pub(crate) fn validate(e: &Engine, values: &mut NativeStruct) -> ValidationResul
             None,
             &mut errs,
         );
+    }
+    for err in &mut errs {
+        err.path_segments = crate::path::segments(&err.path);
     }
     ValidationResult { errors: errs }
 }
@@ -117,63 +128,65 @@ fn check_immutable(
     errs: &mut Vec<ValidationError>,
 ) {
     for f in fields {
-        let path = join_path(prefix, &f.name);
-        if !field_is_active(e, f, root, &path, None) {
-            continue;
+        if let Some(value) = scope.get(&f.name) {
+            check_immutable_value(e, f, value, &join_path(prefix, &f.name), root, errs);
         }
-        if f.immutable {
-            if let Some(cur) = scope.get(&f.name) {
-                if let Some(dv) = default_value(f) {
-                    if !native_equals(cur, &dv) {
-                        let expected = canonical_value(f, &dv).unwrap_or_else(|_| from_native(&dv));
-                        let err = verr(
-                            &path,
-                            ErrorCode::ImmutableModified,
-                            "immutable",
-                            Some(expected),
-                            Some(from_native(cur)),
-                        );
-                        errs.extend(mask(vec![err], f.secret));
-                    }
-                }
+    }
+}
+
+fn check_immutable_value(
+    e: &Engine,
+    f: &SchemaField,
+    value: &Native,
+    path: &str,
+    root: &NativeStruct,
+    errs: &mut Vec<ValidationError>,
+) {
+    if !field_is_active(e, f, root, path, None) {
+        return;
+    }
+    if f.immutable {
+        if let Some(dv) = default_value(f) {
+            if !native_equals(value, &dv) {
+                errs.extend(mask(
+                    vec![verr(
+                        path,
+                        ErrorCode::ImmutableModified,
+                        "immutable",
+                        Some(canonical_value(f, &dv).unwrap_or_else(|_| from_native(&dv))),
+                        Some(from_native(value)),
+                    )],
+                    f.secret,
+                ));
             }
-            continue;
         }
-        match (f.kind.as_ref(), scope.get(&f.name)) {
-            (Some(K::Object(o)), Some(Native::Struct(m))) => {
-                if let Some(sub) = o.schema.as_ref() {
-                    check_immutable(e, &sub.fields, m, &path, root, errs);
-                }
-            }
-            (Some(K::List(l)), Some(Native::List(items))) => {
-                for (i, el) in items.iter().enumerate() {
-                    if let (Some(item), Native::Struct(m)) = (list_item_def(l, i), el) {
-                        if let Some(K::Object(o)) = item.kind.as_ref() {
-                            if let Some(sub) = o.schema.as_ref() {
-                                check_immutable(
-                                    e,
-                                    &sub.fields,
-                                    m,
-                                    &format!("{path}[{i}]"),
-                                    root,
-                                    errs,
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            (Some(K::Map(mp)), Some(Native::Struct(m))) => {
-                if let Some(vs) = mp.value_schema.as_ref() {
-                    for (k, el) in m {
-                        if let Native::Struct(em) = el {
-                            check_immutable(e, &vs.fields, em, &join_path(&path, k), root, errs);
-                        }
-                    }
-                }
-            }
-            _ => {}
+        return;
+    }
+    if let Some(sub) = object_schema(f, value, &e.schema.defs) {
+        if let Native::Struct(scope) = value {
+            check_immutable(e, &sub.fields, scope, path, root, errs);
         }
+        return;
+    }
+    match (f.kind.as_ref(), value) {
+        (Some(K::List(list)), Native::List(items)) => {
+            for (i, child) in items.iter().enumerate() {
+                if let Some(item) = list_item_def(list, i) {
+                    check_immutable_value(e, item, child, &format!("{path}[{i}]"), root, errs);
+                }
+            }
+        }
+        (Some(K::Map(mp)), Native::Struct(values)) => {
+            for (key, child) in values {
+                if let Some(item) = mp.value_field.as_ref() {
+                    check_immutable_value(e, item, child, &join_path(path, key), root, errs);
+                } else if let (Some(sub), Native::Struct(scope)) = (mp.value_schema.as_ref(), child)
+                {
+                    check_immutable(e, &sub.fields, scope, &join_path(path, key), root, errs);
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -265,6 +278,9 @@ fn validate_one(
     index: Option<i64>,
     errs: &mut Vec<ValidationError>,
 ) {
+    if !field_is_active(e, f, root, path, None) {
+        return;
+    }
     if !exists {
         if f.required {
             errs.push(verr(
@@ -279,15 +295,7 @@ fn validate_one(
     }
     let val = val.unwrap_or(&Native::Null);
     if val.is_null() {
-        if f.required {
-            errs.push(verr(
-                path,
-                ErrorCode::RequiredMissing,
-                "required",
-                None,
-                None,
-            ));
-        } else if !f.nullable {
+        if !f.nullable {
             errs.push(verr(
                 path,
                 ErrorCode::NotNullable,

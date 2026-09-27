@@ -2,12 +2,14 @@
 
 use base64::Engine as _;
 
-use crate::descriptor::{join_path, schema_err};
+use crate::descriptor::schema_err;
 use crate::duration::{parse_go_duration, parse_rfc3339};
 use crate::engine::Engine;
 use crate::gen::schemapb::schema::field::r#ref::Target;
 use crate::gen::schemapb::schema::field::{Kind as K, List as ListKind, OneOf, Ref, ResultType};
 use crate::gen::schemapb::{ErrorCode, Schema, ValidationError};
+use crate::gen::schemapb::{ResolveOperation, ResolveReport};
+use crate::resolve::{record, set_at, Step};
 use crate::value::{as_double, as_int, as_uint, to_native, Native, NativeStruct, SchemaField};
 
 #[must_use]
@@ -71,32 +73,14 @@ pub(crate) fn object_schema<'a>(
     }
 }
 
-// Keep the actual descriptor: names can repeat in different nested scopes.
-struct ComputeTask {
-    keys: Vec<String>,
-    name: String,
-    computed: crate::gen::schemapb::schema::field::Computed,
+pub(crate) struct ComputeTask {
+    pub keys: Vec<Step>,
+    pub path: String,
+    pub computed: crate::gen::schemapb::schema::field::Computed,
 }
 
-/// Resolves values in place: defaults, coercion, normalize, computed.
 pub(crate) fn resolve(e: &Engine, values: &mut NativeStruct) -> Vec<ValidationError> {
-    let mut errs = Vec::new();
-    let schema = e.schema.clone();
-    let mut task_paths: Vec<ComputeTask> = Vec::new();
-    seed(
-        e,
-        &schema,
-        values,
-        "",
-        &mut Vec::new(),
-        &mut task_paths,
-        &mut errs,
-        false,
-    );
-    let root_snapshot = values.clone();
-    run_normalize(e, &schema, values, &root_snapshot, &mut errs);
-    run_compute(e, values, &task_paths, &mut errs);
-    errs
+    crate::resolve::resolve(e, values, None)
 }
 
 #[must_use]
@@ -122,264 +106,20 @@ pub(crate) fn field_is_active(
     }
 }
 
-/// Navigates to the scope map addressed by a key path (root when empty).
-/// A `#i` key indexes into the list produced by the preceding map key.
-fn scope_at<'a>(root: &'a mut NativeStruct, keys: &[String]) -> Option<&'a mut NativeStruct> {
-    let Some((first, rest)) = keys.split_first() else {
-        return Some(root);
-    };
-    match root.get_mut(first)? {
-        Native::Struct(m) => scope_at(m, rest),
-        Native::List(items) => {
-            let (idx_key, rest2) = rest.split_first()?;
-            let idx: usize = idx_key.strip_prefix('#')?.parse().ok()?;
-            match items.get_mut(idx)? {
-                Native::Struct(m) => scope_at(m, rest2),
-                _ => None,
-            }
-        }
-        _ => None,
-    }
-}
-
-#[allow(clippy::too_many_lines)] // container traversal mirrors the schema tree
-#[allow(clippy::too_many_arguments)] // internal traversal state
-fn seed(
-    e: &Engine,
-    schema: &Schema,
-    root: &mut NativeStruct,
-    prefix: &str,
-    scope_keys: &mut Vec<String>,
-    tasks: &mut Vec<ComputeTask>,
-    errs: &mut Vec<ValidationError>,
-    inherited: bool,
-) {
-    // The root's Coerce applies to the whole tree: a nested schema need
-    // not re-declare it.
-    let coerce = schema.coerce || inherited;
-    for f in &schema.fields {
-        let path = join_path(prefix, &f.name);
-        let root_snapshot = root.clone();
-        if !field_is_active(e, f, &root_snapshot, &path, Some(errs)) {
-            continue;
-        }
-        let Some(scope) = scope_at(root, scope_keys) else {
-            continue;
-        };
-        if coerce {
-            if let Some(cur) = scope.get(&f.name) {
-                if let Some(coerced) = coerce_input(f, cur) {
-                    scope.insert(f.name.clone(), coerced);
-                }
-            }
-        }
-        if f.immutable || !scope.contains_key(&f.name) {
-            if let Some(dv) = default_value(f) {
-                scope.insert(f.name.clone(), dv);
-            }
-        }
-
-        match f.kind.as_ref() {
-            Some(K::Computed(c)) => tasks.push(ComputeTask {
-                keys: scope_keys.clone(),
-                name: f.name.clone(),
-                computed: c.clone(),
-            }),
-            Some(K::Object(o)) => {
-                if let Some(sub) = o.schema.as_ref() {
-                    if matches!(scope.get(&f.name), Some(Native::Struct(_))) {
-                        scope_keys.push(f.name.clone());
-                        seed(e, sub, root, &path, scope_keys, tasks, errs, coerce);
-                        scope_keys.pop();
-                    }
-                }
-            }
-            Some(K::List(l)) => {
-                let len = match scope.get(&f.name) {
-                    Some(Native::List(items)) => items.len(),
-                    _ => 0,
-                };
-                for i in 0..len {
-                    let Some(item) = list_item_def(l, i) else {
-                        continue;
-                    };
-                    let Some(Native::List(items)) =
-                        scope_at(root, scope_keys).and_then(|m| m.get(&f.name))
-                    else {
-                        continue;
-                    };
-                    let Some(sub) = object_schema(item, &items[i], &e.schema.defs) else {
-                        continue;
-                    };
-                    scope_keys.push(f.name.clone());
-                    scope_keys.push(format!("#{i}"));
-                    seed(
-                        e,
-                        sub,
-                        root,
-                        &format!("{path}[{i}]"),
-                        scope_keys,
-                        tasks,
-                        errs,
-                        coerce,
-                    );
-                    scope_keys.pop();
-                    scope_keys.pop();
-                }
-            }
-            Some(K::Map(mp)) => {
-                if let Some(vs) = mp.value_schema.as_ref() {
-                    let keys: Vec<String> = match scope.get(&f.name) {
-                        Some(Native::Struct(m)) => m
-                            .iter()
-                            .filter(|(_, v)| matches!(v, Native::Struct(_)))
-                            .map(|(k, _)| k.clone())
-                            .collect(),
-                        _ => Vec::new(),
-                    };
-                    for k in keys {
-                        scope_keys.push(f.name.clone());
-                        scope_keys.push(k.clone());
-                        seed(
-                            e,
-                            vs,
-                            root,
-                            &join_path(&path, &k),
-                            scope_keys,
-                            tasks,
-                            errs,
-                            coerce,
-                        );
-                        scope_keys.pop();
-                        scope_keys.pop();
-                    }
-                }
-            }
-            Some(K::OneOf(oo)) => {
-                let variant = scope
-                    .get(&f.name)
-                    .and_then(|cur| select_variant(oo, cur))
-                    .cloned();
-                if let Some(variant) = variant {
-                    scope_keys.push(f.name.clone());
-                    seed(e, &variant, root, &path, scope_keys, tasks, errs, coerce);
-                    scope_keys.pop();
-                }
-            }
-            Some(K::Ref(r)) => {
-                let def = e.schema.defs.get(&ref_def_key(r)).cloned();
-                if let Some(def) = def {
-                    if matches!(scope.get(&f.name), Some(Native::Struct(_))) {
-                        scope_keys.push(f.name.clone());
-                        seed(e, &def, root, &path, scope_keys, tasks, errs, coerce);
-                        scope_keys.pop();
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-fn run_normalize(
-    e: &Engine,
-    schema: &Schema,
-    scope: &mut NativeStruct,
-    root: &NativeStruct,
-    errs: &mut Vec<ValidationError>,
-) {
-    for f in &schema.fields {
-        if scope.get(&f.name).is_none_or(super::value::Native::is_null) {
-            continue;
-        }
-        if !field_is_active(e, f, root, &f.name, None) {
-            continue;
-        }
-        let norm = f.normalize.as_deref().unwrap_or("");
-        if !norm.is_empty() {
-            let this = scope.get(&f.name).cloned().unwrap_or(Native::Null);
-            match e.eval(norm, &this, root, None) {
-                Ok(v) => {
-                    scope.insert(f.name.clone(), v);
-                }
-                Err(msg) => errs.push(expr_err(&f.name, norm, &format!("normalize: {msg}"))),
-            }
-        }
-        let Some(cur) = scope.get_mut(&f.name) else {
-            continue;
-        };
-        match (f.kind.as_ref(), cur) {
-            (Some(K::Object(o)), Native::Struct(m)) => {
-                if let Some(sub) = o.schema.as_ref() {
-                    run_normalize(e, sub, m, root, errs);
-                }
-            }
-            (Some(K::List(l)), Native::List(items)) => {
-                for (i, el) in items.iter_mut().enumerate() {
-                    if let Some(item) = list_item_def(l, i) {
-                        let sub = object_schema(item, el, &e.schema.defs);
-                        if let (Some(sub), Native::Struct(m)) = (sub, el) {
-                            run_normalize(e, sub, m, root, errs);
-                        }
-                    }
-                }
-            }
-            (Some(K::Map(mp)), Native::Struct(m)) => {
-                if let Some(vs) = mp.value_schema.as_ref() {
-                    for el in m.values_mut() {
-                        if let Native::Struct(em) = el {
-                            run_normalize(e, vs, em, root, errs);
-                        }
-                    }
-                }
-            }
-            (Some(K::OneOf(oo)), Native::Struct(m)) => {
-                let variant = match m.get(&oo.discriminator) {
-                    Some(Native::Str(d)) if !d.is_empty() => oo.variants.get(d).cloned(),
-                    _ => None,
-                };
-                if let Some(variant) = variant {
-                    run_normalize(e, &variant, m, root, errs);
-                }
-            }
-            (Some(K::Ref(r)), Native::Struct(m)) => {
-                if let Some(def) = e.schema.defs.get(&ref_def_key(r)).cloned() {
-                    run_normalize(e, &def, m, root, errs);
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-fn run_compute(
+pub(crate) fn run_compute(
     e: &Engine,
     root: &mut NativeStruct,
     tasks: &[ComputeTask],
     errs: &mut Vec<ValidationError>,
+    mut report: Option<&mut ResolveReport>,
 ) {
     if tasks.is_empty() {
         return;
     }
-    let task_path = |keys: &[String], name: &str| -> String {
-        let mut p = String::new();
-        for k in keys {
-            let seg = k
-                .strip_prefix('#')
-                .map_or_else(|| k.clone(), |idx| format!("[{idx}]"));
-            if p.is_empty() || seg.starts_with('[') {
-                p.push_str(&seg);
-            } else {
-                p = format!("{p}.{seg}");
-            }
-        }
-        join_path(&p, name)
-    };
-
     let mut by_path: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     let mut exprs: Vec<String> = Vec::new();
     for (i, task) in tasks.iter().enumerate() {
-        by_path.insert(task_path(&task.keys, &task.name), i);
+        by_path.insert(task.path.clone(), i);
         exprs.push(task.computed.expr.clone());
     }
     let deps: Vec<Vec<String>> = tasks
@@ -423,36 +163,31 @@ fn run_compute(
 
     for i in 0..tasks.len() {
         if color[i] != 2 && !visit(i, &deps, &by_path, &mut color, &mut order) {
-            let ComputeTask { keys, name, .. } = &tasks[i];
-            errs.push(schema_err(&task_path(keys, name), "computed field cycle"));
+            let ComputeTask { path, .. } = &tasks[i];
+            errs.push(schema_err(path, "computed field cycle"));
         }
     }
 
     for i in order {
-        let ComputeTask { keys, name, .. } = &tasks[i];
+        let ComputeTask { keys, path, .. } = &tasks[i];
         let src = exprs[i].clone();
         if src.is_empty() {
             continue;
         }
         let root_snapshot = root.clone();
         let result = e.eval(&src, &Native::Null, &root_snapshot, None);
-        let Some(scope) = scope_at(root, keys) else {
-            continue;
-        };
+
         match result {
-            Err(msg) => errs.push(expr_err(
-                &task_path(keys, name),
-                &src,
-                &format!("compute: {msg}"),
-            )),
+            Err(msg) => errs.push(expr_err(path, &src, &format!("compute: {msg}"))),
             Ok(v) => {
                 let rt = tasks[i].computed.result;
                 match shape_result(rt, v) {
                     Some(shaped) => {
-                        scope.insert(name.clone(), shaped);
+                        set_at(root, keys, shaped);
+                        record(report.as_deref_mut(), path, ResolveOperation::Computed);
                     }
                     None => errs.push(expr_err(
-                        &task_path(keys, name),
+                        path,
                         &src,
                         "compute: result does not match declared type",
                     )),
@@ -511,6 +246,8 @@ pub(crate) fn coerce_input(f: &SchemaField, val: &Native) -> Option<Native> {
 #[must_use]
 pub(crate) fn default_value(f: &SchemaField) -> Option<Native> {
     match f.kind.as_ref()? {
+        K::Object(k) if k.default.is_some() => Some(Native::Struct(NativeStruct::new())),
+        K::Ref(k) if k.default.is_some() => Some(Native::Struct(NativeStruct::new())),
         K::Float(k) => k.default.map(|v| Native::Double(f64::from(v))),
         K::Double(k) => k.default.map(Native::Double),
         K::Int32(k) => k.default.map(|v| Native::Int(i64::from(v))),

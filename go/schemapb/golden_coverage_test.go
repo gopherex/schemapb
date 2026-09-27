@@ -137,6 +137,7 @@ func coverageSchema() *schemapb.Schema {
 				MinItems: ptr(uint64(1)), MaxItems: ptr(uint64(2)), Unique: true, CountExpr: ptr("1"),
 			}}},
 			{Name: "object_all", Kind: &schemapb.Schema_Field_Object_{Object: &schemapb.Schema_Field_Object{
+				Default: &schemapb.StructValue{},
 				Schema: &schemapb.Schema{
 					Id:     &schemapb.SchemaIdentity{Name: "nested"},
 					Fields: []*schemapb.Schema_Field{{Name: "y", Kind: &schemapb.Schema_Field_Bool_{Bool: &schemapb.Schema_Field_Bool{}}}},
@@ -165,9 +166,11 @@ func coverageSchema() *schemapb.Schema {
 				},
 			}}},
 			{Name: "ref_by_name", Kind: &schemapb.Schema_Field_Ref_{Ref: &schemapb.Schema_Field_Ref{
-				Target: &schemapb.Schema_Field_Ref_Name{Name: "def_a"},
+				Default: &schemapb.StructValue{},
+				Target:  &schemapb.Schema_Field_Ref_Name{Name: "def_a"},
 			}}},
 			{Name: "ref_by_id", Kind: &schemapb.Schema_Field_Ref_{Ref: &schemapb.Schema_Field_Ref{
+				Default: &schemapb.StructValue{},
 				Target: &schemapb.Schema_Field_Ref_Id{Id: &schemapb.SchemaIdentity{
 					Namespace: "conformance", Name: "def_a", Version: "v1.0.0",
 				}},
@@ -227,16 +230,20 @@ func coverageDoc() []struct {
 			Values: values,
 		}},
 		{"baked", &schemapb.Baked{Schema: coverageSchema(), Values: values}},
+		{"resolveReport", &schemapb.ResolveReport{Events: []*schemapb.ResolveEvent{{
+			Path: "servers[0]", PathSegments: []*schemapb.PathSegment{{Segment: &schemapb.PathSegment_Key{Key: "servers"}}, {Segment: &schemapb.PathSegment_Index{Index: 0}}}, Operation: schemapb.ResolveOperation_RESOLVE_OPERATION_COERCED,
+		}}}},
 		{"validationResult", &schemapb.ValidationResult{Errors: []*schemapb.ValidationError{{
-			Path:       "float_all",
-			Code:       schemapb.ErrorCode_ERROR_CODE_GTE_VIOLATED,
-			Expected:   schemapb.FloatV(4),
-			Actual:     schemapb.FloatV(1),
-			Constraint: "gte",
-			Expr:       "true",
-			RuleId:     ptr("fr"),
-			Severity:   schemapb.SeverityWarning,
-			Message:    "must be >= 4",
+			Path:         "float_all",
+			PathSegments: []*schemapb.PathSegment{{Segment: &schemapb.PathSegment_Key{Key: "float_all"}}},
+			Code:         schemapb.ErrorCode_ERROR_CODE_GTE_VIOLATED,
+			Expected:     schemapb.FloatV(4),
+			Actual:       schemapb.FloatV(1),
+			Constraint:   "gte",
+			Expr:         "true",
+			RuleId:       ptr("fr"),
+			Severity:     schemapb.SeverityWarning,
+			Message:      "must be >= 4",
 		}}}},
 	}
 }

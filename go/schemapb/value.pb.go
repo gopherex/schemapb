@@ -451,6 +451,89 @@ func (x *StructValue) GetFields() map[string]*Value {
 	return nil
 }
 
+// Unambiguous location in a value tree. Keys may contain any characters.
+type PathSegment struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Segment:
+	//
+	//	*PathSegment_Key
+	//	*PathSegment_Index
+	Segment       isPathSegment_Segment `protobuf_oneof:"segment"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PathSegment) Reset() {
+	*x = PathSegment{}
+	mi := &file_schemapb_value_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PathSegment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PathSegment) ProtoMessage() {}
+
+func (x *PathSegment) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_value_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PathSegment.ProtoReflect.Descriptor instead.
+func (*PathSegment) Descriptor() ([]byte, []int) {
+	return file_schemapb_value_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PathSegment) GetSegment() isPathSegment_Segment {
+	if x != nil {
+		return x.Segment
+	}
+	return nil
+}
+
+func (x *PathSegment) GetKey() string {
+	if x != nil {
+		if x, ok := x.Segment.(*PathSegment_Key); ok {
+			return x.Key
+		}
+	}
+	return ""
+}
+
+func (x *PathSegment) GetIndex() uint64 {
+	if x != nil {
+		if x, ok := x.Segment.(*PathSegment_Index); ok {
+			return x.Index
+		}
+	}
+	return 0
+}
+
+type isPathSegment_Segment interface {
+	isPathSegment_Segment()
+}
+
+type PathSegment_Key struct {
+	Key string `protobuf:"bytes,1,opt,name=key,proto3,oneof"`
+}
+
+type PathSegment_Index struct {
+	Index uint64 `protobuf:"varint,2,opt,name=index,proto3,oneof"`
+}
+
+func (*PathSegment_Key) isPathSegment_Segment() {}
+
+func (*PathSegment_Index) isPathSegment_Segment() {}
+
 var File_schemapb_value_proto protoreflect.FileDescriptor
 
 const file_schemapb_value_proto_rawDesc = "" +
@@ -486,7 +569,11 @@ const file_schemapb_value_proto_rawDesc = "" +
 	"\x06fields\x18\x01 \x03(\v2!.schemapb.StructValue.FieldsEntryR\x06fields\x1aJ\n" +
 	"\vFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12%\n" +
-	"\x05value\x18\x02 \x01(\v2\x0f.schemapb.ValueR\x05value:\x028\x01*\x1b\n" +
+	"\x05value\x18\x02 \x01(\v2\x0f.schemapb.ValueR\x05value:\x028\x01\"D\n" +
+	"\vPathSegment\x12\x12\n" +
+	"\x03key\x18\x01 \x01(\tH\x00R\x03key\x12\x16\n" +
+	"\x05index\x18\x02 \x01(\x04H\x00R\x05indexB\t\n" +
+	"\asegment*\x1b\n" +
 	"\tNullValue\x12\x0e\n" +
 	"\n" +
 	"NULL_VALUE\x10\x00B*Z(github.com/gopherex/schemapb/go/schemapbb\x06proto3"
@@ -504,24 +591,25 @@ func file_schemapb_value_proto_rawDescGZIP() []byte {
 }
 
 var file_schemapb_value_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_schemapb_value_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_schemapb_value_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_schemapb_value_proto_goTypes = []any{
 	(NullValue)(0),                // 0: schemapb.NullValue
 	(*Value)(nil),                 // 1: schemapb.Value
 	(*ListValue)(nil),             // 2: schemapb.ListValue
 	(*StructValue)(nil),           // 3: schemapb.StructValue
-	nil,                           // 4: schemapb.StructValue.FieldsEntry
-	(*durationpb.Duration)(nil),   // 5: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(*PathSegment)(nil),           // 4: schemapb.PathSegment
+	nil,                           // 5: schemapb.StructValue.FieldsEntry
+	(*durationpb.Duration)(nil),   // 6: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
 }
 var file_schemapb_value_proto_depIdxs = []int32{
 	0, // 0: schemapb.Value.null_value:type_name -> schemapb.NullValue
-	5, // 1: schemapb.Value.duration_value:type_name -> google.protobuf.Duration
-	6, // 2: schemapb.Value.timestamp_value:type_name -> google.protobuf.Timestamp
+	6, // 1: schemapb.Value.duration_value:type_name -> google.protobuf.Duration
+	7, // 2: schemapb.Value.timestamp_value:type_name -> google.protobuf.Timestamp
 	2, // 3: schemapb.Value.list_value:type_name -> schemapb.ListValue
 	3, // 4: schemapb.Value.struct_value:type_name -> schemapb.StructValue
 	1, // 5: schemapb.ListValue.items:type_name -> schemapb.Value
-	4, // 6: schemapb.StructValue.fields:type_name -> schemapb.StructValue.FieldsEntry
+	5, // 6: schemapb.StructValue.fields:type_name -> schemapb.StructValue.FieldsEntry
 	1, // 7: schemapb.StructValue.FieldsEntry.value:type_name -> schemapb.Value
 	8, // [8:8] is the sub-list for method output_type
 	8, // [8:8] is the sub-list for method input_type
@@ -551,13 +639,17 @@ func file_schemapb_value_proto_init() {
 		(*Value_StructValue)(nil),
 		(*Value_BytesValue)(nil),
 	}
+	file_schemapb_value_proto_msgTypes[3].OneofWrappers = []any{
+		(*PathSegment_Key)(nil),
+		(*PathSegment_Index)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schemapb_value_proto_rawDesc), len(file_schemapb_value_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

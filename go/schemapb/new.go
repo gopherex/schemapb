@@ -1102,3 +1102,9 @@ func RefID(name FieldName, id *SchemaIdentity) *RefB {
 
 	return b
 }
+
+// DefaultEmpty materializes an absent active object before resolving its children.
+func (b *ObjectB) DefaultEmpty() *ObjectB { b.k.Default = &StructValue{}; return b }
+
+// DefaultEmpty materializes an absent active reference at this use site.
+func (b *RefB) DefaultEmpty() *RefB { b.f.GetRef().Default = &StructValue{}; return b }

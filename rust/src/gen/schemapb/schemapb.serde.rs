@@ -550,6 +550,417 @@ impl<'de> serde::Deserialize<'de> for NullValue {
         deserializer.deserialize_any(GeneratedVisitor)
     }
 }
+impl serde::Serialize for PathSegment {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.segment.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("schemapb.PathSegment", len)?;
+        if let Some(v) = self.segment.as_ref() {
+            match v {
+                path_segment::Segment::Key(v) => {
+                    struct_ser.serialize_field("key", v)?;
+                }
+                path_segment::Segment::Index(v) => {
+                    #[allow(clippy::needless_borrow)]
+                    #[allow(clippy::needless_borrows_for_generic_args)]
+                    struct_ser.serialize_field("index", ToString::to_string(&v).as_str())?;
+                }
+            }
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for PathSegment {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "key",
+            "index",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Key,
+            Index,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "key" => Ok(GeneratedField::Key),
+                            "index" => Ok(GeneratedField::Index),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = PathSegment;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct schemapb.PathSegment")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<PathSegment, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut segment__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Key => {
+                            if segment__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("key"));
+                            }
+                            segment__ = map_.next_value::<::std::option::Option<_>>()?.map(path_segment::Segment::Key);
+                        }
+                        GeneratedField::Index => {
+                            if segment__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("index"));
+                            }
+                            segment__ = map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| path_segment::Segment::Index(x.0));
+                        }
+                    }
+                }
+                Ok(PathSegment {
+                    segment: segment__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("schemapb.PathSegment", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ResolveEvent {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.path.is_empty() {
+            len += 1;
+        }
+        if !self.path_segments.is_empty() {
+            len += 1;
+        }
+        if self.operation != 0 {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("schemapb.ResolveEvent", len)?;
+        if !self.path.is_empty() {
+            struct_ser.serialize_field("path", &self.path)?;
+        }
+        if !self.path_segments.is_empty() {
+            struct_ser.serialize_field("pathSegments", &self.path_segments)?;
+        }
+        if self.operation != 0 {
+            let v = ResolveOperation::try_from(self.operation)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.operation)))?;
+            struct_ser.serialize_field("operation", &v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ResolveEvent {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "path",
+            "path_segments",
+            "pathSegments",
+            "operation",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Path,
+            PathSegments,
+            Operation,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "path" => Ok(GeneratedField::Path),
+                            "pathSegments" | "path_segments" => Ok(GeneratedField::PathSegments),
+                            "operation" => Ok(GeneratedField::Operation),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ResolveEvent;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct schemapb.ResolveEvent")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ResolveEvent, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut path__ = None;
+                let mut path_segments__ = None;
+                let mut operation__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Path => {
+                            if path__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("path"));
+                            }
+                            path__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::PathSegments => {
+                            if path_segments__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("pathSegments"));
+                            }
+                            path_segments__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Operation => {
+                            if operation__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("operation"));
+                            }
+                            operation__ = Some(map_.next_value::<ResolveOperation>()? as i32);
+                        }
+                    }
+                }
+                Ok(ResolveEvent {
+                    path: path__.unwrap_or_default(),
+                    path_segments: path_segments__.unwrap_or_default(),
+                    operation: operation__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("schemapb.ResolveEvent", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ResolveOperation {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "RESOLVE_OPERATION_UNSPECIFIED",
+            Self::DefaultApplied => "RESOLVE_OPERATION_DEFAULT_APPLIED",
+            Self::Coerced => "RESOLVE_OPERATION_COERCED",
+            Self::Normalized => "RESOLVE_OPERATION_NORMALIZED",
+            Self::Computed => "RESOLVE_OPERATION_COMPUTED",
+            Self::Inactive => "RESOLVE_OPERATION_INACTIVE",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for ResolveOperation {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "RESOLVE_OPERATION_UNSPECIFIED",
+            "RESOLVE_OPERATION_DEFAULT_APPLIED",
+            "RESOLVE_OPERATION_COERCED",
+            "RESOLVE_OPERATION_NORMALIZED",
+            "RESOLVE_OPERATION_COMPUTED",
+            "RESOLVE_OPERATION_INACTIVE",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ResolveOperation;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "RESOLVE_OPERATION_UNSPECIFIED" => Ok(ResolveOperation::Unspecified),
+                    "RESOLVE_OPERATION_DEFAULT_APPLIED" => Ok(ResolveOperation::DefaultApplied),
+                    "RESOLVE_OPERATION_COERCED" => Ok(ResolveOperation::Coerced),
+                    "RESOLVE_OPERATION_NORMALIZED" => Ok(ResolveOperation::Normalized),
+                    "RESOLVE_OPERATION_COMPUTED" => Ok(ResolveOperation::Computed),
+                    "RESOLVE_OPERATION_INACTIVE" => Ok(ResolveOperation::Inactive),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ResolveReport {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.events.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("schemapb.ResolveReport", len)?;
+        if !self.events.is_empty() {
+            struct_ser.serialize_field("events", &self.events)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ResolveReport {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "events",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Events,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "events" => Ok(GeneratedField::Events),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ResolveReport;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct schemapb.ResolveReport")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ResolveReport, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut events__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Events => {
+                            if events__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("events"));
+                            }
+                            events__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(ResolveReport {
+                    events: events__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("schemapb.ResolveReport", FIELDS, GeneratedVisitor)
+    }
+}
 impl serde::Serialize for Schema {
     #[allow(deprecated)]
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -3739,9 +4150,15 @@ impl serde::Serialize for schema::field::Object {
         if self.schema.is_some() {
             len += 1;
         }
+        if self.default.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("schemapb.Schema.Field.Object", len)?;
         if let Some(v) = self.schema.as_ref() {
             struct_ser.serialize_field("schema", v)?;
+        }
+        if let Some(v) = self.default.as_ref() {
+            struct_ser.serialize_field("default", v)?;
         }
         struct_ser.end()
     }
@@ -3754,11 +4171,13 @@ impl<'de> serde::Deserialize<'de> for schema::field::Object {
     {
         const FIELDS: &[&str] = &[
             "schema",
+            "default",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
             Schema,
+            Default,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -3781,6 +4200,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Object {
                     {
                         match value {
                             "schema" => Ok(GeneratedField::Schema),
+                            "default" => Ok(GeneratedField::Default),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -3801,6 +4221,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Object {
                     V: serde::de::MapAccess<'de>,
             {
                 let mut schema__ = None;
+                let mut default__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Schema => {
@@ -3809,10 +4230,17 @@ impl<'de> serde::Deserialize<'de> for schema::field::Object {
                             }
                             schema__ = map_.next_value()?;
                         }
+                        GeneratedField::Default => {
+                            if default__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("default"));
+                            }
+                            default__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(schema::field::Object {
                     schema: schema__,
+                    default: default__,
                 })
             }
         }
@@ -3937,10 +4365,16 @@ impl serde::Serialize for schema::field::Ref {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
+        if self.default.is_some() {
+            len += 1;
+        }
         if self.target.is_some() {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("schemapb.Schema.Field.Ref", len)?;
+        if let Some(v) = self.default.as_ref() {
+            struct_ser.serialize_field("default", v)?;
+        }
         if let Some(v) = self.target.as_ref() {
             match v {
                 schema::field::r#ref::Target::Name(v) => {
@@ -3961,12 +4395,14 @@ impl<'de> serde::Deserialize<'de> for schema::field::Ref {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
+            "default",
             "name",
             "id",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
+            Default,
             Name,
             Id,
         }
@@ -3990,6 +4426,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Ref {
                         E: serde::de::Error,
                     {
                         match value {
+                            "default" => Ok(GeneratedField::Default),
                             "name" => Ok(GeneratedField::Name),
                             "id" => Ok(GeneratedField::Id),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
@@ -4011,9 +4448,16 @@ impl<'de> serde::Deserialize<'de> for schema::field::Ref {
                 where
                     V: serde::de::MapAccess<'de>,
             {
+                let mut default__ = None;
                 let mut target__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
+                        GeneratedField::Default => {
+                            if default__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("default"));
+                            }
+                            default__ = map_.next_value()?;
+                        }
                         GeneratedField::Name => {
                             if target__.is_some() {
                                 return Err(serde::de::Error::duplicate_field("name"));
@@ -4030,6 +4474,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Ref {
                     }
                 }
                 Ok(schema::field::Ref {
+                    default: default__,
                     target: target__,
                 })
             }
@@ -5625,6 +6070,9 @@ impl serde::Serialize for ValidationError {
         if !self.message.is_empty() {
             len += 1;
         }
+        if !self.path_segments.is_empty() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("schemapb.ValidationError", len)?;
         if !self.path.is_empty() {
             struct_ser.serialize_field("path", &self.path)?;
@@ -5657,6 +6105,9 @@ impl serde::Serialize for ValidationError {
         if !self.message.is_empty() {
             struct_ser.serialize_field("message", &self.message)?;
         }
+        if !self.path_segments.is_empty() {
+            struct_ser.serialize_field("pathSegments", &self.path_segments)?;
+        }
         struct_ser.end()
     }
 }
@@ -5677,6 +6128,8 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
             "ruleId",
             "severity",
             "message",
+            "path_segments",
+            "pathSegments",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -5690,6 +6143,7 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
             RuleId,
             Severity,
             Message,
+            PathSegments,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -5720,6 +6174,7 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
                             "ruleId" | "rule_id" => Ok(GeneratedField::RuleId),
                             "severity" => Ok(GeneratedField::Severity),
                             "message" => Ok(GeneratedField::Message),
+                            "pathSegments" | "path_segments" => Ok(GeneratedField::PathSegments),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -5748,6 +6203,7 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
                 let mut rule_id__ = None;
                 let mut severity__ = None;
                 let mut message__ = None;
+                let mut path_segments__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Path => {
@@ -5804,6 +6260,12 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
                             }
                             message__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::PathSegments => {
+                            if path_segments__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("pathSegments"));
+                            }
+                            path_segments__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(ValidationError {
@@ -5816,6 +6278,7 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
                     rule_id: rule_id__,
                     severity: severity__.unwrap_or_default(),
                     message: message__.unwrap_or_default(),
+                    path_segments: path_segments__.unwrap_or_default(),
                 })
             }
         }

@@ -1,3 +1,4 @@
+import { ResolveReportSchema } from "../src/gen/schemapb/runtime_pb.js";
 /**
  * The conformance runner: parse the golden kitchen-sink schema, run the two
  * canonical inputs through this implementation, and require results
@@ -163,4 +164,69 @@ describe("nested ref conformance", () => {
       }
     });
   }
+});
+
+const recursiveCases = JSON.parse(golden("recursive-resolve.json")) as {
+  name: string;
+  schema: JsonValue;
+  input: JsonValue;
+  result: JsonValue;
+  report: JsonValue;
+  baked?: JsonValue;
+}[];
+describe("recursive resolve and report conformance", () => {
+  for (const c of recursiveCases)
+    it(c.name, () => {
+      const e = Engine.compile(fromJson(SchemaSchema, c.schema));
+      const input = fromJson(StructValueSchema, c.input);
+      const outcome = e.bakeDetailed(structToNative(input));
+      const plain = e.bake(structToNative(input));
+      expect(plain.baked).toStrictEqual(outcome.baked);
+      expect(plain.result).toStrictEqual(outcome.result);
+      for (const err of outcome.result.errors) err.message = "";
+      expect(outcome.result).toStrictEqual(fromJson(ValidationResultSchema, c.result));
+      expect(outcome.report).toStrictEqual(fromJson(ResolveReportSchema, c.report));
+      if (c.baked === undefined) expect(outcome.baked).toBeUndefined();
+      else expect(outcome.baked?.values).toStrictEqual(fromJson(StructValueSchema, c.baked));
+    });
+});
+
+for (const c of JSON.parse(golden("object-default-errors.json")) as {
+  name: string;
+  schema: JsonValue;
+}[]) {
+  it(`rejects nonempty ${c.name} default`, () =>
+    expect(() => Engine.compile(fromJson(SchemaSchema, c.schema))).toThrow());
+}
+
+it("empty object defaults own nested byte buffers", () => {
+  const schema = fromJson(SchemaSchema, {
+    id: { name: "ownership" },
+    fields: [
+      {
+        name: "db",
+        object: {
+          default: {},
+          schema: {
+            fields: [
+              {
+                name: "payload",
+                json: { default: { structValue: { fields: { blob: { bytesValue: "AQI=" } } } } },
+              },
+            ],
+          },
+        },
+      },
+    ],
+  });
+  const engine = Engine.compile(schema);
+  const first: NativeStruct = {};
+  expect(engine.resolve(first)).toEqual([]);
+  const blob = ((first["db"] as NativeStruct)["payload"] as NativeStruct)["blob"] as Uint8Array;
+  blob[0] = 9;
+  const second: NativeStruct = {};
+  expect(engine.resolve(second)).toEqual([]);
+  expect(((second["db"] as NativeStruct)["payload"] as NativeStruct)["blob"]).toEqual(
+    new Uint8Array([1, 2]),
+  );
 });

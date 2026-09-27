@@ -400,9 +400,9 @@ type Schema_Field struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Human description of the field.
 	Description *string `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	// If true, the value may be null/empty.
+	// If true, an explicitly present null is allowed, even when required.
 	Nullable bool `protobuf:"varint,3,opt,name=nullable,proto3" json:"nullable,omitempty"`
-	// If true, the value must be present.
+	// If true, the key must be present. Null is governed by nullable.
 	Required bool `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
 	// Cross-field CEL validation rules (`this` is bound to this field).
 	Rules []*Schema_Field_Rule `protobuf:"bytes,5,rep,name=rules,proto3" json:"rules,omitempty"`
@@ -2316,7 +2316,11 @@ func (x *Schema_Field_List) GetCountExpr() string {
 type Schema_Field_Object struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Nested object schema.
-	Schema        *Schema `protobuf:"bytes,1,opt,name=schema,proto3,oneof" json:"schema,omitempty"`
+	Schema *Schema `protobuf:"bytes,1,opt,name=schema,proto3,oneof" json:"schema,omitempty"`
+	// Only an empty object is supported. When absent, materialize a fresh
+	// object and resolve its children. Explicit null and inactive fields
+	// are never replaced. Nonempty defaults are invalid schemas.
+	Default       *StructValue `protobuf:"bytes,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2358,6 +2362,13 @@ func (x *Schema_Field_Object) GetSchema() *Schema {
 	return nil
 }
 
+func (x *Schema_Field_Object) GetDefault() *StructValue {
+	if x != nil {
+		return x.Default
+	}
+	return nil
+}
+
 // Map field kind: free-form string keys (never rejected — e.g. user-chosen
 // subnet/VM names) with values validated against a single shared Schema.
 // Unlike Object (fixed, named fields), a Map's key set is arbitrary and
@@ -2380,8 +2391,9 @@ type Schema_Field_Map struct {
 	// a list, ...). The definition's `name` is ignored; its kind and
 	// constraints apply to each value, error paths name the map key
 	// ("limits.cpu"). Mutually exclusive with `value_schema`. Value
-	// fields are validated and canonicalized; resolve does not seed
-	// defaults or run normalize/computed inside map values.
+	// fields undergo the same recursive resolve as ordinary fields,
+	// including inherited coercion, normalize and computed. Missing map
+	// entries are never invented; explicit null retains its presence.
 	ValueField    *Schema_Field `protobuf:"bytes,4,opt,name=value_field,json=valueField,proto3,oneof" json:"value_field,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2666,7 +2678,9 @@ type Schema_Field_Ref struct {
 	//
 	//	*Schema_Field_Ref_Name
 	//	*Schema_Field_Ref_Id
-	Target        isSchema_Field_Ref_Target `protobuf_oneof:"target"`
+	Target isSchema_Field_Ref_Target `protobuf_oneof:"target"`
+	// Same empty-object default contract as Object.default.
+	Default       *StructValue `protobuf:"bytes,3,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2722,6 +2736,13 @@ func (x *Schema_Field_Ref) GetId() *SchemaIdentity {
 		if x, ok := x.Target.(*Schema_Field_Ref_Id); ok {
 			return x.Id
 		}
+	}
+	return nil
+}
+
+func (x *Schema_Field_Ref) GetDefault() *StructValue {
+	if x != nil {
+		return x.Default
 	}
 	return nil
 }
@@ -2821,7 +2842,7 @@ var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xce8\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xd49\n" +
 	"\x06Schema\x12(\n" +
 	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
@@ -2833,7 +2854,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x06coerce\x18\b \x01(\bR\x06coerce\x12.\n" +
 	"\x04defs\x18\t \x03(\v2\x1a.schemapb.Schema.DefsEntryR\x04defs\x12=\n" +
 	"\ttemplates\x18\n" +
-	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xd93\n" +
+	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xdf4\n" +
 	"\x05Field\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
@@ -3086,10 +3107,13 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"_min_itemsB\f\n" +
 	"\n" +
 	"_max_itemsB\r\n" +
-	"\v_count_expr\x1aB\n" +
+	"\v_count_expr\x1a\x84\x01\n" +
 	"\x06Object\x12-\n" +
-	"\x06schema\x18\x01 \x01(\v2\x10.schemapb.SchemaH\x00R\x06schema\x88\x01\x01B\t\n" +
-	"\a_schema\x1a\x8a\x02\n" +
+	"\x06schema\x18\x01 \x01(\v2\x10.schemapb.SchemaH\x00R\x06schema\x88\x01\x01\x124\n" +
+	"\adefault\x18\x02 \x01(\v2\x15.schemapb.StructValueH\x01R\adefault\x88\x01\x01B\t\n" +
+	"\a_schemaB\n" +
+	"\n" +
+	"\b_default\x1a\x8a\x02\n" +
 	"\x03Map\x128\n" +
 	"\fvalue_schema\x18\x01 \x01(\v2\x10.schemapb.SchemaH\x00R\vvalueSchema\x88\x01\x01\x12$\n" +
 	"\vmin_entries\x18\x02 \x01(\x04H\x01R\n" +
@@ -3118,11 +3142,14 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\bvariants\x18\x02 \x03(\v2*.schemapb.Schema.Field.OneOf.VariantsEntryR\bvariants\x1aM\n" +
 	"\rVariantsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12&\n" +
-	"\x05value\x18\x02 \x01(\v2\x10.schemapb.SchemaR\x05value:\x028\x01\x1aQ\n" +
+	"\x05value\x18\x02 \x01(\v2\x10.schemapb.SchemaR\x05value:\x028\x01\x1a\x93\x01\n" +
 	"\x03Ref\x12\x14\n" +
 	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x12*\n" +
-	"\x02id\x18\x02 \x01(\v2\x18.schemapb.SchemaIdentityH\x00R\x02idB\b\n" +
-	"\x06target\"\x80\x02\n" +
+	"\x02id\x18\x02 \x01(\v2\x18.schemapb.SchemaIdentityH\x00R\x02id\x124\n" +
+	"\adefault\x18\x03 \x01(\v2\x15.schemapb.StructValueH\x01R\adefault\x88\x01\x01B\b\n" +
+	"\x06targetB\n" +
+	"\n" +
+	"\b_default\"\x80\x02\n" +
 	"\n" +
 	"ResultType\x12\x1b\n" +
 	"\x17RESULT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -3208,6 +3235,7 @@ var file_schemapb_schema_proto_goTypes = []any{
 	(*Value)(nil),                      // 29: schemapb.Value
 	(*durationpb.Duration)(nil),        // 30: google.protobuf.Duration
 	(*timestamppb.Timestamp)(nil),      // 31: google.protobuf.Timestamp
+	(*StructValue)(nil),                // 32: schemapb.StructValue
 }
 var file_schemapb_schema_proto_depIdxs = []int32{
 	3,  // 0: schemapb.Schema.id:type_name -> schemapb.SchemaIdentity
@@ -3252,19 +3280,21 @@ var file_schemapb_schema_proto_depIdxs = []int32{
 	31, // 39: schemapb.Schema.Field.Timestamp.lte:type_name -> google.protobuf.Timestamp
 	4,  // 40: schemapb.Schema.Field.List.items:type_name -> schemapb.Schema.Field
 	2,  // 41: schemapb.Schema.Field.Object.schema:type_name -> schemapb.Schema
-	2,  // 42: schemapb.Schema.Field.Map.value_schema:type_name -> schemapb.Schema
-	4,  // 43: schemapb.Schema.Field.Map.value_field:type_name -> schemapb.Schema.Field
-	0,  // 44: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
-	1,  // 45: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
-	28, // 46: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
-	3,  // 47: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
-	29, // 48: schemapb.Schema.Field.Choice.Option.value:type_name -> schemapb.Value
-	2,  // 49: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
-	50, // [50:50] is the sub-list for method output_type
-	50, // [50:50] is the sub-list for method input_type
-	50, // [50:50] is the sub-list for extension type_name
-	50, // [50:50] is the sub-list for extension extendee
-	0,  // [0:50] is the sub-list for field type_name
+	32, // 42: schemapb.Schema.Field.Object.default:type_name -> schemapb.StructValue
+	2,  // 43: schemapb.Schema.Field.Map.value_schema:type_name -> schemapb.Schema
+	4,  // 44: schemapb.Schema.Field.Map.value_field:type_name -> schemapb.Schema.Field
+	0,  // 45: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
+	1,  // 46: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
+	28, // 47: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
+	3,  // 48: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
+	32, // 49: schemapb.Schema.Field.Ref.default:type_name -> schemapb.StructValue
+	29, // 50: schemapb.Schema.Field.Choice.Option.value:type_name -> schemapb.Value
+	2,  // 51: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
+	52, // [52:52] is the sub-list for method output_type
+	52, // [52:52] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_schema_proto_init() }

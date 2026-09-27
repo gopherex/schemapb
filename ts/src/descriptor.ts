@@ -39,7 +39,8 @@ export function schemaErr(path: string, msg: string): ValidationError {
 }
 
 export function joinPath(prefix: string, name: string): string {
-  return prefix === "" ? name : `${prefix}.${name}`;
+  if (name !== "" && !/[.[\]"\\]/.test(name)) return prefix === "" ? name : `${prefix}.${name}`;
+  return `${prefix}[${JSON.stringify(name)}]`;
 }
 
 /** The schemas directly embedded in a field (not Refs). */
@@ -130,6 +131,12 @@ function checkFields(fields: Schema_Field[], prefix: string): ValidationError[] 
   const errs: ValidationError[] = [];
   const seen = new Set<string>();
   for (const f of fields) {
+    if ((f.kind.case === "object" || f.kind.case === "ref") && f.kind.value.default !== undefined) {
+      if (Object.keys(f.kind.value.default.fields).length !== 0)
+        errs.push(schemaErr(joinPath(prefix, f.name), "object default must be empty"));
+      if (f.immutable)
+        errs.push(schemaErr(joinPath(prefix, f.name), "object default cannot be immutable"));
+    }
     const path = joinPath(prefix, f.name);
     if (f.name === "") {
       // List item fields are anonymous but checkFields never walks items

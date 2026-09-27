@@ -31,6 +31,7 @@ from schemapb._gen.schemapb import (
     SchemaFieldUInt32,
     SchemaFieldUInt64,
     SchemaIdentity,
+    StructValue,
     Value,
 )
 from schemapb.engine import Engine, compile_schema
@@ -466,6 +467,11 @@ class ObjectB(FieldB):
         self._sub = Schema(fields=[f.done() for f in fields])
         self.f.object = SchemaFieldObject(schema=self._sub)
 
+    def default_empty(self) -> Self:
+        assert self.f.object is not None  # noqa: S101 - builder invariant
+        self.f.object.default = StructValue()
+        return self
+
     def strict(self) -> Self:
         self._sub.strict = True
         return self
@@ -559,14 +565,21 @@ def computed(name: str, expr: str) -> ComputedB:
     return ComputedB(name, expr)
 
 
-def ref(name: str, def_name: str) -> FieldB:
-    b = FieldB(name)
+class RefB(FieldB):
+    def default_empty(self) -> Self:
+        assert self.f.ref is not None  # noqa: S101 - builder invariant
+        self.f.ref.default = StructValue()
+        return self
+
+
+def ref(name: str, def_name: str) -> RefB:
+    b = RefB(name)
     b.f.ref = SchemaFieldRef(name=def_name)
     return b
 
 
-def ref_id(name: str, id_: SchemaIdentity) -> FieldB:
-    b = FieldB(name)
+def ref_id(name: str, id_: SchemaIdentity) -> RefB:
+    b = RefB(name)
     b.f.ref = SchemaFieldRef(id=id_)
     return b
 

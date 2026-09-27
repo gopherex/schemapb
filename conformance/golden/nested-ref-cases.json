@@ -1140,7 +1140,18 @@
           "code": "ERROR_CODE_RULE_VIOLATED",
           "expr": "this.executor == 'local'",
           "severity": "SEVERITY_ERROR",
-          "message": "executor must be local"
+          "message": "executor must be local",
+          "pathSegments": [
+            {
+              "key": "segments"
+            },
+            {
+              "index": "0"
+            },
+            {
+              "key": "run"
+            }
+          ]
         }
       ]
     }
@@ -1172,7 +1183,15 @@
             "int64Value": "7"
           },
           "severity": "SEVERITY_ERROR",
-          "message": "expected object"
+          "message": "expected object",
+          "pathSegments": [
+            {
+              "key": "segments"
+            },
+            {
+              "index": "0"
+            }
+          ]
         }
       ]
     }

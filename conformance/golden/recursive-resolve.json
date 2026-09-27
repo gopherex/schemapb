@@ -1,0 +1,4179 @@
+[
+  {
+    "name": "when-disabled-by-normalize",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "enabled",
+          "bool": {
+            "default": true
+          },
+          "normalize": "false"
+        },
+        {
+          "name": "value",
+          "int64": {},
+          "normalize": "this + 1",
+          "when": "root.enabled"
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "value": {
+          "int64Value": "3"
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "enabled",
+          "pathSegments": [
+            {
+              "key": "enabled"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        },
+        {
+          "path": "enabled",
+          "pathSegments": [
+            {
+              "key": "enabled"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_NORMALIZED"
+        },
+        {
+          "path": "value",
+          "pathSegments": [
+            {
+              "key": "value"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_INACTIVE"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "enabled": {
+          "boolValue": false
+        },
+        "value": {
+          "int64Value": "3"
+        }
+      }
+    }
+  },
+  {
+    "name": "when-enabled-by-normalize",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "enabled",
+          "bool": {
+            "default": false
+          },
+          "normalize": "true"
+        },
+        {
+          "name": "db",
+          "ref": {
+            "name": "db",
+            "default": {}
+          },
+          "when": "root.enabled"
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {},
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "enabled",
+          "pathSegments": [
+            {
+              "key": "enabled"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        },
+        {
+          "path": "db",
+          "pathSegments": [
+            {
+              "key": "db"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_INACTIVE"
+        },
+        {
+          "path": "enabled",
+          "pathSegments": [
+            {
+              "key": "enabled"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_NORMALIZED"
+        },
+        {
+          "path": "db",
+          "pathSegments": [
+            {
+              "key": "db"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        },
+        {
+          "path": "db.port",
+          "pathSegments": [
+            {
+              "key": "db"
+            },
+            {
+              "key": "port"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int64Value": "5432"
+              }
+            }
+          }
+        },
+        "enabled": {
+          "boolValue": true
+        }
+      }
+    }
+  },
+  {
+    "name": "normalize-changes-oneof-gate",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "job",
+          "oneOf": {
+            "discriminator": "kind",
+            "variants": {
+              "a": {
+                "fields": [
+                  {
+                    "name": "kind",
+                    "string": {}
+                  },
+                  {
+                    "name": "value",
+                    "int64": {
+                      "default": "1"
+                    },
+                    "when": "false"
+                  }
+                ]
+              },
+              "b": {
+                "fields": [
+                  {
+                    "name": "kind",
+                    "string": {}
+                  },
+                  {
+                    "name": "value",
+                    "int64": {
+                      "default": "2"
+                    },
+                    "when": "true"
+                  }
+                ]
+              }
+            }
+          },
+          "normalize": "{\"kind\": \"b\"}"
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "job": {
+          "structValue": {
+            "fields": {
+              "kind": {
+                "stringValue": "a"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "job.value",
+          "pathSegments": [
+            {
+              "key": "job"
+            },
+            {
+              "key": "value"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_INACTIVE"
+        },
+        {
+          "path": "job",
+          "pathSegments": [
+            {
+              "key": "job"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_NORMALIZED"
+        },
+        {
+          "path": "job.value",
+          "pathSegments": [
+            {
+              "key": "job"
+            },
+            {
+              "key": "value"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "job": {
+          "structValue": {
+            "fields": {
+              "kind": {
+                "stringValue": "b"
+              },
+              "value": {
+                "int64Value": "2"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "immutable-list-element",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "ports",
+          "list": {
+            "items": [
+              {
+                "int64": {
+                  "default": "7"
+                },
+                "immutable": true
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "ports": {
+          "listValue": {
+            "items": [
+              {
+                "int64Value": "8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "ports[0]",
+          "code": "ERROR_CODE_IMMUTABLE_MODIFIED",
+          "expected": {
+            "int64Value": "7"
+          },
+          "actual": {
+            "int64Value": "8"
+          },
+          "constraint": "immutable",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "ports"
+            },
+            {
+              "index": "0"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {
+      "events": [
+        {
+          "path": "ports[0]",
+          "pathSegments": [
+            {
+              "key": "ports"
+            },
+            {
+              "index": "0"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    }
+  },
+  {
+    "name": "immutable-map-ref",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "tenants",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "ref": {
+                "name": "fixed"
+              }
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "tenants": {
+          "structValue": {
+            "fields": {
+              "customer.a": {
+                "structValue": {
+                  "fields": {
+                    "port": {
+                      "int64Value": "8"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "tenants[\"customer.a\"].port",
+          "code": "ERROR_CODE_IMMUTABLE_MODIFIED",
+          "expected": {
+            "int64Value": "7"
+          },
+          "actual": {
+            "int64Value": "8"
+          },
+          "constraint": "immutable",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "tenants"
+            },
+            {
+              "key": "customer.a"
+            },
+            {
+              "key": "port"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {
+      "events": [
+        {
+          "path": "tenants[\"customer.a\"].port",
+          "pathSegments": [
+            {
+              "key": "tenants"
+            },
+            {
+              "key": "customer.a"
+            },
+            {
+              "key": "port"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    }
+  },
+  {
+    "name": "unicode-map-order",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "values",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "int64": {}
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "values": {
+          "structValue": {
+            "fields": {
+              "": {
+                "stringValue": "1"
+              },
+              "😀": {
+                "stringValue": "2"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "values.",
+          "pathSegments": [
+            {
+              "key": "values"
+            },
+            {
+              "key": ""
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "values.😀",
+          "pathSegments": [
+            {
+              "key": "values"
+            },
+            {
+              "key": "😀"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "values": {
+          "structValue": {
+            "fields": {
+              "": {
+                "int64Value": "1"
+              },
+              "😀": {
+                "int64Value": "2"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "required-nullable-object",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "nullable": true,
+          "required": true,
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "port",
+                  "int64": {
+                    "default": "5432"
+                  }
+                }
+              ]
+            },
+            "default": {}
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "db": {
+          "nullValue": "NULL_VALUE"
+        }
+      }
+    },
+    "result": {},
+    "report": {},
+    "baked": {
+      "fields": {
+        "db": {
+          "nullValue": "NULL_VALUE"
+        }
+      }
+    }
+  },
+  {
+    "name": "required-nonnullable-object",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "required": true,
+          "ref": {
+            "name": "db",
+            "default": {}
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "db": {
+          "nullValue": "NULL_VALUE"
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "db",
+          "code": "ERROR_CODE_NOT_NULLABLE",
+          "actual": {
+            "nullValue": "NULL_VALUE"
+          },
+          "constraint": "nullable",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "db"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {}
+  },
+  {
+    "name": "inactive-input-preserved",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "port",
+                  "int64": {},
+                  "when": "false"
+                },
+                {
+                  "name": "cpu",
+                  "int32": {
+                    "default": 2
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "stringValue": "not a number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "db.port",
+          "pathSegments": [
+            {
+              "key": "db"
+            },
+            {
+              "key": "port"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_INACTIVE"
+        },
+        {
+          "path": "db.cpu",
+          "pathSegments": [
+            {
+              "key": "db"
+            },
+            {
+              "key": "cpu"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "cpu": {
+                "int32Value": 2
+              },
+              "port": {
+                "stringValue": "not a number"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "inactive-list-item",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "ports",
+          "list": {
+            "items": [
+              {
+                "int64": {},
+                "when": "false"
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "ports": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "ignored"
+              },
+              {
+                "nullValue": "NULL_VALUE"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "ports[0]",
+          "pathSegments": [
+            {
+              "key": "ports"
+            },
+            {
+              "index": "0"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_INACTIVE"
+        },
+        {
+          "path": "ports[1]",
+          "pathSegments": [
+            {
+              "key": "ports"
+            },
+            {
+              "index": "1"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_INACTIVE"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "ports": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "ignored"
+              },
+              {
+                "nullValue": "NULL_VALUE"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "computed-map-key-dependency",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "answer",
+          "computed": {
+            "expr": "root.values[\"a.b\"] + 1",
+            "result": "RESULT_TYPE_INT64"
+          }
+        },
+        {
+          "name": "values",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "computed": {
+                "expr": "40 + 1",
+                "result": "RESULT_TYPE_INT64"
+              }
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "values": {
+          "structValue": {
+            "fields": {
+              "a.b": {
+                "int64Value": "0"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "values[\"a.b\"]",
+          "pathSegments": [
+            {
+              "key": "values"
+            },
+            {
+              "key": "a.b"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COMPUTED"
+        },
+        {
+          "path": "answer",
+          "pathSegments": [
+            {
+              "key": "answer"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COMPUTED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "answer": {
+          "int64Value": "42"
+        },
+        "values": {
+          "structValue": {
+            "fields": {
+              "a.b": {
+                "int64Value": "41"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "escaped-map-keys",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "values",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "int64": {}
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "values": {
+          "structValue": {
+            "fields": {
+              "": {
+                "stringValue": "1"
+              },
+              "a\"b": {
+                "stringValue": "2"
+              },
+              "a[b]": {
+                "stringValue": "3"
+              },
+              "a\\b": {
+                "stringValue": "4"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "values[\"\"]",
+          "pathSegments": [
+            {
+              "key": "values"
+            },
+            {
+              "key": ""
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "values[\"a\\\"b\"]",
+          "pathSegments": [
+            {
+              "key": "values"
+            },
+            {
+              "key": "a\"b"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "values[\"a[b]\"]",
+          "pathSegments": [
+            {
+              "key": "values"
+            },
+            {
+              "key": "a[b]"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "values[\"a\\\\b\"]",
+          "pathSegments": [
+            {
+              "key": "values"
+            },
+            {
+              "key": "a\\b"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "values": {
+          "structValue": {
+            "fields": {
+              "": {
+                "int64Value": "1"
+              },
+              "a\"b": {
+                "int64Value": "2"
+              },
+              "a[b]": {
+                "int64Value": "3"
+              },
+              "a\\b": {
+                "int64Value": "4"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "scalar-list",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "ports",
+          "list": {
+            "items": [
+              {
+                "int64": {}
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "ports": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "8080"
+              },
+              {
+                "stringValue": "9007199254740993"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "ports[0]",
+          "pathSegments": [
+            {
+              "key": "ports"
+            },
+            {
+              "index": "0"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "ports[1]",
+          "pathSegments": [
+            {
+              "key": "ports"
+            },
+            {
+              "index": "1"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "ports": {
+          "listValue": {
+            "items": [
+              {
+                "int64Value": "8080"
+              },
+              {
+                "int64Value": "9007199254740993"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "duration-list",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "timeouts",
+          "list": {
+            "items": [
+              {
+                "duration": {}
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "timeouts": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "1s"
+              },
+              {
+                "stringValue": "1m30s"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "timeouts[0]",
+          "pathSegments": [
+            {
+              "key": "timeouts"
+            },
+            {
+              "index": "0"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "timeouts[1]",
+          "pathSegments": [
+            {
+              "key": "timeouts"
+            },
+            {
+              "index": "1"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "timeouts": {
+          "listValue": {
+            "items": [
+              {
+                "durationValue": "1s"
+              },
+              {
+                "durationValue": "90s"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "scalar-map",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "limits",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "int32": {}
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "limits": {
+          "structValue": {
+            "fields": {
+              "cpu": {
+                "stringValue": "4"
+              },
+              "memory": {
+                "stringValue": "8"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "limits.cpu",
+          "pathSegments": [
+            {
+              "key": "limits"
+            },
+            {
+              "key": "cpu"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "limits.memory",
+          "pathSegments": [
+            {
+              "key": "limits"
+            },
+            {
+              "key": "memory"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "limits": {
+          "structValue": {
+            "fields": {
+              "cpu": {
+                "int32Value": 4
+              },
+              "memory": {
+                "int32Value": 8
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "tuple",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "tuple",
+          "list": {
+            "items": [
+              {
+                "int64": {}
+              },
+              {
+                "duration": {}
+              },
+              {
+                "string": {},
+                "normalize": "this.lowerAscii()"
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "tuple": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "7"
+              },
+              {
+                "stringValue": "2s"
+              },
+              {
+                "stringValue": "HELLO"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "tuple[0]",
+          "pathSegments": [
+            {
+              "key": "tuple"
+            },
+            {
+              "index": "0"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "tuple[1]",
+          "pathSegments": [
+            {
+              "key": "tuple"
+            },
+            {
+              "index": "1"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "tuple[2]",
+          "pathSegments": [
+            {
+              "key": "tuple"
+            },
+            {
+              "index": "2"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_NORMALIZED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "tuple": {
+          "listValue": {
+            "items": [
+              {
+                "int64Value": "7"
+              },
+              {
+                "durationValue": "2s"
+              },
+              {
+                "stringValue": "hello"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "nested-containers",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "matrix",
+          "list": {
+            "items": [
+              {
+                "map": {
+                  "valueField": {
+                    "name": "value",
+                    "list": {
+                      "items": [
+                        {
+                          "int64": {},
+                          "normalize": "this + 1"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "matrix": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "a.b": {
+                      "listValue": {
+                        "items": [
+                          {
+                            "stringValue": "4"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "matrix[0][\"a.b\"][0]",
+          "pathSegments": [
+            {
+              "key": "matrix"
+            },
+            {
+              "index": "0"
+            },
+            {
+              "key": "a.b"
+            },
+            {
+              "index": "0"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COERCED"
+        },
+        {
+          "path": "matrix[0][\"a.b\"][0]",
+          "pathSegments": [
+            {
+              "key": "matrix"
+            },
+            {
+              "index": "0"
+            },
+            {
+              "key": "a.b"
+            },
+            {
+              "index": "0"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_NORMALIZED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "matrix": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "a.b": {
+                      "listValue": {
+                        "items": [
+                          {
+                            "int64Value": "5"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "map-ref",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "tenants",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "ref": {
+                "name": "db"
+              }
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "tenants": {
+          "structValue": {
+            "fields": {
+              "customer.a": {
+                "structValue": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "tenants[\"customer.a\"].port",
+          "pathSegments": [
+            {
+              "key": "tenants"
+            },
+            {
+              "key": "customer.a"
+            },
+            {
+              "key": "port"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "tenants": {
+          "structValue": {
+            "fields": {
+              "customer.a": {
+                "structValue": {
+                  "fields": {
+                    "port": {
+                      "int64Value": "5432"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "map-oneof",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "jobs",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "oneOf": {
+                "discriminator": "kind",
+                "variants": {
+                  "db": {
+                    "fields": [
+                      {
+                        "name": "kind",
+                        "string": {}
+                      },
+                      {
+                        "name": "port",
+                        "int64": {
+                          "default": "5432"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "jobs": {
+          "structValue": {
+            "fields": {
+              "first": {
+                "structValue": {
+                  "fields": {
+                    "kind": {
+                      "stringValue": "db"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "jobs.first.port",
+          "pathSegments": [
+            {
+              "key": "jobs"
+            },
+            {
+              "key": "first"
+            },
+            {
+              "key": "port"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "jobs": {
+          "structValue": {
+            "fields": {
+              "first": {
+                "structValue": {
+                  "fields": {
+                    "kind": {
+                      "stringValue": "db"
+                    },
+                    "port": {
+                      "int64Value": "5432"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "empty-object-default",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "required": true,
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "port",
+                  "int64": {
+                    "default": "5432"
+                  }
+                }
+              ]
+            },
+            "default": {}
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {},
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "db",
+          "pathSegments": [
+            {
+              "key": "db"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        },
+        {
+          "path": "db.port",
+          "pathSegments": [
+            {
+              "key": "db"
+            },
+            {
+              "key": "port"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int64Value": "5432"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "empty-ref-default",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "ref": {
+            "name": "db",
+            "default": {}
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {},
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "db",
+          "pathSegments": [
+            {
+              "key": "db"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        },
+        {
+          "path": "db.port",
+          "pathSegments": [
+            {
+              "key": "db"
+            },
+            {
+              "key": "port"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int64Value": "5432"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "optional-absent",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "port",
+                  "int64": {
+                    "default": "5432"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {},
+    "result": {},
+    "report": {},
+    "baked": {}
+  },
+  {
+    "name": "required-absent",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "required": true,
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "port",
+                  "int64": {
+                    "default": "5432"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {},
+    "result": {
+      "errors": [
+        {
+          "path": "db",
+          "code": "ERROR_CODE_REQUIRED_MISSING",
+          "constraint": "required",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "db"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {}
+  },
+  {
+    "name": "nullable-null",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "nullable": true,
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "port",
+                  "int64": {
+                    "default": "5432"
+                  }
+                }
+              ]
+            },
+            "default": {}
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "db": {
+          "nullValue": "NULL_VALUE"
+        }
+      }
+    },
+    "result": {},
+    "report": {},
+    "baked": {
+      "fields": {
+        "db": {
+          "nullValue": "NULL_VALUE"
+        }
+      }
+    }
+  },
+  {
+    "name": "nonnullable-null",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "ref": {
+            "name": "db",
+            "default": {}
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "db": {
+          "nullValue": "NULL_VALUE"
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "db",
+          "code": "ERROR_CODE_NOT_NULLABLE",
+          "actual": {
+            "nullValue": "NULL_VALUE"
+          },
+          "constraint": "nullable",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "db"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {}
+  },
+  {
+    "name": "inactive-default",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "ref": {
+            "name": "db",
+            "default": {}
+          },
+          "when": "false"
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {},
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "db",
+          "pathSegments": [
+            {
+              "key": "db"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_INACTIVE"
+        }
+      ]
+    },
+    "baked": {}
+  },
+  {
+    "name": "existing-empty-object",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "port",
+                  "int64": {
+                    "default": "5432"
+                  }
+                }
+              ]
+            },
+            "default": {}
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "db": {
+          "structValue": {}
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "db.port",
+          "pathSegments": [
+            {
+              "key": "db"
+            },
+            {
+              "key": "port"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int64Value": "5432"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "existing-object",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "ref": {
+            "name": "db",
+            "default": {}
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int64Value": "1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {},
+    "baked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int64Value": "1"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "null-item-preserved",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "ports",
+          "list": {
+            "items": [
+              {
+                "nullable": true,
+                "int64": {
+                  "default": "1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "ports": {
+          "listValue": {
+            "items": [
+              {
+                "nullValue": "NULL_VALUE"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {},
+    "baked": {
+      "fields": {
+        "ports": {
+          "listValue": {
+            "items": [
+              {
+                "nullValue": "NULL_VALUE"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "empty-list-preserved",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "ports",
+          "list": {
+            "items": [
+              {
+                "int64": {
+                  "default": "1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "ports": {
+          "listValue": {}
+        }
+      }
+    },
+    "result": {},
+    "report": {},
+    "baked": {
+      "fields": {
+        "ports": {
+          "listValue": {}
+        }
+      }
+    }
+  },
+  {
+    "name": "absent-list-preserved",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "ports",
+          "list": {
+            "items": [
+              {
+                "int64": {
+                  "default": "1"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {},
+    "result": {},
+    "report": {},
+    "baked": {}
+  },
+  {
+    "name": "normalize-object-error",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "value",
+                  "int64": {},
+                  "normalize": "this.missing"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "value": {
+                "int64Value": "1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "db.value",
+          "code": "ERROR_CODE_EXPR_ERROR",
+          "expr": "this.missing",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "db"
+            },
+            {
+              "key": "value"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {}
+  },
+  {
+    "name": "normalize-list-error",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "servers",
+          "list": {
+            "items": [
+              {
+                "object": {
+                  "schema": {
+                    "fields": [
+                      {
+                        "name": "timeout",
+                        "int64": {},
+                        "normalize": "this.missing"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "servers": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {}
+              },
+              {
+                "structValue": {}
+              },
+              {
+                "structValue": {
+                  "fields": {
+                    "timeout": {
+                      "int64Value": "1"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "servers[2].timeout",
+          "code": "ERROR_CODE_EXPR_ERROR",
+          "expr": "this.missing",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "servers"
+            },
+            {
+              "index": "2"
+            },
+            {
+              "key": "timeout"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {}
+  },
+  {
+    "name": "normalize-map-error",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "tenants",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "ref": {
+                "name": "bad"
+              }
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "tenants": {
+          "structValue": {
+            "fields": {
+              "customer.a": {
+                "structValue": {
+                  "fields": {
+                    "timeout": {
+                      "int64Value": "1"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "tenants[\"customer.a\"].timeout",
+          "code": "ERROR_CODE_EXPR_ERROR",
+          "expr": "this.missing",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "tenants"
+            },
+            {
+              "key": "customer.a"
+            },
+            {
+              "key": "timeout"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {}
+  },
+  {
+    "name": "when-error",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "tenants",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "int64": {},
+              "when": "root.missing"
+            }
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "tenants": {
+          "structValue": {
+            "fields": {
+              "customer.a": {
+                "int64Value": "1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "tenants[\"customer.a\"]",
+          "code": "ERROR_CODE_EXPR_ERROR",
+          "expr": "root.missing",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "tenants"
+            },
+            {
+              "key": "customer.a"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {
+      "events": [
+        {
+          "path": "tenants[\"customer.a\"]",
+          "pathSegments": [
+            {
+              "key": "tenants"
+            },
+            {
+              "key": "customer.a"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_INACTIVE"
+        }
+      ]
+    }
+  },
+  {
+    "name": "computed-error",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "servers",
+          "list": {
+            "items": [
+              {
+                "object": {
+                  "schema": {
+                    "fields": [
+                      {
+                        "name": "url",
+                        "computed": {
+                          "expr": "root.missing",
+                          "result": "RESULT_TYPE_STRING"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "servers": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {
+      "errors": [
+        {
+          "path": "servers[0].url",
+          "code": "ERROR_CODE_EXPR_ERROR",
+          "expr": "root.missing",
+          "severity": "SEVERITY_ERROR",
+          "pathSegments": [
+            {
+              "key": "servers"
+            },
+            {
+              "index": "0"
+            },
+            {
+              "key": "url"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {}
+  },
+  {
+    "name": "report-does-not-repeat-normalize",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "value",
+          "int64": {
+            "default": "0"
+          },
+          "secret": true,
+          "normalize": "this + 1"
+        },
+        {
+          "name": "derived",
+          "computed": {
+            "expr": "root.value + 1",
+            "result": "RESULT_TYPE_INT64"
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {},
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "value",
+          "pathSegments": [
+            {
+              "key": "value"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        },
+        {
+          "path": "value",
+          "pathSegments": [
+            {
+              "key": "value"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_NORMALIZED"
+        },
+        {
+          "path": "derived",
+          "pathSegments": [
+            {
+              "key": "derived"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COMPUTED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "derived": {
+          "int64Value": "2"
+        },
+        "value": {
+          "int64Value": "1"
+        }
+      }
+    }
+  },
+  {
+    "name": "unchanged-normalize",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "value",
+          "int64": {},
+          "normalize": "this"
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "value": {
+          "int64Value": "3"
+        }
+      }
+    },
+    "result": {},
+    "report": {},
+    "baked": {
+      "fields": {
+        "value": {
+          "int64Value": "3"
+        }
+      }
+    }
+  },
+  {
+    "name": "computed-collection-dependency",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "answer",
+          "computed": {
+            "expr": "root.numbers[0] + 1",
+            "result": "RESULT_TYPE_INT64"
+          }
+        },
+        {
+          "name": "numbers",
+          "list": {
+            "items": [
+              {
+                "computed": {
+                  "expr": "40 + 1",
+                  "result": "RESULT_TYPE_INT64"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "numbers": {
+          "listValue": {
+            "items": [
+              {
+                "int64Value": "0"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "numbers[0]",
+          "pathSegments": [
+            {
+              "key": "numbers"
+            },
+            {
+              "index": "0"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COMPUTED"
+        },
+        {
+          "path": "answer",
+          "pathSegments": [
+            {
+              "key": "answer"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COMPUTED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "answer": {
+          "int64Value": "42"
+        },
+        "numbers": {
+          "listValue": {
+            "items": [
+              {
+                "int64Value": "41"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "normalize-replaces-container",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "recursive_resolve",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "port",
+                  "int64": {
+                    "default": "5432"
+                  }
+                },
+                {
+                  "name": "label",
+                  "computed": {
+                    "expr": "'ready'",
+                    "result": "RESULT_TYPE_STRING"
+                  }
+                }
+              ]
+            }
+          },
+          "normalize": "{}"
+        }
+      ],
+      "coerce": true,
+      "defs": {
+        "bad": {
+          "fields": [
+            {
+              "name": "timeout",
+              "int64": {},
+              "normalize": "this.missing"
+            }
+          ]
+        },
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "5432"
+              }
+            }
+          ]
+        },
+        "fixed": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {
+                "default": "7"
+              },
+              "immutable": true
+            }
+          ]
+        }
+      }
+    },
+    "input": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int64Value": "9"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {},
+    "report": {
+      "events": [
+        {
+          "path": "db",
+          "pathSegments": [
+            {
+              "key": "db"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_NORMALIZED"
+        },
+        {
+          "path": "db.port",
+          "pathSegments": [
+            {
+              "key": "db"
+            },
+            {
+              "key": "port"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+        },
+        {
+          "path": "db.label",
+          "pathSegments": [
+            {
+              "key": "db"
+            },
+            {
+              "key": "label"
+            }
+          ],
+          "operation": "RESOLVE_OPERATION_COMPUTED"
+        }
+      ]
+    },
+    "baked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "label": {
+                "stringValue": "ready"
+              },
+              "port": {
+                "int64Value": "5432"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+]

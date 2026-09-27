@@ -5,10 +5,15 @@ from __future__ import annotations
 import base64
 import binascii
 import datetime as dt
+from collections.abc import Callable
+from functools import partial
 from typing import TYPE_CHECKING, cast
 
 from schemapb._gen.schemapb import (
     ErrorCode,
+    ResolveEvent,
+    ResolveOperation,
+    ResolveReport,
     Schema,
     SchemaField,
     SchemaFieldList,
@@ -20,6 +25,8 @@ from schemapb._gen.schemapb import (
 )
 from schemapb.descriptor import join_path, schema_err
 from schemapb.duration import parse_go_duration, parse_rfc3339
+from schemapb.path import path_segments
+from schemapb.render import native_equals
 from schemapb.value import (
     Native,
     NativeStruct,
@@ -90,14 +97,16 @@ def object_schema(
     return None if sub is None else (sub, val)
 
 
-def resolve(e: Engine, values: NativeStruct) -> list[ValidationError]:
-    """Defaults, coercion, normalize, computed — in place."""
-    errs: list[ValidationError] = []
-    tasks: list[tuple[SchemaField, NativeStruct, str]] = []
-    _seed(e, e.schema, values, "", tasks, values, errs)
-    _run_normalize(e, e.schema, values, values, errs)
-    _run_compute(e, values, tasks, errs)
-    return errs
+def resolve(
+    e: Engine, values: NativeStruct, report: ResolveReport | None = None
+) -> list[ValidationError]:
+    state = _Resolver(e, values, report)
+    state.object(e.schema, values, "", inherited=False, normalize=False)
+    state.object(e.schema, values, "", inherited=False, normalize=True)
+    _run_compute(e, values, state.tasks, state.errs, report)
+    for err in state.errs:
+        err.path_segments = path_segments(err.path)
+    return state.errs
 
 
 def field_is_active(
@@ -118,117 +127,149 @@ def field_is_active(
     return ok
 
 
-def _seed(
-    e: Engine,
-    schema: Schema,
-    scope: NativeStruct,
-    prefix: str,
-    tasks: list[tuple[SchemaField, NativeStruct, str]],
-    root: NativeStruct,
-    errs: list[ValidationError],
-    *,
-    inherited: bool = False,
-) -> None:
-    # The root's Coerce applies to the whole tree: a nested schema need not
-    # re-declare it.
-    coerce = schema.coerce or inherited
-    for f in schema.fields:
-        name = f.name
-        path = join_path(prefix, name)
-        if not field_is_active(e, f, root, path, errs):
-            continue
-        if coerce and name in scope:
-            coerced = coerce_input(f, scope[name])
-            if coerced is not None:
-                scope[name] = coerced
-        if f.immutable or name not in scope:
-            dv = default_value(f)
-            if dv is not None:
-                scope[name] = dv
+class _Resolver:
+    def __init__(self, engine: Engine, root: NativeStruct, report: ResolveReport | None) -> None:
+        self.engine = engine
+        self.root = root
+        self.report = report
+        self.errs: list[ValidationError] = []
+        self.tasks: list[tuple[SchemaField, Callable[[Native], None], str]] = []
+        self.gates: dict[str, bool] = {}
+        self.gate_errors: set[tuple[str, str | None]] = set()
+        self.inactive: set[str] = set()
 
-        cur = scope.get(name)
-        if f.computed is not None:
-            tasks.append((f, scope, path))
-        elif f.object is not None and f.object.schema is not None and isinstance(cur, dict):
-            _seed(e, f.object.schema, cur, path, tasks, root, errs, inherited=coerce)
-        elif f.list is not None and len(f.list.items) >= 1 and isinstance(cur, list):
-            for i, el in enumerate(cur):
-                it = list_item_def(f.list, i)
-                sub = None if it is None else object_schema(it, el, e.schema.defs)
-                if sub is not None:
-                    _seed(e, sub[0], sub[1], f"{path}[{i}]", tasks, root, errs, inherited=coerce)
-        elif f.map is not None and f.map.value_schema is not None and isinstance(cur, dict):
-            for k, el in cur.items():
-                if isinstance(el, dict):
-                    _seed(
-                        e,
-                        f.map.value_schema,
-                        el,
-                        join_path(path, k),
-                        tasks,
-                        root,
-                        errs,
-                        inherited=coerce,
+    def object(
+        self, schema: Schema, scope: NativeStruct, path: str, inherited: bool, normalize: bool
+    ) -> None:
+        coerce = inherited or schema.coerce
+        for f in schema.fields:
+            self.field(
+                f,
+                scope.get(f.name),
+                f.name in scope,
+                partial(scope.__setitem__, f.name),
+                join_path(path, f.name),
+                coerce,
+                normalize,
+            )
+
+    def field(
+        self,
+        f: SchemaField,
+        cur: Native,
+        present: bool,
+        setter: Callable[[Native], None],
+        path: str,
+        coerce: bool,
+        normalize: bool,
+    ) -> None:
+        seeded = self.gates.get(path, False)
+        if not self.active(f, path):
+            return
+        if normalize and not seeded:
+
+            def seed_setter(value: Native) -> None:
+                nonlocal cur, present
+                cur, present = value, True
+                setter(value)
+
+            self.field(f, cur, present, seed_setter, path, coerce, normalize=False)
+        if not normalize:
+            if present and coerce:
+                out = coerce_input(f, cur)
+                if out is not None:
+                    cur = out
+                    setter(cur)
+                    _record(self.report, path, ResolveOperation.COERCED)
+            if not present or f.immutable:
+                out = default_value(f)
+                if out is not None:
+                    changed = not present or not native_equals(cur, out)
+                    cur, present = out, True
+                    setter(cur)
+                    if changed:
+                        _record(self.report, path, ResolveOperation.DEFAULT_APPLIED)
+        else:
+            if present and cur is not None and f.normalize:
+                out, err = self.engine.eval(f.normalize, {"this": cur, "root": self.root})
+                if err is not None:
+                    self.errs.append(expr_err(path, f.normalize, f"normalize: {err}"))
+                else:
+                    changed = not native_equals(cur, out)
+                    cur = out
+                    setter(cur)
+                    if changed:
+                        _record(self.report, path, ResolveOperation.NORMALIZED)
+                        self.children(f, cur, path, coerce, normalize=False)
+            if f.computed is not None:
+                self.tasks.append((f, setter, path))
+                return
+        if present and cur is not None:
+            self.children(f, cur, path, coerce, normalize)
+
+    def active(self, f: SchemaField, path: str) -> bool:
+        errors: list[ValidationError] = []
+        active = field_is_active(self.engine, f, self.root, path, errors)
+        key = (path, f.when)
+        if errors and key not in self.gate_errors:
+            self.errs.extend(errors)
+            self.gate_errors.add(key)
+        self.gates[path] = active
+        if not active and path not in self.inactive:
+            _record(self.report, path, ResolveOperation.INACTIVE)
+            self.inactive.add(path)
+        return active
+
+    def children(
+        self, f: SchemaField, cur: Native, path: str, coerce: bool, normalize: bool
+    ) -> None:
+        sub = object_schema(f, cur, self.engine.schema.defs)
+        if sub is not None:
+            self.object(sub[0], sub[1], path, coerce, normalize)
+            return
+        if f.list is not None and isinstance(cur, list):
+            for i, value in enumerate(cur):
+                item = list_item_def(f.list, i)
+                if item is not None:
+                    self.field(
+                        item,
+                        value,
+                        True,  # noqa: FBT003 - every existing collection slot is present
+                        partial(cur.__setitem__, i),
+                        f"{path}[{i}]",
+                        coerce,
+                        normalize,
                     )
-        elif f.one_of is not None:
-            sel = select_variant(f.one_of, cur)
-            if sel is not None:
-                _seed(e, sel[0], sel[1], path, tasks, root, errs, inherited=coerce)
-        elif f.ref is not None:
-            def_ = e.schema.defs.get(ref_def_key(f.ref))
-            if def_ is not None and isinstance(cur, dict):
-                _seed(e, def_, cur, path, tasks, root, errs, inherited=coerce)
+        if f.map is not None and isinstance(cur, dict):
+            for key in sorted(cur):
+                value, child_path = cur[key], join_path(path, key)
+                if f.map.value_field is not None:
+                    self.field(
+                        f.map.value_field,
+                        value,
+                        True,  # noqa: FBT003 - every existing collection slot is present
+                        partial(cur.__setitem__, key),
+                        child_path,
+                        coerce,
+                        normalize,
+                    )
+                elif f.map.value_schema is not None and isinstance(value, dict):
+                    self.object(f.map.value_schema, value, child_path, coerce, normalize)
 
 
-def _run_normalize(
-    e: Engine,
-    schema: Schema,
-    scope: NativeStruct,
-    root: NativeStruct,
-    errs: list[ValidationError],
-) -> None:
-    for f in schema.fields:
-        name = f.name
-        cur = scope.get(name)
-        if cur is None:
-            continue
-        if not field_is_active(e, f, root, name, None):
-            continue
-        norm = f.normalize or ""
-        if norm != "":
-            value, err = e.eval(norm, {"this": cur, "root": root})
-            if err is not None:
-                errs.append(expr_err(name, norm, f"normalize: {err}"))
-            else:
-                scope[name] = value
-                cur = value
-        if f.object is not None and f.object.schema is not None and isinstance(cur, dict):
-            _run_normalize(e, f.object.schema, cur, root, errs)
-        elif f.list is not None and len(f.list.items) >= 1 and isinstance(cur, list):
-            for i, el in enumerate(cur):
-                it = list_item_def(f.list, i)
-                sub = None if it is None else object_schema(it, el, e.schema.defs)
-                if sub is not None:
-                    _run_normalize(e, sub[0], sub[1], root, errs)
-        elif f.map is not None and f.map.value_schema is not None and isinstance(cur, dict):
-            for el in cur.values():
-                if isinstance(el, dict):
-                    _run_normalize(e, f.map.value_schema, el, root, errs)
-        elif f.one_of is not None:
-            sel = select_variant(f.one_of, cur)
-            if sel is not None:
-                _run_normalize(e, sel[0], sel[1], root, errs)
-        elif f.ref is not None:
-            def_ = e.schema.defs.get(ref_def_key(f.ref))
-            if def_ is not None and isinstance(cur, dict):
-                _run_normalize(e, def_, cur, root, errs)
+def _record(report: ResolveReport | None, path: str, operation: ResolveOperation) -> None:
+    if report is not None:
+        report.events.append(
+            ResolveEvent(path=path, path_segments=path_segments(path), operation=operation)
+        )
 
 
 def _run_compute(
     e: Engine,
     root: NativeStruct,
-    tasks: list[tuple[SchemaField, NativeStruct, str]],
+    tasks: list[tuple[SchemaField, Callable[[Native], None], str]],
     errs: list[ValidationError],
+    report: ResolveReport | None = None,
 ) -> None:
     if not tasks:
         return
@@ -272,7 +313,8 @@ def _run_compute(
                 expr_err(path, f.computed.expr, "compute: result does not match declared type")
             )
             continue
-        scope[f.name] = shaped
+        scope(shaped)
+        _record(report, path, ResolveOperation.COMPUTED)
 
 
 _MISMATCH = object()
@@ -342,6 +384,10 @@ def coerce_input(f: SchemaField, val: Native) -> Native | None:
 
 
 def default_value(f: SchemaField) -> Native | None:
+    if f.object is not None and f.object.default is not None:
+        return {}
+    if f.ref is not None and f.ref.default is not None:
+        return {}
     if f.float is not None and f.float.default is not None:
         return cast("Native", f.float.default)
     if f.double is not None and f.double.default is not None:

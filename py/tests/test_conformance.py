@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 import schemapb as spb
-from schemapb._gen.schemapb import ErrorCode, Schema, StructValue, ValidationResult
+from schemapb._gen.schemapb import ErrorCode, ResolveReport, Schema, StructValue, ValidationResult
 
 GOLDEN = Path(__file__).parent.parent.parent / "conformance" / "golden"
 
@@ -134,3 +134,32 @@ def test_nested_ref_conformance(case: dict[str, object]) -> None:
         assert again.result.errors == []
         assert again.baked is not None
         assert again.baked.values == expected
+
+
+@pytest.mark.parametrize(
+    "case", json.loads(golden("recursive-resolve.json")), ids=lambda c: c["name"]
+)
+def test_recursive_resolve_conformance(case: dict[str, object]) -> None:
+    e = spb.compile_schema(Schema().from_json(json.dumps(case["schema"])))
+    wire_input = StructValue().from_json(json.dumps(case["input"]))
+    outcome = e.bake_detailed(spb.struct_to_native(wire_input))
+    plain = e.bake(spb.struct_to_native(wire_input))
+    assert plain.baked == outcome.baked
+    assert plain.result == outcome.result
+    for err in outcome.result.errors:
+        err.message = ""
+    assert outcome.result == ValidationResult().from_json(json.dumps(case["result"]))
+    assert outcome.report == ResolveReport().from_json(json.dumps(case["report"]))
+    if "baked" not in case:
+        assert outcome.baked is None
+    else:
+        assert outcome.baked is not None
+        assert outcome.baked.values == StructValue().from_json(json.dumps(case["baked"]))
+
+
+@pytest.mark.parametrize(
+    "case", json.loads(golden("object-default-errors.json")), ids=lambda c: c["name"]
+)
+def test_nonempty_object_default(case: dict[str, object]) -> None:
+    with pytest.raises(spb.SchemaError):
+        spb.compile_schema(Schema().from_json(json.dumps(case["schema"])))

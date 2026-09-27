@@ -9,7 +9,7 @@ import { fieldIsActive } from "./compute.js";
 import type { Engine } from "./engine.js";
 import type { ValidationResult } from "./gen/schemapb/errors_pb.js";
 import type { Baked, Filled } from "./gen/schemapb/runtime_pb.js";
-import { BakedSchema } from "./gen/schemapb/runtime_pb.js";
+import { BakedSchema, type ResolveReport, ResolveReportSchema } from "./gen/schemapb/runtime_pb.js";
 import type { Schema, Schema_Field } from "./gen/schemapb/schema_pb.js";
 import { SchemaSchema } from "./gen/schemapb/schema_pb.js";
 import type { StructValue, Value } from "./gen/schemapb/value_pb.js";
@@ -29,22 +29,23 @@ import {
 export interface BakeOutcome {
   baked?: Baked;
   result: ValidationResult;
+  report?: ResolveReport;
 }
 
 /**
  * Validates and resolves values, then seals them (canonical wire variants).
  * On a blocking failure `baked` is absent; warnings do not block.
  */
-export function bake(e: Engine, values: NativeStruct): BakeOutcome {
-  const result = validate(e, values);
+export function bake(e: Engine, values: NativeStruct, report?: ResolveReport): BakeOutcome {
+  const result = validate(e, values, report);
   if (resultBlocking(result)) {
-    return { result };
+    return { result, ...(report ? { report } : {}) };
   }
   const baked = create(BakedSchema, {
     schema: e.schema,
     values: canonicalEngineStruct(e, values),
   });
-  return { baked, result };
+  return { baked, result, ...(report ? { report } : {}) };
 }
 
 /** Projects a resolved native form into canonical wire variants. */
@@ -52,17 +53,24 @@ function canonicalEngineStruct(e: Engine, values: NativeStruct): StructValue {
   const fields: Record<string, Value> = {};
   for (const [name, val] of Object.entries(values)) {
     const f = e.schema.fields.find((x) => x.name === name);
-    fields[name] = canonicalTop(e, f, val);
+    fields[name] = canonicalTop(e, f, val, values);
   }
   return create(StructValueSchema, { fields });
 }
 
-function canonicalTop(e: Engine, f: Schema_Field | undefined, val: Native): Value {
+function canonicalTop(
+  e: Engine,
+  f: Schema_Field | undefined,
+  val: Native,
+  root: NativeStruct,
+): Value {
   if (f === undefined) {
     return fromNative(val);
   }
   try {
-    return canonicalValue(f, val, e.schema.defs);
+    return canonicalValue(f, val, e.schema.defs, (field) =>
+      fieldIsActive(e, field, root, "", undefined),
+    );
   } catch {
     return fromNative(val);
   }
@@ -170,4 +178,12 @@ export function buildRenderContext(e: Engine, values: NativeStruct): RenderConte
 /** Renders a Baked snapshot with a template of its embedded schema. */
 export function renderBaked(e: Engine, baked: Baked, name: TemplateName): string | undefined {
   return render(e, name, structToNative(baked.values));
+}
+
+export function bakeDetailed(
+  e: Engine,
+  values: NativeStruct,
+): BakeOutcome & { report: ResolveReport } {
+  const report = create(ResolveReportSchema);
+  return { ...bake(e, values, report), report };
 }

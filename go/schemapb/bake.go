@@ -23,7 +23,33 @@ func (s *Schema) Bake(values map[string]any) (*Baked, *ValidationResult, error) 
 
 // Bake is the compiled-engine form of (*Schema).Bake.
 func (e *Engine) Bake(values map[string]any) (*Baked, *ValidationResult, error) {
-	res := e.Validate(values) // resolves values in place + checks
+	return e.bakeDetailed(values, nil)
+}
+
+// BakeDetailed performs the same execution as Bake and records schema operations.
+// A failed bake still returns its partial report. Events contain no values.
+func (s *Schema) BakeDetailed(values map[string]any) (*Baked, *ValidationResult, *ResolveReport, error) {
+	e, err := s.engine()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return e.BakeDetailed(values)
+}
+
+func (e *Engine) BakeDetailed(values map[string]any) (*Baked, *ValidationResult, *ResolveReport, error) {
+	report := &ResolveReport{}
+	baked, result, err := e.bakeDetailed(values, report)
+
+	return baked, result, report, err
+}
+
+func (e *Engine) bakeDetailed(values map[string]any, report *ResolveReport) (*Baked, *ValidationResult, error) {
+	if values == nil {
+		values = map[string]any{}
+	}
+
+	res := e.validateDetailed(values, report)
 	if res.Blocking() {
 		return nil, res, nil
 	}
@@ -52,7 +78,15 @@ func (e *Engine) canonicalStruct(values map[string]any) (*StructValue, error) {
 		if f == nil {
 			v, err = FromGo(val)
 		} else {
-			v, err = canonicalValue(f, val, e.sch().GetDefs())
+			v, err = canonicalValue(f, val, e.sch().GetDefs(), func(field *Schema_Field) bool {
+				if field.GetWhen() == "" {
+					return true
+				}
+
+				active, err := e.evalBool(field.GetWhen(), map[string]any{"this": nil, "root": values})
+
+				return err == nil && active
+			})
 		}
 
 		if err != nil {

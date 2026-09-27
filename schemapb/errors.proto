@@ -110,6 +110,9 @@ message ValidationError {
   /* Human-readable message rendered from the spec's shared template set.
    * Informative only — NOT part of the conformance contract. */
   string message = 9;
+  /* Structured counterpart of path; empty for the root.
+   */
+  repeated PathSegment path_segments = 10;
 }
 
 /*

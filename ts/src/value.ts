@@ -276,7 +276,9 @@ export function canonicalValue(
   f: Schema_Field,
   x: Native,
   defs: Record<string, Schema> = {},
+  active?: (f: Schema_Field) => boolean,
 ): Value {
+  if (active && !active(f)) return fromNative(x);
   if (x === null) {
     return nullV();
   }
@@ -334,7 +336,7 @@ export function canonicalValue(
       return listV(
         ...x.map((el, i) => {
           const item = items.length === 1 ? items[0] : items[i];
-          return item === undefined ? fromNative(el) : canonicalValue(item, el, defs);
+          return item === undefined ? fromNative(el) : canonicalValue(item, el, defs, active);
         }),
       );
     }
@@ -343,7 +345,7 @@ export function canonicalValue(
         fail(`field ${f.name}: not an object`);
       }
       const schema = kind.value.schema;
-      return schema === undefined ? fromNative(x) : canonicalStruct(schema, x, defs);
+      return schema === undefined ? fromNative(x) : canonicalStruct(schema, x, defs, active);
     }
     case "map": {
       if (!isNativeStruct(x)) {
@@ -354,9 +356,9 @@ export function canonicalValue(
       const fields: Record<string, Value> = {};
       for (const [key, el] of Object.entries(x)) {
         if (vf !== undefined) {
-          fields[key] = canonicalValue(vf, el, defs);
+          fields[key] = canonicalValue(vf, el, defs, active);
         } else if (vs !== undefined && isNativeStruct(el)) {
-          fields[key] = canonicalStruct(vs, el, defs);
+          fields[key] = canonicalStruct(vs, el, defs, active);
         } else {
           fields[key] = fromNative(el);
         }
@@ -367,7 +369,7 @@ export function canonicalValue(
       return fromNative(x);
     default: {
       const sub = objectSchema(f, x, defs);
-      return sub === undefined ? fromNative(x) : canonicalStruct(sub[0], sub[1], defs);
+      return sub === undefined ? fromNative(x) : canonicalStruct(sub[0], sub[1], defs, active);
     }
   }
 }
@@ -377,11 +379,12 @@ export function canonicalStruct(
   s: Schema,
   m: NativeStruct,
   defs: Record<string, Schema> = s.defs,
+  active?: (f: Schema_Field) => boolean,
 ): Value {
   const fields: Record<string, Value> = {};
   for (const [key, el] of Object.entries(m)) {
     const fld = s.fields.find((f) => f.name === key);
-    fields[key] = fld === undefined ? fromNative(el) : canonicalValue(fld, el, defs);
+    fields[key] = fld === undefined ? fromNative(el) : canonicalValue(fld, el, defs, active);
   }
   return structV(fields);
 }

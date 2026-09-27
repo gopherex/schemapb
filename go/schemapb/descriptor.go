@@ -1,6 +1,8 @@
 package schemapb
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -129,6 +131,14 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 			continue
 		}
 
+		if len(f.GetObject().GetDefault().GetFields()) != 0 || len(f.GetRef().GetDefault().GetFields()) != 0 {
+			errs = append(errs, schemaErr(path, "object default must be empty"))
+		}
+
+		if f.GetImmutable() && (f.GetObject().GetDefault() != nil || f.GetRef().GetDefault() != nil) {
+			errs = append(errs, schemaErr(path, "object default cannot be immutable"))
+		}
+
 		for i, r := range f.GetRules() {
 			if r.GetExpr() == "" {
 				errs = append(errs, schemaErr(path, fmt.Sprintf("rule[%d]: empty expression", i)))
@@ -227,9 +237,19 @@ func checkRefTargets(fields []*Schema_Field, rootDefs map[string]*Schema, prefix
 
 // joinPath joins two path segments with a dot, tolerating empty prefixes.
 func joinPath(prefix, name string) string {
-	if prefix == "" {
-		return name
+	if name != "" && !strings.ContainsAny(name, ".[]\"\\") {
+		if prefix == "" {
+			return name
+		}
+
+		return prefix + "." + name
 	}
 
-	return prefix + "." + name
+	var quoted bytes.Buffer
+
+	encoder := json.NewEncoder(&quoted)
+	encoder.SetEscapeHTML(false)
+	_ = encoder.Encode(name) //nolint:errchkjson // strings always encode into bytes.Buffer
+
+	return prefix + "[" + strings.TrimSuffix(quoted.String(), "\n") + "]"
 }

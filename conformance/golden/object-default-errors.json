@@ -1,0 +1,79 @@
+[
+  {
+    "name": "object",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "invalid_default",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "object": {
+            "schema": {
+              "fields": [
+                {
+                  "name": "port",
+                  "int64": {}
+                }
+              ]
+            },
+            "default": {
+              "fields": {
+                "port": {
+                  "int64Value": "5432"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "defs": {
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {}
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "ref",
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "invalid_default",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "db",
+          "ref": {
+            "name": "db",
+            "default": {
+              "fields": {
+                "port": {
+                  "int64Value": "5432"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "defs": {
+        "db": {
+          "fields": [
+            {
+              "name": "port",
+              "int64": {}
+            }
+          ]
+        }
+      }
+    }
+  }
+]

@@ -72,6 +72,22 @@ pub struct StructValue {
     #[prost(map="string, message", tag="1")]
     pub fields: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
 }
+/// Unambiguous location in a value tree. Keys may contain any characters.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PathSegment {
+    #[prost(oneof="path_segment::Segment", tags="1, 2")]
+    pub segment: ::core::option::Option<path_segment::Segment>,
+}
+/// Nested message and enum types in `PathSegment`.
+pub mod path_segment {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Segment {
+        #[prost(string, tag="1")]
+        Key(::prost::alloc::string::String),
+        #[prost(uint64, tag="2")]
+        Index(u64),
+    }
+}
 /// NullValue is the singleton null. 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -198,10 +214,10 @@ pub mod schema {
         /// Human description of the field. 
         #[prost(string, optional, tag="2")]
         pub description: ::core::option::Option<::prost::alloc::string::String>,
-        /// If true, the value may be null/empty. 
+        /// If true, an explicitly present null is allowed, even when required.
         #[prost(bool, tag="3")]
         pub nullable: bool,
-        /// If true, the value must be present. 
+        /// If true, the key must be present. Null is governed by nullable.
         #[prost(bool, tag="4")]
         pub required: bool,
         /// Cross-field CEL validation rules (`this` is bound to this field). 
@@ -669,6 +685,11 @@ pub mod schema {
             /// Nested object schema. 
             #[prost(message, optional, tag="1")]
             pub schema: ::core::option::Option<super::super::Schema>,
+            /// Only an empty object is supported. When absent, materialize a fresh
+            /// object and resolve its children. Explicit null and inactive fields
+            /// are never replaced. Nonempty defaults are invalid schemas.
+            #[prost(message, optional, tag="2")]
+            pub default: ::core::option::Option<super::super::StructValue>,
         }
         ///
         /// Map field kind: free-form string keys (never rejected — e.g. user-chosen
@@ -696,8 +717,9 @@ pub mod schema {
             /// a list, ...). The definition's `name` is ignored; its kind and
             /// constraints apply to each value, error paths name the map key
             /// ("limits.cpu"). Mutually exclusive with `value_schema`. Value
-            /// fields are validated and canonicalized; resolve does not seed
-            /// defaults or run normalize/computed inside map values. 
+            /// fields undergo the same recursive resolve as ordinary fields,
+            /// including inherited coercion, normalize and computed. Missing map
+            /// entries are never invented; explicit null retains its presence.
             #[prost(message, optional, boxed, tag="4")]
             pub value_field: ::core::option::Option<::prost::alloc::boxed::Box<super::Field>>,
         }
@@ -771,8 +793,11 @@ pub mod schema {
         ///      either present in the root defs under its identity key, or pulled
         ///      in by Link(resolver) before validation. An id-ref to a schema not
         ///      present in defs is ERROR_CODE_UNKNOWN_REF at validate time.
-        #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+        #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Ref {
+            /// Same empty-object default contract as Object.default.
+            #[prost(message, optional, tag="3")]
+            pub default: ::core::option::Option<super::super::StructValue>,
             #[prost(oneof="r#ref::Target", tags="1, 2")]
             pub target: ::core::option::Option<r#ref::Target>,
         }
@@ -993,6 +1018,9 @@ pub struct ValidationError {
     /// Informative only — NOT part of the conformance contract. 
     #[prost(string, tag="9")]
     pub message: ::prost::alloc::string::String,
+    /// Structured counterpart of path; empty for the root.
+    #[prost(message, repeated, tag="10")]
+    pub path_segments: ::prost::alloc::vec::Vec<PathSegment>,
 }
 ///
 /// ValidationResult is the complete outcome of validating a form.
@@ -1201,6 +1229,62 @@ pub struct Baked {
     /// The final, resolved values — frozen. 
     #[prost(message, optional, tag="2")]
     pub values: ::core::option::Option<StructValue>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResolveEvent {
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub path_segments: ::prost::alloc::vec::Vec<PathSegment>,
+    #[prost(enumeration="ResolveOperation", tag="3")]
+    pub operation: i32,
+}
+/// Execution order: seed, normalize, dependency-ordered computed. Fields use
+/// declaration order, lists index order, maps UTF-8 key order. Available even
+/// after failure; events describe completed operations, not a valid snapshot.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResolveReport {
+    #[prost(message, repeated, tag="1")]
+    pub events: ::prost::alloc::vec::Vec<ResolveEvent>,
+}
+/// Operations performed while resolving a form. No values or expressions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ResolveOperation {
+    Unspecified = 0,
+    DefaultApplied = 1,
+    Coerced = 2,
+    Normalized = 3,
+    Computed = 4,
+    Inactive = 5,
+}
+impl ResolveOperation {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "RESOLVE_OPERATION_UNSPECIFIED",
+            Self::DefaultApplied => "RESOLVE_OPERATION_DEFAULT_APPLIED",
+            Self::Coerced => "RESOLVE_OPERATION_COERCED",
+            Self::Normalized => "RESOLVE_OPERATION_NORMALIZED",
+            Self::Computed => "RESOLVE_OPERATION_COMPUTED",
+            Self::Inactive => "RESOLVE_OPERATION_INACTIVE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "RESOLVE_OPERATION_UNSPECIFIED" => Some(Self::Unspecified),
+            "RESOLVE_OPERATION_DEFAULT_APPLIED" => Some(Self::DefaultApplied),
+            "RESOLVE_OPERATION_COERCED" => Some(Self::Coerced),
+            "RESOLVE_OPERATION_NORMALIZED" => Some(Self::Normalized),
+            "RESOLVE_OPERATION_COMPUTED" => Some(Self::Computed),
+            "RESOLVE_OPERATION_INACTIVE" => Some(Self::Inactive),
+            _ => None,
+        }
+    }
 }
 include!("schemapb.serde.rs");
 // @@protoc_insertion_point(module)

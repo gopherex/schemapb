@@ -47,3 +47,26 @@ message Baked {
   /* The final, resolved values — frozen. */
   StructValue values = 2;
 }
+
+/* Operations performed while resolving a form. No values or expressions.
+ */
+enum ResolveOperation {
+  RESOLVE_OPERATION_UNSPECIFIED = 0;
+  RESOLVE_OPERATION_DEFAULT_APPLIED = 1;
+  RESOLVE_OPERATION_COERCED = 2;
+  RESOLVE_OPERATION_NORMALIZED = 3;
+  RESOLVE_OPERATION_COMPUTED = 4;
+  RESOLVE_OPERATION_INACTIVE = 5;
+}
+message ResolveEvent {
+  string path = 1;
+  repeated PathSegment path_segments = 2;
+  ResolveOperation operation = 3;
+}
+/* Execution order: seed, normalize, dependency-ordered computed. Fields use
+ * declaration order, lists index order, maps UTF-8 key order. Available even
+ * after failure; events describe completed operations, not a valid snapshot.
+ */
+message ResolveReport {
+  repeated ResolveEvent events = 1;
+}

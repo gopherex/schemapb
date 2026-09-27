@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 from schemapb._gen.schemapb import (
@@ -33,7 +34,9 @@ def schema_err(path: str, msg: str) -> ValidationError:
 
 
 def join_path(prefix: str, name: str) -> str:
-    return name if prefix == "" else f"{prefix}.{name}"
+    if name and not any(c in name for c in '.[]"\\'):
+        return f"{prefix}.{name}" if prefix else name
+    return prefix + "[" + json.dumps(name, ensure_ascii=False) + "]"
 
 
 def nested_schemas(f: SchemaField) -> list[Schema]:
@@ -105,6 +108,19 @@ def _check_fields(fields: list[SchemaField], prefix: str) -> list[ValidationErro
     seen: set[str] = set()
     for f in fields:
         path = join_path(prefix, f.name)
+        object_default = (
+            f.object.default
+            if f.object is not None
+            else f.ref.default
+            if f.ref is not None
+            else None
+        )
+        if object_default is not None:
+            if object_default.fields:
+                errs.append(schema_err(path, "object default must be empty"))
+            if f.immutable:
+                errs.append(schema_err(path, "object default cannot be immutable"))
+
         if f.name == "":
             errs.append(schema_err(prefix, "field name is required"))
             continue

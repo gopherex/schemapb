@@ -30,6 +30,10 @@ func (s *Schema) Validate(values map[string]any) (*ValidationResult, error) {
 
 // Validate is the compiled-engine form of (*Schema).Validate.
 func (e *Engine) Validate(values map[string]any) *ValidationResult {
+	return e.validateDetailed(values, nil)
+}
+
+func (e *Engine) validateDetailed(values map[string]any, report *ResolveReport) *ValidationResult {
 	if values == nil {
 		values = map[string]any{}
 	}
@@ -38,13 +42,15 @@ func (e *Engine) Validate(values map[string]any) *ValidationResult {
 	// Immutable changes are checked on the raw input, before resolve forces
 	// the values back to their defaults.
 	e.checkImmutable(e.sch().GetFields(), values, "", values, res)
-	_, resolved := e.Resolve(values)
+	_, resolved := e.resolveDetailed(values, report)
 	res.Errors = append(res.Errors, resolved.GetErrors()...)
 	e.validateFields(e.sch(), values, values, "", res)
 
 	for _, r := range e.sch().GetRules() {
 		e.evalRule(r, ruleErrPath(r), nil, values, nil, res)
 	}
+
+	completeErrorPaths(res)
 
 	return res
 }
@@ -117,66 +123,73 @@ func mask(errs []*ValidationError, secret bool) []*ValidationError {
 // checkImmutable reports a submitted value that differs from an immutable
 // field's default (a system-fixed value cannot be changed). Walks present
 // containers. Only enforced when a default exists.
-//
-//nolint:gocognit,cyclop // container traversal mirrors the schema tree
 func (e *Engine) checkImmutable(
-	fields []*Schema_Field, scope map[string]any, prefix string,
-	root map[string]any, res *ValidationResult,
+	fields []*Schema_Field, scope map[string]any, prefix string, root map[string]any, res *ValidationResult,
 ) {
 	for _, f := range fields {
-		name := f.GetName()
-		path := joinPath(prefix, name)
+		if value, present := scope[f.GetName()]; present {
+			e.checkImmutableValue(f, value, joinPath(prefix, f.GetName()), root, res)
+		}
+	}
+}
 
-		if f.GetWhen() != "" {
-			if ok, err := e.evalBool(f.GetWhen(), map[string]any{"this": nil, "root": root}); err != nil || !ok {
-				continue
-			}
+func (e *Engine) checkImmutableValue(
+	f *Schema_Field, value any, path string, root map[string]any, res *ValidationResult,
+) {
+	if f.GetWhen() != "" {
+		if active, err := e.evalBool(f.GetWhen(), map[string]any{"this": nil, "root": root}); err != nil || !active {
+			return
+		}
+	}
+
+	if f.GetImmutable() {
+		if out, ok := jsonNumberInput(f, value); ok {
+			value = out
 		}
 
-		if f.GetImmutable() {
-			if cur, ok := scope[name]; ok {
-				if dv, has := defaultValue(f); has && !nativeEqual(cur, dv) {
-					expected, _ := CanonicalValue(f, dv)
-					actual, _ := FromGo(cur)
-					err := verr(path, ErrorCode_ERROR_CODE_IMMUTABLE_MODIFIED, "immutable", expected, actual)
-					res.Errors = append(res.Errors, mask([]*ValidationError{err}, f.GetSecret())...)
+		if dv, has := defaultValue(f); has && !nativeEqual(value, dv) {
+			expected, _ := CanonicalValue(f, dv)
+			actual, _ := FromGo(value)
+			failure := verr(path, ErrorCode_ERROR_CODE_IMMUTABLE_MODIFIED, "immutable", expected, actual)
+			res.Errors = append(res.Errors, mask([]*ValidationError{failure}, f.GetSecret())...)
+		}
+
+		return
+	}
+
+	if sub, scope := objectSchema(f, value, e.sch().GetDefs()); sub != nil {
+		e.checkImmutable(sub.GetFields(), scope, path, root, res)
+		return
+	}
+
+	if list := f.GetList(); list != nil {
+		if items, ok := value.([]any); ok {
+			for i, item := range items {
+				if def := listItemDef(list, i); def != nil {
+					e.checkImmutableValue(def, item, fmt.Sprintf("%s[%d]", path, i), root, res)
 				}
 			}
-
-			continue
 		}
+	}
 
-		if o := f.GetObject(); o != nil && o.GetSchema() != nil {
-			if child, ok := scope[name].(map[string]any); ok {
-				e.checkImmutable(o.GetSchema().GetFields(), child, path, root, res)
-			}
-		}
+	if mp := f.GetMap(); mp != nil {
+		e.checkImmutableMap(mp, value, path, root, res)
+	}
+}
 
-		if l := f.GetList(); l != nil && len(l.GetItems()) >= 1 { //nolint:nestif // per-index tuple/list descent
-			if arr, ok := scope[name].([]any); ok {
-				for i, el := range arr {
-					it := listItemDef(l, i)
-					if it == nil {
-						continue
-					}
+func (e *Engine) checkImmutableMap(
+	mp *Schema_Field_Map, value any, path string, root map[string]any, res *ValidationResult,
+) {
+	values, ok := value.(map[string]any)
+	if !ok {
+		return
+	}
 
-					if o := it.GetObject(); o != nil && o.GetSchema() != nil {
-						if m, isObj := el.(map[string]any); isObj {
-							e.checkImmutable(o.GetSchema().GetFields(), m, fmt.Sprintf("%s[%d]", path, i), root, res)
-						}
-					}
-				}
-			}
-		}
-
-		if mp := f.GetMap(); mp != nil && mp.GetValueSchema() != nil {
-			if mm, ok := scope[name].(map[string]any); ok {
-				for _, k := range slices.Sorted(maps.Keys(mm)) {
-					if m, isObj := mm[k].(map[string]any); isObj {
-						e.checkImmutable(mp.GetValueSchema().GetFields(), m, joinPath(path, k), root, res)
-					}
-				}
-			}
+	for _, key := range slices.Sorted(maps.Keys(values)) {
+		if def := mp.GetValueField(); def != nil {
+			e.checkImmutableValue(def, values[key], joinPath(path, key), root, res)
+		} else if scope, isObject := values[key].(map[string]any); isObject && mp.GetValueSchema() != nil {
+			e.checkImmutable(mp.GetValueSchema().GetFields(), scope, joinPath(path, key), root, res)
 		}
 	}
 }
@@ -251,6 +264,12 @@ func (e *Engine) validateOne(
 	f *Schema_Field, val any, exists bool, path string,
 	root, extra map[string]any, res *ValidationResult,
 ) {
+	if f.GetWhen() != "" {
+		if ok, err := e.evalBool(f.GetWhen(), map[string]any{"this": nil, "root": root}); err != nil || !ok {
+			return
+		}
+	}
+
 	if !exists {
 		if f.GetRequired() {
 			res.Errors = append(res.Errors, verr(path, ErrorCode_ERROR_CODE_REQUIRED_MISSING, "required", nil, nil))
@@ -260,10 +279,7 @@ func (e *Engine) validateOne(
 	}
 
 	if val == nil {
-		switch {
-		case f.GetRequired():
-			res.Errors = append(res.Errors, verr(path, ErrorCode_ERROR_CODE_REQUIRED_MISSING, "required", nil, nil))
-		case !f.GetNullable():
+		if !f.GetNullable() {
 			res.Errors = append(res.Errors, verr(path, ErrorCode_ERROR_CODE_NOT_NULLABLE, "nullable", nil, NullV()))
 		}
 

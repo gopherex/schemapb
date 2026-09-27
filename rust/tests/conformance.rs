@@ -412,3 +412,51 @@ fn nested_ref_conformance() {
         }
     }
 }
+
+#[test]
+fn recursive_resolve_conformance() {
+    use schemapb::gen::schemapb::ResolveReport;
+    use schemapb::value::struct_to_native;
+    let cases: serde_json::Value = serde_json::from_str(&golden("recursive-resolve.json")).unwrap();
+    for case in cases.as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let schema: Schema = serde_json::from_value(case["schema"].clone()).unwrap();
+        let e = Engine::compile(schema, schemapb::formats::FormatRegistry::new()).unwrap();
+        let input: StructValue = serde_json::from_value(case["input"].clone()).unwrap();
+        let mut outcome = e.bake_detailed(&mut struct_to_native(Some(&input)));
+        let plain = e.bake(&mut struct_to_native(Some(&input)));
+        assert_eq!(plain.baked, outcome.baked, "{name}: same bake");
+        assert_eq!(plain.result, outcome.result, "{name}: same validation");
+        for err in &mut outcome.result.errors {
+            err.message.clear();
+        }
+        let result: ValidationResult = serde_json::from_value(case["result"].clone()).unwrap();
+        let report: ResolveReport = serde_json::from_value(case["report"].clone()).unwrap();
+        assert_eq!(outcome.result, result, "{name}: validation");
+        assert_eq!(outcome.report, Some(report), "{name}: report");
+        if case.get("baked").is_none() {
+            assert!(outcome.baked.is_none(), "{name}");
+        } else {
+            let expected: StructValue = serde_json::from_value(case["baked"].clone()).unwrap();
+            assert_eq!(
+                outcome.baked.unwrap().values,
+                Some(expected),
+                "{name}: values"
+            );
+        }
+    }
+}
+
+#[test]
+fn nonempty_object_defaults() {
+    let cases: serde_json::Value =
+        serde_json::from_str(&golden("object-default-errors.json")).unwrap();
+    for case in cases.as_array().unwrap() {
+        let schema: Schema = serde_json::from_value(case["schema"].clone()).unwrap();
+        assert!(
+            Engine::compile(schema, schemapb::formats::FormatRegistry::new()).is_err(),
+            "{}",
+            case["name"]
+        );
+    }
+}

@@ -516,15 +516,13 @@ fn select_path(expr: &cel_parser::Expression) -> Option<String> {
                 Member::Attribute(name) => name.as_ref().clone(),
                 Member::Index(idx) => match idx.as_ref() {
                     E::Atom(Atom::String(s)) => s.as_ref().clone(),
+                    E::Atom(Atom::Int(i)) if *i >= 0 => return Some(format!("{base}[{i}]")),
+                    E::Atom(Atom::UInt(i)) => return Some(format!("{base}[{i}]")),
                     _ => return None,
                 },
                 _ => return None,
             };
-            Some(if base.is_empty() {
-                key
-            } else {
-                format!("{base}.{key}")
-            })
+            Some(crate::descriptor::join_path(&base, &key))
         }
         _ => None,
     }
@@ -560,6 +558,10 @@ impl Engine {
     }
 
     /// Validate + resolve, then seal in canonical wire form.
+    pub fn bake_detailed(&self, values: &mut NativeStruct) -> crate::bake::BakeOutcome {
+        crate::bake::bake_detailed(self, values)
+    }
+
     pub fn bake(&self, values: &mut crate::value::NativeStruct) -> crate::bake::BakeOutcome {
         crate::bake::bake(self, values)
     }

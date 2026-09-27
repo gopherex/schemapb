@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from schemapb._gen.schemapb import (
     ErrorCode,
+    ResolveReport,
     Schema,
     SchemaField,
     SchemaFieldBytes,
@@ -33,16 +34,17 @@ from schemapb.compute import (
     field_is_active,
     is_tuple,
     list_item_def,
+    object_schema,
     ref_def_key,
     resolve,
 )
 from schemapb.descriptor import join_path
 from schemapb.duration import parse_go_duration, parse_rfc3339
 from schemapb.messages import MESSAGE_TEMPLATES, render_message
+from schemapb.path import path_segments
 from schemapb.render import display_string, native_equals
 from schemapb.typed import Format
 from schemapb.value import (
-    CanonicalError,
     Native,
     NativeStruct,
     as_float,
@@ -71,13 +73,17 @@ _UINT32_MAX = 2**32 - 1
 _UINT64_MAX = 2**64 - 1
 
 
-def validate(e: Engine, values: NativeStruct) -> ValidationResult:
+def validate(
+    e: Engine, values: NativeStruct, report: ResolveReport | None = None
+) -> ValidationResult:
     errs: list[ValidationError] = []
     _check_immutable(e, e.schema.fields, values, "", values, errs)
-    errs.extend(resolve(e, values))
+    errs.extend(resolve(e, values, report))
     _validate_fields(e, e.schema, values, values, "", errs)
     for r in e.schema.rules:
         _eval_rule(e, r, r.id or "", None, values, None, errs)
+    for err in errs:
+        err.path_segments = path_segments(err.path)
     return ValidationResult(errors=errs)
 
 
@@ -130,47 +136,58 @@ def _check_immutable(
     errs: list[ValidationError],
 ) -> None:
     for f in fields:
-        path = join_path(prefix, f.name)
-        if not field_is_active(e, f, root, path, None):
-            continue
-        if f.immutable:
-            if f.name in scope:
-                dv = default_value(f)
-                cur = scope[f.name]
-                if dv is not None and not native_equals(cur, dv):
-                    try:
-                        expected = canonical_value(f, dv)
-                    except CanonicalError:
-                        expected = from_native(dv)
-                    err = _verr(
-                        path,
-                        ErrorCode.IMMUTABLE_MODIFIED,
-                        "immutable",
-                        expected,
-                        from_native(cur),
-                    )
-                    errs.extend(_mask([err], secret=f.secret))
-            continue
-        cur = scope.get(f.name)
-        if f.object is not None and f.object.schema is not None and isinstance(cur, dict):
-            _check_immutable(e, f.object.schema.fields, cur, path, root, errs)
-        if f.list is not None and len(f.list.items) >= 1 and isinstance(cur, list):
-            for i, el in enumerate(cur):
-                it = list_item_def(f.list, i)
-                if (
-                    it is not None
-                    and it.object is not None
-                    and it.object.schema is not None
-                    and isinstance(el, dict)
-                ):
-                    _check_immutable(e, it.object.schema.fields, el, f"{path}[{i}]", root, errs)
-        if f.map is not None and f.map.value_schema is not None and isinstance(cur, dict):
-            for k in sorted(cur):
-                el = cur[k]
-                if isinstance(el, dict):
-                    _check_immutable(
-                        e, f.map.value_schema.fields, el, join_path(path, k), root, errs
-                    )
+        if f.name in scope:
+            _check_immutable_value(e, f, scope[f.name], join_path(prefix, f.name), root, errs)
+
+
+def _check_immutable_value(
+    e: Engine,
+    f: SchemaField,
+    value: Native,
+    path: str,
+    root: NativeStruct,
+    errs: list[ValidationError],
+) -> None:
+    if not field_is_active(e, f, root, path, None):
+        return
+    if f.immutable:
+        dv = default_value(f)
+        if dv is not None and not native_equals(value, dv):
+            errs.extend(
+                _mask(
+                    [
+                        _verr(
+                            path,
+                            ErrorCode.IMMUTABLE_MODIFIED,
+                            "immutable",
+                            canonical_value(f, dv),
+                            from_native(value),
+                        )
+                    ],
+                    secret=f.secret,
+                )
+            )
+        return
+    sub = object_schema(f, value, e.schema.defs)
+    if sub is not None:
+        _check_immutable(e, sub[0].fields, sub[1], path, root, errs)
+        return
+    if f.list is not None and isinstance(value, list):
+        for i, child in enumerate(value):
+            item = list_item_def(f.list, i)
+            if item is not None:
+                _check_immutable_value(e, item, child, f"{path}[{i}]", root, errs)
+    if f.map is not None and isinstance(value, dict):
+        for key in sorted(value):
+            child = value[key]
+            if f.map.value_field is not None:
+                _check_immutable_value(
+                    e, f.map.value_field, child, join_path(path, key), root, errs
+                )
+            elif f.map.value_schema is not None and isinstance(child, dict):
+                _check_immutable(
+                    e, f.map.value_schema.fields, child, join_path(path, key), root, errs
+                )
 
 
 def _validate_fields(
@@ -248,14 +265,14 @@ def _validate_one(
     index: int | None,
     errs: list[ValidationError],
 ) -> None:
+    if not field_is_active(e, f, root, path, None):
+        return
     if not exists:
         if f.required:
             errs.append(_verr(path, ErrorCode.REQUIRED_MISSING, "required", None, None))
         return
     if val is None:
-        if f.required:
-            errs.append(_verr(path, ErrorCode.REQUIRED_MISSING, "required", None, None))
-        elif not f.nullable:
+        if not f.nullable:
             errs.append(_verr(path, ErrorCode.NOT_NULLABLE, "nullable", None, null_v()))
         return
 

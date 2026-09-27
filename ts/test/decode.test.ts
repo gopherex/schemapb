@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { equals, fromBinary, fromJson, toBinary, toJson } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { ValidationResultSchema } from "../src/gen/schemapb/errors_pb.js";
-import { BakedSchema, FilledSchema } from "../src/gen/schemapb/runtime_pb.js";
+import { BakedSchema, FilledSchema, ResolveReportSchema } from "../src/gen/schemapb/runtime_pb.js";
 import { SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
 import { ListValueSchema, StructValueSchema } from "../src/gen/schemapb/value_pb.js";
 
@@ -37,6 +37,7 @@ describe("golden decoding", () => {
     const doc = JSON.parse(golden("full-coverage.json"));
     const schemas = {
       schema: SchemaSchema,
+      resolveReport: ResolveReportSchema,
       allValues: ListValueSchema,
       filledInline: FilledSchema,
       filledById: FilledSchema,

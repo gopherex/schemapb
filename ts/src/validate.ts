@@ -14,6 +14,7 @@ import {
   fieldIsActive,
   isTuple,
   listItemDef,
+  objectSchema,
   refDefKey,
   resolve,
 } from "./compute.js";
@@ -26,6 +27,7 @@ import {
   ValidationErrorSchema,
   ValidationResultSchema,
 } from "./gen/schemapb/errors_pb.js";
+import type { ResolveReport } from "./gen/schemapb/runtime_pb.js";
 import type {
   Schema,
   Schema_Field,
@@ -43,6 +45,7 @@ import type {
 import { Schema_Field_Severity } from "./gen/schemapb/schema_pb.js";
 import type { Value } from "./gen/schemapb/value_pb.js";
 import { messageTemplates, renderMessage } from "./messages.js";
+import { pathSegments, sortedKeys } from "./path.js";
 import { displayString, nativeEquals } from "./render.js";
 import type { Format } from "./typed.js";
 import {
@@ -77,14 +80,19 @@ const UINT64_MAX = 18446744073709551615n;
  * Validates form values against the compiled schema. values is mutated in
  * place by the resolve step. Every outcome lives in the ValidationResult.
  */
-export function validate(e: Engine, values: NativeStruct): ValidationResult {
+export function validate(
+  e: Engine,
+  values: NativeStruct,
+  report?: ResolveReport,
+): ValidationResult {
   const errs: ValidationError[] = [];
   checkImmutable(e, e.schema.fields, values, "", values, errs);
-  errs.push(...resolve(e, values));
+  errs.push(...resolve(e, values, report));
   validateFields(e, e.schema, values, values, "", errs);
   for (const r of e.schema.rules) {
     evalRule(e, r, r.id ?? "", null, values, undefined, errs);
   }
+  for (const err of errs) err.pathSegments = pathSegments(err.path);
   return create(ValidationResultSchema, { errors: errs });
 }
 
@@ -155,56 +163,57 @@ function checkImmutable(
   root: NativeStruct,
   errs: ValidationError[],
 ): void {
-  for (const f of fields) {
-    const path = joinPath(prefix, f.name);
-    if (!fieldIsActive(e, f, root, path, undefined)) {
-      continue;
-    }
-    if (f.immutable) {
-      if (f.name in scope) {
-        const dv = defaultOf(f);
-        const cur = scope[f.name] ?? null;
-        if (dv !== undefined && !nativeEquals(cur, dv)) {
-          const err = verr(
-            path,
-            ErrorCode.IMMUTABLE_MODIFIED,
-            "immutable",
-            canonicalOrBestFit(f, dv),
-            fromNative(cur),
-          );
-          errs.push(...mask([err], f.secret));
-        }
-      }
-      continue;
-    }
-    const kind = f.kind;
-    const cur = scope[f.name];
-    if (kind.case === "object" && kind.value.schema !== undefined) {
-      if (cur !== undefined && isNativeStruct(cur)) {
-        checkImmutable(e, kind.value.schema.fields, cur, path, root, errs);
-      }
-    }
-    if (kind.case === "list" && kind.value.items.length >= 1 && Array.isArray(cur)) {
-      cur.forEach((el, i) => {
-        const it = listItemDef(kind.value, i);
-        if (it?.kind.case === "object" && it.kind.value.schema !== undefined) {
-          if (isNativeStruct(el)) {
-            checkImmutable(e, it.kind.value.schema.fields, el, `${path}[${i}]`, root, errs);
-          }
-        }
-      });
-    }
-    if (kind.case === "map" && kind.value.valueSchema !== undefined) {
-      if (cur !== undefined && isNativeStruct(cur)) {
-        for (const k of Object.keys(cur).sort()) {
-          const el = cur[k];
-          if (el !== undefined && isNativeStruct(el)) {
-            checkImmutable(e, kind.value.valueSchema.fields, el, joinPath(path, k), root, errs);
-          }
-        }
-      }
-    }
+  for (const f of fields)
+    if (Object.hasOwn(scope, f.name))
+      checkImmutableValue(e, f, scope[f.name] ?? null, joinPath(prefix, f.name), root, errs);
+}
+function checkImmutableValue(
+  e: Engine,
+  f: Schema_Field,
+  value: Native,
+  path: string,
+  root: NativeStruct,
+  errs: ValidationError[],
+): void {
+  if (!fieldIsActive(e, f, root, path, undefined)) return;
+  if (f.immutable) {
+    const dv = defaultOf(f);
+    if (dv !== undefined && !nativeEquals(value, dv))
+      errs.push(
+        ...mask(
+          [
+            verr(
+              path,
+              ErrorCode.IMMUTABLE_MODIFIED,
+              "immutable",
+              canonicalOrBestFit(f, dv),
+              fromNative(value),
+            ),
+          ],
+          f.secret,
+        ),
+      );
+    return;
   }
+  const sub = objectSchema(f, value, e.schema.defs);
+  if (sub) {
+    checkImmutable(e, sub[0].fields, sub[1], path, root, errs);
+    return;
+  }
+  const k = f.kind;
+  if (k.case === "list" && Array.isArray(value))
+    value.forEach((v, i) => {
+      const item = listItemDef(k.value, i);
+      if (item) checkImmutableValue(e, item, v, `${path}[${i}]`, root, errs);
+    });
+  if (k.case === "map" && isNativeStruct(value))
+    for (const key of sortedKeys(value)) {
+      const v = value[key] ?? null;
+      if (k.value.valueField)
+        checkImmutableValue(e, k.value.valueField, v, joinPath(path, key), root, errs);
+      else if (k.value.valueSchema && isNativeStruct(v))
+        checkImmutable(e, k.value.valueSchema.fields, v, joinPath(path, key), root, errs);
+    }
 }
 
 function defaultOf(f: Schema_Field): Native | undefined {
@@ -237,7 +246,7 @@ function validateFields(
   }
 
   if (schema.strict) {
-    for (const key of Object.keys(scope).sort()) {
+    for (const key of sortedKeys(scope)) {
       if (!declared.has(key)) {
         errs.push(
           verr(
@@ -310,6 +319,7 @@ function validateOne(
   index: bigint | undefined,
   errs: ValidationError[],
 ): void {
+  if (!fieldIsActive(e, f, root, path, undefined)) return;
   if (!exists) {
     if (f.required) {
       errs.push(verr(path, ErrorCode.REQUIRED_MISSING, "required", undefined, undefined));
@@ -317,11 +327,8 @@ function validateOne(
     return;
   }
   if (val === null) {
-    if (f.required) {
-      errs.push(verr(path, ErrorCode.REQUIRED_MISSING, "required", undefined, undefined));
-    } else if (!f.nullable) {
+    if (!f.nullable)
       errs.push(verr(path, ErrorCode.NOT_NULLABLE, "nullable", undefined, nullActual()));
-    }
     return;
   }
 
@@ -1005,7 +1012,7 @@ function checkMap(
   const vf = k.valueField;
   if (vf !== undefined) {
     const sub: ValidationError[] = [];
-    for (const key of Object.keys(m).sort()) {
+    for (const key of sortedKeys(m)) {
       validateOne(e, vf, m[key] ?? null, true, joinPath(path, key), root, undefined, sub);
     }
     return [...out, ...sub];
@@ -1014,7 +1021,7 @@ function checkMap(
   if (vs === undefined) {
     return out;
   }
-  for (const key of Object.keys(m).sort()) {
+  for (const key of sortedKeys(m)) {
     const vpath = joinPath(path, key);
     const el = m[key] ?? null;
     if (!isNativeStruct(el)) {
@@ -1052,7 +1059,7 @@ function checkOneOf(
   }
   const variant = oo.variants[disc];
   if (variant === undefined) {
-    const keys = Object.keys(oo.variants).sort();
+    const keys = sortedKeys(oo.variants);
     return [
       verr(path, ErrorCode.UNKNOWN_VARIANT, "variants", listV(...keys.map(strV)), strV(disc)),
     ];

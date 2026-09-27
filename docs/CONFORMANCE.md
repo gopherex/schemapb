@@ -23,6 +23,8 @@ fixtures, and TypeScript, Python and Rust must reproduce them exactly
 | `full-coverage.json` | Which contract features the kitchen-sink schema exercises — a checklist that the goldens stay exhaustive. |
 | `nested-ref-schema.json` | Composition regression schema: named and identity refs, lists, tuples, objects, maps and selected OneOf variants. |
 | `nested-ref-cases.json` | Shared typed inputs, complete validation results and canonical baked values for nested refs. Pins defaults before rules, inherited coercion, normalization, nested computed fields, wire kinds and repeated baking. |
+| `recursive-resolve.json` | Shared per-case schemas, typed inputs, full results, structured paths, operation reports and baked values for recursive collection resolve, object defaults, null/absence, inactive data and computed dependencies. |
+| `object-default-errors.json` | Nonempty Object/Ref defaults that every port must reject during schema compilation. |
 
 The valid/broken inputs are defined in `go/schemapb/golden_test.go` and
 mirrored verbatim in each port's conformance test
@@ -45,6 +47,13 @@ types, custom unmarshaler hooks and error paths have Go-specific tests.
 These are native API adapters; they introduce no new wire kinds or engine
 resolution rules. Attribute reflection uses the Go tag grammar and existing
 type override mechanisms in Python, TypeScript and Rust.
+
+The recursive resolve runner compares BakeDetailed with ordinary Bake on
+fresh copies of the same input to detect repeated normalize execution.
+It compares full reports and results (excluding informational error messages).
+Go asserts independent expected values, operation order and error paths before
+writing fixtures. Its JSON-number tests additionally pin integer limits,
+exponents, overflow, underflow and direct float32 rounding.
 
 ## Regenerating
 

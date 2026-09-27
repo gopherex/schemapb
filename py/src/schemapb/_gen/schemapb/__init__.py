@@ -9,6 +9,10 @@ __all__ = (
     "Filled",
     "ListValue",
     "NullValue",
+    "PathSegment",
+    "ResolveEvent",
+    "ResolveOperation",
+    "ResolveReport",
     "Schema",
     "SchemaField",
     "SchemaFieldBool",
@@ -268,6 +272,46 @@ class NullValue(betterproto2.Enum):
     NULL_VALUE = 0
 
 
+class ResolveOperation(betterproto2.Enum):
+    """
+    Operations performed while resolving a form. No values or expressions.
+    """
+
+    UNSPECIFIED = 0
+
+    DEFAULT_APPLIED = 1
+
+    COERCED = 2
+
+    NORMALIZED = 3
+
+    COMPUTED = 4
+
+    INACTIVE = 5
+
+    @classmethod
+    def betterproto_value_to_renamed_proto_names(cls) -> dict[int, str]:
+        return {
+            0: "RESOLVE_OPERATION_UNSPECIFIED",
+            1: "RESOLVE_OPERATION_DEFAULT_APPLIED",
+            2: "RESOLVE_OPERATION_COERCED",
+            3: "RESOLVE_OPERATION_NORMALIZED",
+            4: "RESOLVE_OPERATION_COMPUTED",
+            5: "RESOLVE_OPERATION_INACTIVE",
+        }
+
+    @classmethod
+    def betterproto_renamed_proto_names_to_value(cls) -> dict[str, int]:
+        return {
+            "RESOLVE_OPERATION_UNSPECIFIED": 0,
+            "RESOLVE_OPERATION_DEFAULT_APPLIED": 1,
+            "RESOLVE_OPERATION_COERCED": 2,
+            "RESOLVE_OPERATION_NORMALIZED": 3,
+            "RESOLVE_OPERATION_COMPUTED": 4,
+            "RESOLVE_OPERATION_INACTIVE": 5,
+        }
+
+
 class SchemaFieldResultType(betterproto2.Enum):
     """
     ResultType is the value type a Computed expression yields.
@@ -440,6 +484,59 @@ default_message_pool.register_message("schemapb", "ListValue", ListValue)
 
 
 @dataclass(eq=False, repr=False)
+class PathSegment(betterproto2.Message):
+    """
+    Unambiguous location in a value tree. Keys may contain any characters.
+
+    Oneofs:
+        - segment:
+    """
+
+    key: "str | None" = betterproto2.field(
+        1, betterproto2.TYPE_STRING, optional=True, group="segment"
+    )
+
+    index: "int | None" = betterproto2.field(
+        2, betterproto2.TYPE_UINT64, optional=True, group="segment"
+    )
+
+
+default_message_pool.register_message("schemapb", "PathSegment", PathSegment)
+
+
+@dataclass(eq=False, repr=False)
+class ResolveEvent(betterproto2.Message):
+    path: "str" = betterproto2.field(1, betterproto2.TYPE_STRING)
+
+    path_segments: "list[PathSegment]" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+
+    operation: "ResolveOperation" = betterproto2.field(
+        3, betterproto2.TYPE_ENUM, default_factory=lambda: ResolveOperation(0)
+    )
+
+
+default_message_pool.register_message("schemapb", "ResolveEvent", ResolveEvent)
+
+
+@dataclass(eq=False, repr=False)
+class ResolveReport(betterproto2.Message):
+    """
+    Execution order: seed, normalize, dependency-ordered computed. Fields use
+    declaration order, lists index order, maps UTF-8 key order. Available even
+    after failure; events describe completed operations, not a valid snapshot.
+    """
+
+    events: "list[ResolveEvent]" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+
+
+default_message_pool.register_message("schemapb", "ResolveReport", ResolveReport)
+
+
+@dataclass(eq=False, repr=False)
 class Schema(betterproto2.Message):
     """
 
@@ -603,12 +700,12 @@ class SchemaField(betterproto2.Message):
 
     nullable: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
     """
-    If true, the value may be null/empty. 
+    If true, an explicitly present null is allowed, even when required.
     """
 
     required: "bool" = betterproto2.field(4, betterproto2.TYPE_BOOL)
     """
-    If true, the value must be present. 
+    If true, the key must be present. Null is governed by nullable.
     """
 
     rules: "list[SchemaFieldRule]" = betterproto2.field(
@@ -1485,8 +1582,9 @@ class SchemaFieldMap(betterproto2.Message):
     a list, ...). The definition's `name` is ignored; its kind and
     constraints apply to each value, error paths name the map key
     ("limits.cpu"). Mutually exclusive with `value_schema`. Value
-    fields are validated and canonicalized; resolve does not seed
-    defaults or run normalize/computed inside map values. 
+    fields undergo the same recursive resolve as ordinary fields,
+    including inherited coercion, normalize and computed. Missing map
+    entries are never invented; explicit null retains its presence.
     """
 
 
@@ -1504,6 +1602,15 @@ class SchemaFieldObject(betterproto2.Message):
     )
     """
     Nested object schema. 
+    """
+
+    default: "StructValue | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Only an empty object is supported. When absent, materialize a fresh
+    object and resolve its children. Explicit null and inactive fields
+    are never replaced. Nonempty defaults are invalid schemas.
     """
 
 
@@ -1574,6 +1681,13 @@ class SchemaFieldRef(betterproto2.Message):
     )
     """
     Identity of a registered schema (resolved via defs / Link). 
+    """
+
+    default: "StructValue | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Same empty-object default contract as Object.default.
     """
 
 
@@ -2026,6 +2140,13 @@ class ValidationError(betterproto2.Message):
     """
     Human-readable message rendered from the spec's shared template set.
     Informative only — NOT part of the conformance contract. 
+    """
+
+    path_segments: "list[PathSegment]" = betterproto2.field(
+        10, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Structured counterpart of path; empty for the root.
     """
 
 

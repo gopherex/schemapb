@@ -281,6 +281,7 @@ pub fn object_field(name: &str, fields: Vec<Field>) -> Field {
     leaf(
         name,
         K::Object(ObjectKind {
+            default: None,
             schema: Some(Schema {
                 fields,
                 ..Default::default()

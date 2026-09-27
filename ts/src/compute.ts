@@ -4,13 +4,18 @@
  * dependency order. Mirrors the Go reference compute.go.
  */
 
-import { create, isMessage } from "@bufbuild/protobuf";
+import { clone, create, isMessage } from "@bufbuild/protobuf";
 import { DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
 import { joinPath } from "./descriptor.js";
 import { parseGoDuration, parseRfc3339 } from "./duration.js";
 import type { Engine } from "./engine.js";
 import type { ValidationError } from "./gen/schemapb/errors_pb.js";
 import { ErrorCode, ValidationErrorSchema } from "./gen/schemapb/errors_pb.js";
+import {
+  ResolveEventSchema,
+  ResolveOperation,
+  type ResolveReport,
+} from "./gen/schemapb/runtime_pb.js";
 import type {
   Schema,
   Schema_Field,
@@ -19,7 +24,9 @@ import type {
   Schema_Field_Ref,
 } from "./gen/schemapb/schema_pb.js";
 import { Schema_Field_ResultType, Schema_Field_Severity } from "./gen/schemapb/schema_pb.js";
-import { base64Decode } from "./render.js";
+import { ValueSchema } from "./gen/schemapb/value_pb.js";
+import { pathSegments, sortedKeys } from "./path.js";
+import { base64Decode, nativeEquals } from "./render.js";
 import {
   asBigInt,
   asFloat,
@@ -96,7 +103,7 @@ export function objectSchema(
 
 interface ComputeTask {
   field: Schema_Field;
-  scope: NativeStruct;
+  set: (value: Native) => void;
   path: string;
 }
 
@@ -104,13 +111,17 @@ interface ComputeTask {
  * Resolves values in place: defaults, coercion, normalize, computed. Returns
  * the expression failures (empty = clean).
  */
-export function resolve(e: Engine, values: NativeStruct): ValidationError[] {
-  const errs: ValidationError[] = [];
-  const tasks: ComputeTask[] = [];
-  seed(e, e.schema, values, "", tasks, values, errs);
-  runNormalize(e, e.schema, values, values, errs);
-  runCompute(e, values, tasks, errs);
-  return errs;
+export function resolve(
+  e: Engine,
+  values: NativeStruct,
+  report?: ResolveReport,
+): ValidationError[] {
+  const state = new Resolver(e, values, report);
+  state.object(e.schema, values, "", false, false);
+  state.object(e.schema, values, "", false, true);
+  runCompute(e, values, state.tasks, state.errs, report);
+  for (const err of state.errs) err.pathSegments = pathSegments(err.path);
+  return state.errs;
 }
 
 /** Evaluates a field's `when` gate; an evaluation error deactivates. */
@@ -133,170 +144,178 @@ export function fieldIsActive(
   return res.ok;
 }
 
-function seed(
-  e: Engine,
-  schema: Schema,
-  scope: NativeStruct,
-  prefix: string,
-  tasks: ComputeTask[],
-  root: NativeStruct,
-  errs: ValidationError[],
-  inherited = false,
-): void {
-  // The root's Coerce applies to the whole tree: a nested schema need not
-  // re-declare it.
-  const coerce = schema.coerce || inherited;
-  for (const f of schema.fields) {
-    const name = f.name;
-    const path = joinPath(prefix, name);
-    if (!fieldIsActive(e, f, root, path, errs)) {
-      continue;
-    }
-    if (coerce && name in scope) {
-      const coerced = coerceInput(f, scope[name] ?? null);
-      if (coerced !== undefined) {
-        scope[name] = coerced;
-      }
-    }
-    if (f.immutable) {
-      const dv = defaultValue(f);
-      if (dv !== undefined) {
-        scope[name] = dv;
-      }
-    } else if (!(name in scope)) {
-      const dv = defaultValue(f);
-      if (dv !== undefined) {
-        scope[name] = dv;
-      }
-    }
+class Resolver {
+  readonly errs: ValidationError[] = [];
+  readonly tasks: ComputeTask[] = [];
+  readonly gates = new Map<string, boolean>();
+  readonly gateErrors = new Set<string>();
+  readonly inactive = new Set<string>();
+  constructor(
+    readonly engine: Engine,
+    readonly root: NativeStruct,
+    readonly report?: ResolveReport,
+  ) {}
 
-    const kind = f.kind;
-    const cur = scope[name];
-    switch (kind.case) {
-      case "computed":
-        tasks.push({ field: f, scope, path });
-        break;
-      case "object": {
-        const sub = kind.value.schema;
-        if (sub !== undefined && cur !== undefined && isNativeStruct(cur)) {
-          seed(e, sub, cur, path, tasks, root, errs, coerce);
-        }
-        break;
-      }
-      case "list": {
-        if (Array.isArray(cur)) {
-          cur.forEach((el, i) => {
-            const it = listItemDef(kind.value, i);
-            const sub = it === undefined ? undefined : objectSchema(it, el, e.schema.defs);
-            if (sub !== undefined) {
-              seed(e, sub[0], sub[1], `${path}[${i}]`, tasks, root, errs, coerce);
-            }
+  object(
+    schema: Schema,
+    scope: NativeStruct,
+    path: string,
+    inherited: boolean,
+    normalize: boolean,
+  ): void {
+    const coerce = inherited || schema.coerce;
+    for (const f of schema.fields)
+      this.field(
+        f,
+        scope[f.name] ?? null,
+        Object.hasOwn(scope, f.name),
+        (value) => {
+          Object.defineProperty(scope, f.name, {
+            value,
+            writable: true,
+            enumerable: true,
+            configurable: true,
           });
+        },
+        joinPath(path, f.name),
+        coerce,
+        normalize,
+      );
+  }
+  field(
+    f: Schema_Field,
+    cur: Native,
+    present: boolean,
+    set: (value: Native) => void,
+    path: string,
+    coerce: boolean,
+    normalize: boolean,
+  ): void {
+    const seeded = this.gates.get(path);
+    if (!this.active(f, path)) return;
+    if (normalize && !seeded) {
+      this.field(
+        f,
+        cur,
+        present,
+        (v) => {
+          cur = v;
+          present = true;
+          set(v);
+        },
+        path,
+        coerce,
+        false,
+      );
+    }
+    if (!normalize) {
+      if (present && coerce) {
+        const out = coerceInput(f, cur);
+        if (out !== undefined) {
+          cur = out;
+          set(cur);
+          recordResolve(this.report, path, ResolveOperation.COERCED);
         }
-        break;
       }
-      case "map": {
-        const vs = kind.value.valueSchema;
-        if (vs !== undefined && cur !== undefined && isNativeStruct(cur)) {
-          for (const [k, el] of Object.entries(cur)) {
-            if (isNativeStruct(el)) {
-              seed(e, vs, el, joinPath(path, k), tasks, root, errs, coerce);
-            }
+      if (!present || f.immutable) {
+        const out = defaultValue(f);
+        if (out !== undefined) {
+          const changed = !present || !nativeEquals(cur, out);
+          cur = out;
+          present = true;
+          set(cur);
+          if (changed) recordResolve(this.report, path, ResolveOperation.DEFAULT_APPLIED);
+        }
+      }
+    } else {
+      if (present && cur !== null && f.normalize) {
+        const out = this.engine.eval(f.normalize, { this: cur, root: this.root });
+        if (!out.ok) this.errs.push(exprErr(path, f.normalize, `normalize: ${out.error}`));
+        else {
+          const changed = !nativeEquals(cur, out.value);
+          cur = out.value;
+          set(cur);
+          if (changed) {
+            recordResolve(this.report, path, ResolveOperation.NORMALIZED);
+            this.children(f, cur, path, coerce, false);
           }
         }
-        break;
       }
-      case "oneOf": {
-        const sel = selectVariant(kind.value, cur ?? null);
-        if (sel !== undefined) {
-          seed(e, sel[0], sel[1], path, tasks, root, errs, coerce);
-        }
-        break;
+      if (f.kind.case === "computed") {
+        this.tasks.push({ field: f, set, path });
+        return;
       }
-      case "ref": {
-        const def = e.schema.defs[refDefKey(kind.value)];
-        if (def !== undefined && cur !== undefined && isNativeStruct(cur)) {
-          seed(e, def, cur, path, tasks, root, errs, coerce);
-        }
-        break;
-      }
-      default:
-        break;
     }
+    if (present && cur !== null) this.children(f, cur, path, coerce, normalize);
+  }
+  active(f: Schema_Field, path: string): boolean {
+    const errors: ValidationError[] = [];
+    const active = fieldIsActive(this.engine, f, this.root, path, errors);
+    const key = JSON.stringify([path, f.when]);
+    if (errors.length && !this.gateErrors.has(key)) {
+      this.errs.push(...errors);
+      this.gateErrors.add(key);
+    }
+    this.gates.set(path, active);
+    if (!active && !this.inactive.has(path)) {
+      recordResolve(this.report, path, ResolveOperation.INACTIVE);
+      this.inactive.add(path);
+    }
+    return active;
+  }
+  children(f: Schema_Field, cur: Native, path: string, coerce: boolean, normalize: boolean): void {
+    const sub = objectSchema(f, cur, this.engine.schema.defs);
+    if (sub) {
+      this.object(sub[0], sub[1], path, coerce, normalize);
+      return;
+    }
+    const k = f.kind;
+    if (k.case === "list" && Array.isArray(cur))
+      cur.forEach((value, i) => {
+        const item = listItemDef(k.value, i);
+        if (item)
+          this.field(
+            item,
+            value,
+            true,
+            (v) => {
+              cur[i] = v;
+            },
+            `${path}[${i}]`,
+            coerce,
+            normalize,
+          );
+      });
+    if (k.case === "map" && isNativeStruct(cur))
+      for (const key of sortedKeys(cur)) {
+        const value = cur[key] ?? null,
+          childPath = joinPath(path, key);
+        if (k.value.valueField)
+          this.field(
+            k.value.valueField,
+            value,
+            true,
+            (v) => {
+              cur[key] = v;
+            },
+            childPath,
+            coerce,
+            normalize,
+          );
+        else if (k.value.valueSchema && isNativeStruct(value))
+          this.object(k.value.valueSchema, value, childPath, coerce, normalize);
+      }
   }
 }
 
-function runNormalize(
-  e: Engine,
-  schema: Schema,
-  scope: NativeStruct,
-  root: NativeStruct,
-  errs: ValidationError[],
+function recordResolve(
+  report: ResolveReport | undefined,
+  path: string,
+  operation: ResolveOperation,
 ): void {
-  for (const f of schema.fields) {
-    const name = f.name;
-    let cur = scope[name];
-    if (cur === undefined || cur === null) {
-      continue;
-    }
-    if (!fieldIsActive(e, f, root, name, undefined)) {
-      continue;
-    }
-    const norm = f.normalize ?? "";
-    if (norm !== "") {
-      const res = e.eval(norm, { this: cur, root });
-      if (!res.ok) {
-        errs.push(exprErr(name, norm, `normalize: ${res.error}`));
-      } else {
-        scope[name] = res.value;
-        cur = res.value;
-      }
-    }
-    const kind = f.kind;
-    switch (kind.case) {
-      case "object":
-        if (kind.value.schema !== undefined && isNativeStruct(cur)) {
-          runNormalize(e, kind.value.schema, cur, root, errs);
-        }
-        break;
-      case "list":
-        if (Array.isArray(cur)) {
-          cur.forEach((el, i) => {
-            const it = listItemDef(kind.value, i);
-            const sub = it === undefined ? undefined : objectSchema(it, el, e.schema.defs);
-            if (sub !== undefined) {
-              runNormalize(e, sub[0], sub[1], root, errs);
-            }
-          });
-        }
-        break;
-      case "map":
-        if (kind.value.valueSchema !== undefined && isNativeStruct(cur)) {
-          for (const el of Object.values(cur)) {
-            if (isNativeStruct(el)) {
-              runNormalize(e, kind.value.valueSchema, el, root, errs);
-            }
-          }
-        }
-        break;
-      case "oneOf": {
-        const sel = selectVariant(kind.value, cur);
-        if (sel !== undefined) {
-          runNormalize(e, sel[0], sel[1], root, errs);
-        }
-        break;
-      }
-      case "ref": {
-        const def = e.schema.defs[refDefKey(kind.value)];
-        if (def !== undefined && isNativeStruct(cur)) {
-          runNormalize(e, def, cur, root, errs);
-        }
-        break;
-      }
-      default:
-        break;
-    }
-  }
+  report?.events.push(
+    create(ResolveEventSchema, { path, pathSegments: pathSegments(path), operation }),
+  );
 }
 
 function runCompute(
@@ -304,6 +323,7 @@ function runCompute(
   root: NativeStruct,
   tasks: ComputeTask[],
   errs: ValidationError[],
+  report?: ResolveReport,
 ): void {
   if (tasks.length === 0) {
     return;
@@ -371,7 +391,8 @@ function runCompute(
       errs.push(exprErr(t.path, c.expr, `compute: result does not match declared type`));
       continue;
     }
-    t.scope[t.field.name] = shaped;
+    t.set(shaped);
+    recordResolve(report, t.path, ResolveOperation.COMPUTED);
   }
 }
 
@@ -494,6 +515,9 @@ export function listCount(e: Engine, name: string, root: NativeStruct): bigint |
 export function defaultValue(f: Schema_Field): Native | undefined {
   const kind = f.kind;
   switch (kind.case) {
+    case "object":
+    case "ref":
+      return kind.value.default === undefined ? undefined : {};
     case "float":
       return kind.value.default !== undefined ? Math.fround(kind.value.default) : undefined;
     case "double":
@@ -510,16 +534,24 @@ export function defaultValue(f: Schema_Field): Native | undefined {
       return kind.value.default;
     case "bytes": {
       const d = kind.value.default;
-      return d !== undefined && d.length > 0 ? d : undefined;
+      return d !== undefined && d.length > 0 ? d.slice() : undefined;
     }
     case "choice":
-      return kind.value.default !== undefined ? toNative(kind.value.default) : undefined;
+      return kind.value.default !== undefined
+        ? toNative(clone(ValueSchema, kind.value.default))
+        : undefined;
     case "duration":
-      return kind.value.default;
+      return kind.value.default === undefined
+        ? undefined
+        : clone(DurationSchema, kind.value.default);
     case "timestamp":
-      return kind.value.default;
+      return kind.value.default === undefined
+        ? undefined
+        : clone(TimestampSchema, kind.value.default);
     case "json":
-      return kind.value.default !== undefined ? toNative(kind.value.default) : undefined;
+      return kind.value.default !== undefined
+        ? toNative(clone(ValueSchema, kind.value.default))
+        : undefined;
     default:
       return undefined;
   }

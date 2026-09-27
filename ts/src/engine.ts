@@ -1,3 +1,4 @@
+import { bakeDetailed } from "./bake.js";
 /**
  * The compiled engine: every CEL expression, regex pattern and Mustache
  * template of a schema compiled exactly once, up front. A bad schema fails
@@ -340,6 +341,10 @@ export class Engine {
   }
 
   /** Validate + resolve, then seal in canonical wire form. */
+  bakeDetailed(values: NativeStruct) {
+    return bakeDetailed(this, values);
+  }
+
   bake(values: NativeStruct): BakeOutcome {
     return bakeFn(this, values);
   }
@@ -577,7 +582,7 @@ function selectPath(x: Expr): string | undefined {
       if (base === undefined) {
         return undefined;
       }
-      return base === "" ? kind.value.field : `${base}.${kind.value.field}`;
+      return joinPath(base, kind.value.field);
     }
     case "callExpr": {
       if (kind.value.function !== "_[_]" || kind.value.args.length !== 2) {
@@ -592,11 +597,14 @@ function selectPath(x: Expr): string | undefined {
         return undefined;
       }
       const constKind = keyExpr.exprKind;
-      if (constKind.case !== "constExpr" || constKind.value.constantKind.case !== "stringValue") {
+      if (constKind.case !== "constExpr") {
         return undefined;
       }
-      const key = constKind.value.constantKind.value;
-      return base === "" ? key : `${base}.${key}`;
+      const key = constKind.value.constantKind;
+      if (key.case === "stringValue") return joinPath(base, key.value);
+      if ((key.case === "int64Value" || key.case === "uint64Value") && key.value >= 0n)
+        return `${base}[${key.value}]`;
+      return undefined;
     }
     default:
       return undefined;

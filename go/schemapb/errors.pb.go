@@ -220,7 +220,9 @@ type ValidationError struct {
 	Severity Schema_Field_Severity `protobuf:"varint,8,opt,name=severity,proto3,enum=schemapb.Schema_Field_Severity" json:"severity,omitempty"`
 	// Human-readable message rendered from the spec's shared template set.
 	// Informative only — NOT part of the conformance contract.
-	Message       string `protobuf:"bytes,9,opt,name=message,proto3" json:"message,omitempty"`
+	Message string `protobuf:"bytes,9,opt,name=message,proto3" json:"message,omitempty"`
+	// Structured counterpart of path; empty for the root.
+	PathSegments  []*PathSegment `protobuf:"bytes,10,rep,name=path_segments,json=pathSegments,proto3" json:"path_segments,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -318,6 +320,13 @@ func (x *ValidationError) GetMessage() string {
 	return ""
 }
 
+func (x *ValidationError) GetPathSegments() []*PathSegment {
+	if x != nil {
+		return x.PathSegments
+	}
+	return nil
+}
+
 // ValidationResult is the complete outcome of validating a form.
 type ValidationResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -368,7 +377,7 @@ var File_schemapb_errors_proto protoreflect.FileDescriptor
 
 const file_schemapb_errors_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/errors.proto\x12\bschemapb\x1a\x15schemapb/schema.proto\x1a\x14schemapb/value.proto\"\xfb\x02\n" +
+	"\x15schemapb/errors.proto\x12\bschemapb\x1a\x15schemapb/schema.proto\x1a\x14schemapb/value.proto\"\xb7\x03\n" +
 	"\x0fValidationError\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12'\n" +
 	"\x04code\x18\x02 \x01(\x0e2\x13.schemapb.ErrorCodeR\x04code\x120\n" +
@@ -380,7 +389,9 @@ const file_schemapb_errors_proto_rawDesc = "" +
 	"\x04expr\x18\x06 \x01(\tR\x04expr\x12\x1c\n" +
 	"\arule_id\x18\a \x01(\tH\x02R\x06ruleId\x88\x01\x01\x12;\n" +
 	"\bseverity\x18\b \x01(\x0e2\x1f.schemapb.Schema.Field.SeverityR\bseverity\x12\x18\n" +
-	"\amessage\x18\t \x01(\tR\amessageB\v\n" +
+	"\amessage\x18\t \x01(\tR\amessage\x12:\n" +
+	"\rpath_segments\x18\n" +
+	" \x03(\v2\x15.schemapb.PathSegmentR\fpathSegmentsB\v\n" +
 	"\t_expectedB\t\n" +
 	"\a_actualB\n" +
 	"\n" +
@@ -447,18 +458,20 @@ var file_schemapb_errors_proto_goTypes = []any{
 	(*ValidationResult)(nil),   // 2: schemapb.ValidationResult
 	(*Value)(nil),              // 3: schemapb.Value
 	(Schema_Field_Severity)(0), // 4: schemapb.Schema.Field.Severity
+	(*PathSegment)(nil),        // 5: schemapb.PathSegment
 }
 var file_schemapb_errors_proto_depIdxs = []int32{
 	0, // 0: schemapb.ValidationError.code:type_name -> schemapb.ErrorCode
 	3, // 1: schemapb.ValidationError.expected:type_name -> schemapb.Value
 	3, // 2: schemapb.ValidationError.actual:type_name -> schemapb.Value
 	4, // 3: schemapb.ValidationError.severity:type_name -> schemapb.Schema.Field.Severity
-	1, // 4: schemapb.ValidationResult.errors:type_name -> schemapb.ValidationError
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	5, // 4: schemapb.ValidationError.path_segments:type_name -> schemapb.PathSegment
+	1, // 5: schemapb.ValidationResult.errors:type_name -> schemapb.ValidationError
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_errors_proto_init() }

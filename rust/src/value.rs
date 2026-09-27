@@ -274,6 +274,18 @@ pub(crate) fn canonical_value_with_defs(
     x: &Native,
     defs: &std::collections::HashMap<String, Schema>,
 ) -> Result<Value, CanonicalError> {
+    canonical_resolved(f, x, defs, None)
+}
+
+pub(crate) fn canonical_resolved(
+    f: &SchemaField,
+    x: &Native,
+    defs: &std::collections::HashMap<String, Schema>,
+    active: Option<&dyn Fn(&SchemaField) -> bool>,
+) -> Result<Value, CanonicalError> {
+    if active.is_some_and(|gate| !gate(f)) {
+        return Ok(from_native(x));
+    }
     use schema::field::Kind as K;
     if x.is_null() {
         return Ok(null_v());
@@ -326,7 +338,7 @@ pub(crate) fn canonical_value_with_defs(
                         l.items.get(i)
                     };
                     out.push(match item {
-                        Some(def) => canonical_value_with_defs(def, el, defs)?,
+                        Some(def) => canonical_resolved(def, el, defs, active)?,
                         None => from_native(el),
                     });
                 }
@@ -335,7 +347,7 @@ pub(crate) fn canonical_value_with_defs(
             _ => fail("not a list"),
         },
         K::Object(o) => match (x, o.schema.as_ref()) {
-            (Native::Struct(m), Some(sub)) => canonical_struct_with_defs(sub, m, defs),
+            (Native::Struct(m), Some(sub)) => canonical_struct_with_defs(sub, m, defs, active),
             (Native::Struct(_), None) => Ok(from_native(x)),
             _ => fail("not an object"),
         },
@@ -344,11 +356,11 @@ pub(crate) fn canonical_value_with_defs(
                 let mut fields = std::collections::HashMap::with_capacity(m.len());
                 for (key, el) in m {
                     let v = if let Some(vf) = mp.value_field.as_ref() {
-                        canonical_value_with_defs(vf, el, defs)?
+                        canonical_resolved(vf, el, defs, active)?
                     } else {
                         match (mp.value_schema.as_ref(), el) {
                             (Some(vs), Native::Struct(em)) => {
-                                canonical_struct_with_defs(vs, em, defs)?
+                                canonical_struct_with_defs(vs, em, defs, active)?
                             }
                             _ => from_native(el),
                         }
@@ -361,7 +373,7 @@ pub(crate) fn canonical_value_with_defs(
         },
         K::OneOf(_) | K::Ref(_) => {
             match (crate::compute::object_schema(f, x, defs), x.as_struct()) {
-                (Some(sub), Some(m)) => canonical_struct_with_defs(sub, m, defs),
+                (Some(sub), Some(m)) => canonical_struct_with_defs(sub, m, defs, active),
                 _ => Ok(from_native(x)),
             }
         }
@@ -371,19 +383,20 @@ pub(crate) fn canonical_value_with_defs(
 
 /// Canonicalizes a native map against a schema's declared fields.
 pub fn canonical_struct(s: &Schema, m: &NativeStruct) -> Result<Value, CanonicalError> {
-    canonical_struct_with_defs(s, m, &s.defs)
+    canonical_struct_with_defs(s, m, &s.defs, None)
 }
 
 fn canonical_struct_with_defs(
     s: &Schema,
     m: &NativeStruct,
     defs: &std::collections::HashMap<String, Schema>,
+    active: Option<&dyn Fn(&SchemaField) -> bool>,
 ) -> Result<Value, CanonicalError> {
     let mut fields = std::collections::HashMap::with_capacity(m.len());
     for (key, el) in m {
         let fld = s.fields.iter().find(|f| &f.name == key);
         let v = match fld {
-            Some(f) => canonical_value_with_defs(f, el, defs)?,
+            Some(f) => canonical_resolved(f, el, defs, active)?,
             None => from_native(el),
         };
         fields.insert(key.clone(), v);

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // Resolve fills unset fields from their defaults, coerces string inputs (when
@@ -28,19 +30,7 @@ func (s *Schema) Resolve(values map[string]any) (map[string]any, *ValidationResu
 
 // Resolve is the compiled-engine form of (*Schema).Resolve.
 func (e *Engine) Resolve(values map[string]any) (map[string]any, *ValidationResult) {
-	if values == nil {
-		values = map[string]any{}
-	}
-
-	res := &ValidationResult{}
-
-	var tasks []computeTask
-
-	e.seed(e.sch(), values, "", &tasks, values, res)
-	e.runNormalize(e.sch(), values, values, res)
-	e.runCompute(values, tasks, res)
-
-	return values, res
+	return e.resolveDetailed(values, nil)
 }
 
 // exprErr builds a runtime expression-failure ValidationError.
@@ -72,104 +62,11 @@ func (e *Engine) active(f *Schema_Field, root map[string]any, path string, res *
 	return ok
 }
 
-// computeTask is a Computed field pending evaluation: it reads from root
-// (shared) and writes its result to scope[field.Name].
+// computeTask addresses any field or collection slot.
 type computeTask struct {
 	field *Schema_Field
-	scope map[string]any
+	set   func(any)
 	path  string
-}
-
-// seed fills defaults for unset fields (immutable fields are forced to their
-// default) and collects Computed fields as tasks, recursing into present
-// containers. It never materializes an absent object, so optional sub-forms
-// stay absent and don't spuriously trip their children's "required" checks.
-func (e *Engine) seed(
-	schema *Schema, scope map[string]any, prefix string,
-	tasks *[]computeTask, root map[string]any, res *ValidationResult,
-) {
-	e.seedWith(schema, scope, prefix, tasks, root, res, false)
-}
-
-// seedWith runs seed with the parent's effective coerce flag: root Coerce
-// applies to the whole tree (a nested schema need not re-declare it).
-//
-//nolint:gocognit,cyclop,gocyclo // container traversal mirrors the schema tree
-func (e *Engine) seedWith(
-	schema *Schema, scope map[string]any, prefix string,
-	tasks *[]computeTask, root map[string]any, res *ValidationResult,
-	inherited bool,
-) {
-	coerce := schema.GetCoerce() || inherited
-
-	for _, f := range schema.GetFields() {
-		name := f.GetName()
-		path := joinPath(prefix, name)
-
-		// Inactive fields are treated as absent: no default seeded, no
-		// Computed scheduled, subtree not recursed. Existing value preserved.
-		if !e.active(f, root, path, res) {
-			continue
-		}
-
-		if coerce {
-			if cur, ok := scope[name]; ok {
-				if coerced, changed := coerceInput(f, cur); changed {
-					scope[name] = coerced
-				}
-			}
-		}
-
-		if f.GetImmutable() {
-			if dv, ok := defaultValue(f); ok {
-				scope[name] = dv
-			}
-		} else if _, present := scope[name]; !present {
-			if dv, ok := defaultValue(f); ok {
-				scope[name] = dv
-			}
-		}
-
-		switch {
-		case f.GetComputed() != nil:
-			*tasks = append(*tasks, computeTask{field: f, scope: scope, path: path})
-		case f.GetObject() != nil && f.GetObject().GetSchema() != nil:
-			if child, ok := scope[name].(map[string]any); ok {
-				e.seedWith(f.GetObject().GetSchema(), child, path, tasks, root, res, coerce)
-			}
-		case f.GetList() != nil && len(f.GetList().GetItems()) >= 1:
-			if arr, ok := scope[name].([]any); ok {
-				for i, el := range arr {
-					it := listItemDef(f.GetList(), i)
-					if it == nil {
-						continue
-					}
-
-					if sub, m := objectSchema(it, el, e.sch().GetDefs()); sub != nil {
-						e.seedWith(sub, m, fmt.Sprintf("%s[%d]", path, i), tasks, root, res, coerce)
-					}
-				}
-			}
-		case f.GetMap() != nil && f.GetMap().GetValueSchema() != nil:
-			if mm, ok := scope[name].(map[string]any); ok {
-				for k, el := range mm {
-					if m, isObj := el.(map[string]any); isObj {
-						e.seedWith(f.GetMap().GetValueSchema(), m, joinPath(path, k), tasks, root, res, coerce)
-					}
-				}
-			}
-		case f.GetOneOf() != nil:
-			if variant, m := selectVariant(f.GetOneOf(), scope[name]); variant != nil {
-				e.seedWith(variant, m, path, tasks, root, res, coerce)
-			}
-		case f.GetRef() != nil:
-			if def := e.sch().GetDefs()[refDefKey(f.GetRef())]; def != nil {
-				if child, ok := scope[name].(map[string]any); ok {
-					e.seedWith(def, child, path, tasks, root, res, coerce)
-				}
-			}
-		}
-	}
 }
 
 // isTuple reports positional-tuple semantics: a list with more than one item
@@ -235,90 +132,13 @@ func objectSchema(f *Schema_Field, val any, defs map[string]*Schema) (*Schema, m
 	}
 }
 
-// runNormalize applies normalize expressions to present, active fields,
-// recursing into containers. Runs after seed (defaults in place) and before
-// runCompute (Computed reads normalized values).
-//
-//nolint:gocognit,cyclop // container traversal mirrors the schema tree
-func (e *Engine) runNormalize(schema *Schema, scope, root map[string]any, res *ValidationResult) {
-	for _, f := range schema.GetFields() {
-		name := f.GetName()
-
-		cur, exists := scope[name]
-		if !exists || cur == nil {
-			continue
-		}
-
-		if f.GetWhen() != "" {
-			if ok, err := e.evalBool(f.GetWhen(), map[string]any{"this": nil, "root": root}); err != nil || !ok {
-				continue
-			}
-		}
-
-		if norm := f.GetNormalize(); norm != "" {
-			out, err := e.eval(norm, map[string]any{"this": cur, "root": root})
-			if err != nil {
-				res.Errors = append(res.Errors, exprErr(name, norm, "normalize: "+err.Error()))
-			} else {
-				scope[name] = out
-				cur = out
-			}
-		}
-
-		if o := f.GetObject(); o != nil && o.GetSchema() != nil {
-			if child, ok := cur.(map[string]any); ok {
-				e.runNormalize(o.GetSchema(), child, root, res)
-			}
-		}
-
-		if l := f.GetList(); l != nil && len(l.GetItems()) >= 1 { //nolint:nestif // per-index tuple/list descent
-			if arr, ok := cur.([]any); ok {
-				for i, el := range arr {
-					it := listItemDef(l, i)
-					if it == nil {
-						continue
-					}
-
-					if sub, m := objectSchema(it, el, e.sch().GetDefs()); sub != nil {
-						e.runNormalize(sub, m, root, res)
-					}
-				}
-			}
-		}
-
-		if mp := f.GetMap(); mp != nil && mp.GetValueSchema() != nil {
-			if mm, ok := cur.(map[string]any); ok {
-				for _, el := range mm {
-					if m, isObj := el.(map[string]any); isObj {
-						e.runNormalize(mp.GetValueSchema(), m, root, res)
-					}
-				}
-			}
-		}
-
-		if oo := f.GetOneOf(); oo != nil {
-			if variant, m := selectVariant(oo, cur); variant != nil {
-				e.runNormalize(variant, m, root, res)
-			}
-		}
-
-		if ref := f.GetRef(); ref != nil {
-			if def := e.sch().GetDefs()[refDefKey(ref)]; def != nil {
-				if m, ok := cur.(map[string]any); ok {
-					e.runNormalize(def, m, root, res)
-				}
-			}
-		}
-	}
-}
-
 // runCompute evaluates tasks in dependency order (the root paths each
 // expression reads), writing each result into its scope. Cycles between
 // nested scopes are reported and their fields left unevaluated (top-level
 // cycles are already rejected at Compile).
 //
 //nolint:cyclop,funlen // dependency-ordered evaluation in one pass
-func (e *Engine) runCompute(root map[string]any, tasks []computeTask, res *ValidationResult) {
+func (e *Engine) runCompute(root map[string]any, tasks []computeTask, res *ValidationResult, report *ResolveReport) {
 	if len(tasks) == 0 {
 		return
 	}
@@ -402,7 +222,8 @@ func (e *Engine) runCompute(root map[string]any, tasks []computeTask, res *Valid
 			continue
 		}
 
-		t.scope[t.field.GetName()] = shaped
+		t.set(shaped)
+		recordResolve(report, t.path, ResolveOperation_RESOLVE_OPERATION_COMPUTED)
 	}
 }
 
@@ -508,9 +329,17 @@ func coerceInput(f *Schema_Field, val any) (any, bool) {
 // defaultValue returns a field's default in the native value model and
 // whether one is set.
 //
-//nolint:cyclop,funlen // flat exhaustive kind dispatch
+//nolint:cyclop,funlen,gocognit,gocyclo // flat exhaustive kind dispatch
 func defaultValue(f *Schema_Field) (any, bool) {
 	switch {
+	case f.GetObject() != nil:
+		if f.GetObject().Default != nil {
+			return map[string]any{}, true
+		}
+	case f.GetRef() != nil:
+		if f.GetRef().Default != nil {
+			return map[string]any{}, true
+		}
 	case f.GetFloat() != nil:
 		if d := f.GetFloat().Default; d != nil {
 			return float64(*d), true
@@ -549,7 +378,9 @@ func defaultValue(f *Schema_Field) (any, bool) {
 		}
 	case f.GetChoice() != nil:
 		if d := f.GetChoice().GetDefault(); d != nil {
-			return d.ToGo(), true
+			cloned, _ := proto.Clone(d).(*Value)
+
+			return cloned.ToGo(), true
 		}
 	case f.GetDuration() != nil:
 		if d := f.GetDuration().GetDefault(); d != nil {
@@ -561,7 +392,9 @@ func defaultValue(f *Schema_Field) (any, bool) {
 		}
 	case f.GetJson() != nil:
 		if d := f.GetJson().GetDefault(); d != nil {
-			return d.ToGo(), true
+			cloned, _ := proto.Clone(d).(*Value)
+
+			return cloned.ToGo(), true
 		}
 	}
 

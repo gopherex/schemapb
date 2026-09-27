@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import datetime as dt
 import math
+from collections.abc import Callable
 from typing import TypeAlias, Union, cast
 
 import betterproto2
@@ -224,7 +225,14 @@ def _fail(msg: str) -> Value:
     raise CanonicalError(msg)
 
 
-def canonical_value(f: SchemaField, x: Native, defs: dict[str, Schema] | None = None) -> Value:
+def canonical_value(
+    f: SchemaField,
+    x: Native,
+    defs: dict[str, Schema] | None = None,
+    active: Callable[[SchemaField], bool] | None = None,
+) -> Value:
+    if active is not None and not active(f):
+        return from_native(x)
     from schemapb.compute import object_schema  # noqa: PLC0415 - compute imports native value types
 
     if x is None:
@@ -278,13 +286,13 @@ def canonical_value(f: SchemaField, x: Native, defs: dict[str, Schema] | None = 
         out: list[Value] = []
         for i, el in enumerate(x):
             item = items[0] if len(items) == 1 else (items[i] if i < len(items) else None)
-            out.append(from_native(el) if item is None else canonical_value(item, el, defs))
+            out.append(from_native(el) if item is None else canonical_value(item, el, defs, active))
         return list_v(*out)
     if f.object is not None:
         if not isinstance(x, dict):
             return _fail(f"field {f.name}: not an object")
         sub = f.object.schema
-        return from_native(x) if sub is None else canonical_struct(sub, x, defs)
+        return from_native(x) if sub is None else canonical_struct(sub, x, defs, active)
     if f.map is not None:
         if not isinstance(x, dict):
             return _fail(f"field {f.name}: not a map")
@@ -293,22 +301,27 @@ def canonical_value(f: SchemaField, x: Native, defs: dict[str, Schema] | None = 
         fields: dict[str, Value] = {}
         for key, el in x.items():
             if vf is not None:
-                fields[key] = canonical_value(vf, el, defs)
+                fields[key] = canonical_value(vf, el, defs, active)
             elif vs is not None and isinstance(el, dict):
-                fields[key] = canonical_struct(vs, el, defs)
+                fields[key] = canonical_struct(vs, el, defs, active)
             else:
                 fields[key] = from_native(el)
         return struct_v(fields)
     sub_scope = object_schema(f, x, {} if defs is None else defs)
-    return from_native(x) if sub_scope is None else canonical_struct(*sub_scope, defs)
+    return from_native(x) if sub_scope is None else canonical_struct(*sub_scope, defs, active)
 
 
-def canonical_struct(s: Schema, m: NativeStruct, defs: dict[str, Schema] | None = None) -> Value:
+def canonical_struct(
+    s: Schema,
+    m: NativeStruct,
+    defs: dict[str, Schema] | None = None,
+    active: Callable[[SchemaField], bool] | None = None,
+) -> Value:
     if defs is None:
         defs = s.defs
     fields: dict[str, Value] = {}
     by_name = {f.name: f for f in s.fields}
     for key, el in m.items():
         fld = by_name.get(key)
-        fields[key] = from_native(el) if fld is None else canonical_value(fld, el, defs)
+        fields[key] = from_native(el) if fld is None else canonical_value(fld, el, defs, active)
     return struct_v(fields)

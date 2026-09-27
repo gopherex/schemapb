@@ -2,25 +2,40 @@
 
 use crate::compute::field_is_active;
 use crate::engine::Engine;
+use crate::gen::schemapb::ResolveReport;
 use crate::gen::schemapb::{Baked, Schema, StructValue, ValidationResult, Value};
 use crate::render::{display_string, render_field, RenderContext, RenderField, RenderGroup};
-use crate::validate::{result_blocking, validate};
+use crate::validate::{result_blocking, validate_detailed};
 use crate::value::{
-    canonical_value_with_defs, from_native, struct_to_native, Native, NativeStruct, SchemaField,
+    canonical_resolved, from_native, struct_to_native, Native, NativeStruct, SchemaField,
 };
 
 pub struct BakeOutcome {
     pub result: ValidationResult,
     pub baked: Option<Baked>,
+    pub report: Option<ResolveReport>,
 }
 
 /// Validate + resolve, then seal in canonical wire form.
 pub(crate) fn bake(e: &Engine, values: &mut NativeStruct) -> BakeOutcome {
-    let result = validate(e, values);
+    bake_with_report(e, values, None)
+}
+
+pub(crate) fn bake_detailed(e: &Engine, values: &mut NativeStruct) -> BakeOutcome {
+    bake_with_report(e, values, Some(ResolveReport::default()))
+}
+
+fn bake_with_report(
+    e: &Engine,
+    values: &mut NativeStruct,
+    mut report: Option<ResolveReport>,
+) -> BakeOutcome {
+    let result = validate_detailed(e, values, report.as_mut());
     if result_blocking(&result) {
         return BakeOutcome {
             result,
             baked: None,
+            report,
         };
     }
     let baked = Baked {
@@ -30,6 +45,7 @@ pub(crate) fn bake(e: &Engine, values: &mut NativeStruct) -> BakeOutcome {
     BakeOutcome {
         result,
         baked: Some(baked),
+        report,
     }
 }
 
@@ -38,17 +54,23 @@ fn canonical_engine_struct(e: &Engine, values: &NativeStruct) -> StructValue {
         .iter()
         .map(|(name, val)| {
             let f = e.schema.fields.iter().find(|x| &x.name == name);
-            (name.clone(), canonical_top(e, f, val))
+            (name.clone(), canonical_top(e, f, val, values))
         })
         .collect();
     StructValue { fields }
 }
 
-fn canonical_top(e: &Engine, f: Option<&SchemaField>, val: &Native) -> Value {
+fn canonical_top(e: &Engine, f: Option<&SchemaField>, val: &Native, root: &NativeStruct) -> Value {
     let Some(f) = f else {
         return from_native(val);
     };
-    canonical_value_with_defs(f, val, &e.schema.defs).unwrap_or_else(|_| from_native(val))
+    canonical_resolved(
+        f,
+        val,
+        &e.schema.defs,
+        Some(&|field| field_is_active(e, field, root, "", None)),
+    )
+    .unwrap_or_else(|_| from_native(val))
 }
 
 /// Layers overrides onto a baked form and re-seals on this engine.

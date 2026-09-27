@@ -51,7 +51,7 @@ import {
   Schema_FieldSchema,
   SchemaSchema,
 } from "./gen/schemapb/schema_pb.js";
-import type { Value } from "./gen/schemapb/value_pb.js";
+import { StructValueSchema, type Value } from "./gen/schemapb/value_pb.js";
 import { int64V, strV } from "./value.js";
 
 export const ResultType = Schema_Field_ResultType;
@@ -656,6 +656,11 @@ export class ObjectB extends FieldB {
     k.schema = sub;
   }
 
+  defaultEmpty(): this {
+    if (this.f.kind.case === "object") this.f.kind.value.default = create(StructValueSchema);
+    return this;
+  }
+
   strict(): this {
     this.#sub.strict = true;
     return this;
@@ -784,9 +789,16 @@ export function computed(name: string, expr: string): ComputedB {
   return b;
 }
 
+export class RefB extends FieldB {
+  defaultEmpty(): this {
+    if (this.f.kind.case === "ref") this.f.kind.value.default = create(StructValueSchema);
+    return this;
+  }
+}
+
 /** A Ref field resolving against a local def. */
-export function ref(name: string, defName: string): FieldB {
-  const b = new FieldB(name);
+export function ref(name: string, defName: string): RefB {
+  const b = new RefB(name);
   b.f.kind = {
     case: "ref",
     value: create(Schema_Field_RefSchema, { target: { case: "name", value: defName } }),
@@ -795,8 +807,8 @@ export function ref(name: string, defName: string): FieldB {
 }
 
 /** A Ref field targeting a registered schema by identity handle. */
-export function refId(name: string, id: SchemaIdentity): FieldB {
-  const b = new FieldB(name);
+export function refId(name: string, id: SchemaIdentity): RefB {
+  const b = new RefB(name);
   b.f.kind = {
     case: "ref",
     value: create(Schema_Field_RefSchema, { target: { case: "id", value: id } }),

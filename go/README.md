@@ -69,8 +69,9 @@ as `secret`, `required`, `description`, `normalize` and `rules` address the
 field; attributes such as `default`, `gte`, `pattern` and `min_len` address
 its active kind. Both protobuf snake_case and JSON lowerCamelCase names are
 accepted. Unknown attributes, duplicate names, invalid values, and attempts
-to change `name` or the field kind fail reflection. List/Map/Object defaults
-remain unsupported because those kinds have no default in the contract.
+to change `name` or the field kind fail reflection. List/Map defaults
+remain unsupported. Object/Ref accept only `default={}` to create an absent
+active section and apply child defaults. Nonempty object defaults are rejected.
 
 Assignments are separated by `;`. Strings can be bare (`default=` is a
 present empty string) or JSON quoted. Quote strings containing separators or
@@ -106,6 +107,32 @@ spb.WithFieldTags(func(sf reflect.StructField, field *spb.Schema_Field) error {
 Setting one attribute replaces it and preserves sibling attributes; failure
 leaves the field unchanged. Defaults apply to absent keys, not explicit
 zero/false/empty values. Preserve key presence while merging input layers.
+
+## Resolution and reports
+
+Coercion and normalization apply recursively to scalar and container values
+in lists, tuples and maps, including Ref and OneOf. Object and Ref builders
+support `DefaultEmpty()`; the equivalent reflection tag is
+`schemapb:"default={}"`. Missing sections are created only with this explicit
+default. Explicit null is preserved and checked against nullable.
+
+```go
+baked, validation, report, err := schema.BakeDetailed(input)
+// report.Events carries Path, PathSegments and Operation, without values.
+```
+
+BakeDetailed executes normalize once, like Bake, and returns a partial
+report even when validation fails. Validation errors also expose
+`PathSegments`; map keys containing dots use quoted display paths such as
+`tenants["customer.a"].timeout`.
+
+Numeric fields accept `json.Number` without enabling Coerce, including
+nested collection entries. Use `json.Decoder.UseNumber()` to retain JSON
+integer precision. Integer conversion is exact and range checked; float
+parsing rounds directly to the target precision and rejects overflow.
+
+See [the resolution contract](../docs/RESOLUTION.md) for presence, reports,
+path escaping and numeric conversion details.
 
 ## Decoding typed snapshots
 

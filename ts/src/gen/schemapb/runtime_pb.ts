@@ -2,11 +2,11 @@
 // @generated from file schemapb/runtime.proto (package schemapb, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Schema, SchemaIdentity, SchemaIdentityJson, SchemaJson } from "./schema_pb.js";
 import { file_schemapb_schema } from "./schema_pb.js";
-import type { StructValue, StructValueJson } from "./value_pb.js";
+import type { PathSegment, PathSegmentJson, StructValue, StructValueJson } from "./value_pb.js";
 import { file_schemapb_value } from "./value_pb.js";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file schemapb/runtime.proto.
  */
 export const file_schemapb_runtime: GenFile = /*@__PURE__*/
-  fileDesc("ChZzY2hlbWFwYi9ydW50aW1lLnByb3RvEghzY2hlbWFwYiJhCglTY2hlbWFSZWYSJgoCaWQYASABKAsyGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eUgAEiIKBnNjaGVtYRgCIAEoCzIQLnNjaGVtYXBiLlNjaGVtYUgAQggKBnNvdXJjZSJUCgZGaWxsZWQSIwoGc2NoZW1hGAEgASgLMhMuc2NoZW1hcGIuU2NoZW1hUmVmEiUKBnZhbHVlcxgCIAEoCzIVLnNjaGVtYXBiLlN0cnVjdFZhbHVlIlAKBUJha2VkEiAKBnNjaGVtYRgBIAEoCzIQLnNjaGVtYXBiLlNjaGVtYRIlCgZ2YWx1ZXMYAiABKAsyFS5zY2hlbWFwYi5TdHJ1Y3RWYWx1ZUIqWihnaXRodWIuY29tL2dvcGhlcmV4L3NjaGVtYXBiL2dvL3NjaGVtYXBiYgZwcm90bzM", [file_schemapb_schema, file_schemapb_value]);
+  fileDesc("ChZzY2hlbWFwYi9ydW50aW1lLnByb3RvEghzY2hlbWFwYiJhCglTY2hlbWFSZWYSJgoCaWQYASABKAsyGC5zY2hlbWFwYi5TY2hlbWFJZGVudGl0eUgAEiIKBnNjaGVtYRgCIAEoCzIQLnNjaGVtYXBiLlNjaGVtYUgAQggKBnNvdXJjZSJUCgZGaWxsZWQSIwoGc2NoZW1hGAEgASgLMhMuc2NoZW1hcGIuU2NoZW1hUmVmEiUKBnZhbHVlcxgCIAEoCzIVLnNjaGVtYXBiLlN0cnVjdFZhbHVlIlAKBUJha2VkEiAKBnNjaGVtYRgBIAEoCzIQLnNjaGVtYXBiLlNjaGVtYRIlCgZ2YWx1ZXMYAiABKAsyFS5zY2hlbWFwYi5TdHJ1Y3RWYWx1ZSJ5CgxSZXNvbHZlRXZlbnQSDAoEcGF0aBgBIAEoCRIsCg1wYXRoX3NlZ21lbnRzGAIgAygLMhUuc2NoZW1hcGIuUGF0aFNlZ21lbnQSLQoJb3BlcmF0aW9uGAMgASgOMhouc2NoZW1hcGIuUmVzb2x2ZU9wZXJhdGlvbiI3Cg1SZXNvbHZlUmVwb3J0EiYKBmV2ZW50cxgBIAMoCzIWLnNjaGVtYXBiLlJlc29sdmVFdmVudCrdAQoQUmVzb2x2ZU9wZXJhdGlvbhIhCh1SRVNPTFZFX09QRVJBVElPTl9VTlNQRUNJRklFRBAAEiUKIVJFU09MVkVfT1BFUkFUSU9OX0RFRkFVTFRfQVBQTElFRBABEh0KGVJFU09MVkVfT1BFUkFUSU9OX0NPRVJDRUQQAhIgChxSRVNPTFZFX09QRVJBVElPTl9OT1JNQUxJWkVEEAMSHgoaUkVTT0xWRV9PUEVSQVRJT05fQ09NUFVURUQQBBIeChpSRVNPTFZFX09QRVJBVElPTl9JTkFDVElWRRAFQipaKGdpdGh1Yi5jb20vZ29waGVyZXgvc2NoZW1hcGIvZ28vc2NoZW1hcGJiBnByb3RvMw", [file_schemapb_schema, file_schemapb_value]);
 
 /**
  *
@@ -193,4 +193,136 @@ export type BakedJson = {
  */
 export const BakedSchema: GenMessage<Baked, {jsonType: BakedJson}> = /*@__PURE__*/
   messageDesc(file_schemapb_runtime, 2);
+
+/**
+ * @generated from message schemapb.ResolveEvent
+ */
+export type ResolveEvent = Message<"schemapb.ResolveEvent"> & {
+  /**
+   * @generated from field: string path = 1;
+   */
+  path: string;
+
+  /**
+   * @generated from field: repeated schemapb.PathSegment path_segments = 2;
+   */
+  pathSegments: PathSegment[];
+
+  /**
+   * @generated from field: schemapb.ResolveOperation operation = 3;
+   */
+  operation: ResolveOperation;
+};
+
+/**
+ * @generated from message schemapb.ResolveEvent
+ */
+export type ResolveEventJson = {
+  /**
+   * @generated from field: string path = 1;
+   */
+  path?: string;
+
+  /**
+   * @generated from field: repeated schemapb.PathSegment path_segments = 2;
+   */
+  pathSegments?: PathSegmentJson[];
+
+  /**
+   * @generated from field: schemapb.ResolveOperation operation = 3;
+   */
+  operation?: ResolveOperationJson;
+};
+
+/**
+ * Describes the message schemapb.ResolveEvent.
+ * Use `create(ResolveEventSchema)` to create a new message.
+ */
+export const ResolveEventSchema: GenMessage<ResolveEvent, {jsonType: ResolveEventJson}> = /*@__PURE__*/
+  messageDesc(file_schemapb_runtime, 3);
+
+/**
+ * Execution order: seed, normalize, dependency-ordered computed. Fields use
+ * declaration order, lists index order, maps UTF-8 key order. Available even
+ * after failure; events describe completed operations, not a valid snapshot.
+ *
+ * @generated from message schemapb.ResolveReport
+ */
+export type ResolveReport = Message<"schemapb.ResolveReport"> & {
+  /**
+   * @generated from field: repeated schemapb.ResolveEvent events = 1;
+   */
+  events: ResolveEvent[];
+};
+
+/**
+ * Execution order: seed, normalize, dependency-ordered computed. Fields use
+ * declaration order, lists index order, maps UTF-8 key order. Available even
+ * after failure; events describe completed operations, not a valid snapshot.
+ *
+ * @generated from message schemapb.ResolveReport
+ */
+export type ResolveReportJson = {
+  /**
+   * @generated from field: repeated schemapb.ResolveEvent events = 1;
+   */
+  events?: ResolveEventJson[];
+};
+
+/**
+ * Describes the message schemapb.ResolveReport.
+ * Use `create(ResolveReportSchema)` to create a new message.
+ */
+export const ResolveReportSchema: GenMessage<ResolveReport, {jsonType: ResolveReportJson}> = /*@__PURE__*/
+  messageDesc(file_schemapb_runtime, 4);
+
+/**
+ * Operations performed while resolving a form. No values or expressions.
+ *
+ * @generated from enum schemapb.ResolveOperation
+ */
+export enum ResolveOperation {
+  /**
+   * @generated from enum value: RESOLVE_OPERATION_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: RESOLVE_OPERATION_DEFAULT_APPLIED = 1;
+   */
+  DEFAULT_APPLIED = 1,
+
+  /**
+   * @generated from enum value: RESOLVE_OPERATION_COERCED = 2;
+   */
+  COERCED = 2,
+
+  /**
+   * @generated from enum value: RESOLVE_OPERATION_NORMALIZED = 3;
+   */
+  NORMALIZED = 3,
+
+  /**
+   * @generated from enum value: RESOLVE_OPERATION_COMPUTED = 4;
+   */
+  COMPUTED = 4,
+
+  /**
+   * @generated from enum value: RESOLVE_OPERATION_INACTIVE = 5;
+   */
+  INACTIVE = 5,
+}
+
+/**
+ * Operations performed while resolving a form. No values or expressions.
+ *
+ * @generated from enum schemapb.ResolveOperation
+ */
+export type ResolveOperationJson = "RESOLVE_OPERATION_UNSPECIFIED" | "RESOLVE_OPERATION_DEFAULT_APPLIED" | "RESOLVE_OPERATION_COERCED" | "RESOLVE_OPERATION_NORMALIZED" | "RESOLVE_OPERATION_COMPUTED" | "RESOLVE_OPERATION_INACTIVE";
+
+/**
+ * Describes the enum schemapb.ResolveOperation.
+ */
+export const ResolveOperationSchema: GenEnum<ResolveOperation, ResolveOperationJson> = /*@__PURE__*/
+  enumDesc(file_schemapb_runtime, 0);
 

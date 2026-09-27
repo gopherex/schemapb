@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file schemapb/value.proto.
  */
 export const file_schemapb_value: GenFile = /*@__PURE__*/
-  fileDesc("ChRzY2hlbWFwYi92YWx1ZS5wcm90bxIIc2NoZW1hcGIi0gMKBVZhbHVlEikKCm51bGxfdmFsdWUYASABKA4yEy5zY2hlbWFwYi5OdWxsVmFsdWVIABIUCgpib29sX3ZhbHVlGAIgASgISAASFQoLaW50MzJfdmFsdWUYAyABKAVIABIVCgtpbnQ2NF92YWx1ZRgEIAEoA0gAEhYKDHVpbnQzMl92YWx1ZRgFIAEoDUgAEhYKDHVpbnQ2NF92YWx1ZRgGIAEoBEgAEhUKC2Zsb2F0X3ZhbHVlGAcgASgCSAASFgoMZG91YmxlX3ZhbHVlGAggASgBSAASFgoMc3RyaW5nX3ZhbHVlGAkgASgJSAASMwoOZHVyYXRpb25fdmFsdWUYCiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25IABI1Cg90aW1lc3RhbXBfdmFsdWUYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSAASKQoKbGlzdF92YWx1ZRgMIAEoCzITLnNjaGVtYXBiLkxpc3RWYWx1ZUgAEi0KDHN0cnVjdF92YWx1ZRgNIAEoCzIVLnNjaGVtYXBiLlN0cnVjdFZhbHVlSAASFQoLYnl0ZXNfdmFsdWUYDiABKAxIAEIGCgRraW5kIisKCUxpc3RWYWx1ZRIeCgVpdGVtcxgBIAMoCzIPLnNjaGVtYXBiLlZhbHVlIoABCgtTdHJ1Y3RWYWx1ZRIxCgZmaWVsZHMYASADKAsyIS5zY2hlbWFwYi5TdHJ1Y3RWYWx1ZS5GaWVsZHNFbnRyeRo+CgtGaWVsZHNFbnRyeRILCgNrZXkYASABKAkSHgoFdmFsdWUYAiABKAsyDy5zY2hlbWFwYi5WYWx1ZToCOAEqGwoJTnVsbFZhbHVlEg4KCk5VTExfVkFMVUUQAEIqWihnaXRodWIuY29tL2dvcGhlcmV4L3NjaGVtYXBiL2dvL3NjaGVtYXBiYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp]);
+  fileDesc("ChRzY2hlbWFwYi92YWx1ZS5wcm90bxIIc2NoZW1hcGIi0gMKBVZhbHVlEikKCm51bGxfdmFsdWUYASABKA4yEy5zY2hlbWFwYi5OdWxsVmFsdWVIABIUCgpib29sX3ZhbHVlGAIgASgISAASFQoLaW50MzJfdmFsdWUYAyABKAVIABIVCgtpbnQ2NF92YWx1ZRgEIAEoA0gAEhYKDHVpbnQzMl92YWx1ZRgFIAEoDUgAEhYKDHVpbnQ2NF92YWx1ZRgGIAEoBEgAEhUKC2Zsb2F0X3ZhbHVlGAcgASgCSAASFgoMZG91YmxlX3ZhbHVlGAggASgBSAASFgoMc3RyaW5nX3ZhbHVlGAkgASgJSAASMwoOZHVyYXRpb25fdmFsdWUYCiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25IABI1Cg90aW1lc3RhbXBfdmFsdWUYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSAASKQoKbGlzdF92YWx1ZRgMIAEoCzITLnNjaGVtYXBiLkxpc3RWYWx1ZUgAEi0KDHN0cnVjdF92YWx1ZRgNIAEoCzIVLnNjaGVtYXBiLlN0cnVjdFZhbHVlSAASFQoLYnl0ZXNfdmFsdWUYDiABKAxIAEIGCgRraW5kIisKCUxpc3RWYWx1ZRIeCgVpdGVtcxgBIAMoCzIPLnNjaGVtYXBiLlZhbHVlIoABCgtTdHJ1Y3RWYWx1ZRIxCgZmaWVsZHMYASADKAsyIS5zY2hlbWFwYi5TdHJ1Y3RWYWx1ZS5GaWVsZHNFbnRyeRo+CgtGaWVsZHNFbnRyeRILCgNrZXkYASABKAkSHgoFdmFsdWUYAiABKAsyDy5zY2hlbWFwYi5WYWx1ZToCOAEiOAoLUGF0aFNlZ21lbnQSDQoDa2V5GAEgASgJSAASDwoFaW5kZXgYAiABKARIAEIJCgdzZWdtZW50KhsKCU51bGxWYWx1ZRIOCgpOVUxMX1ZBTFVFEABCKlooZ2l0aHViLmNvbS9nb3BoZXJleC9zY2hlbWFwYi9nby9zY2hlbWFwYmIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp]);
 
 /**
  *
@@ -295,6 +295,54 @@ export type StructValueJson = {
  */
 export const StructValueSchema: GenMessage<StructValue, {jsonType: StructValueJson}> = /*@__PURE__*/
   messageDesc(file_schemapb_value, 2);
+
+/**
+ * Unambiguous location in a value tree. Keys may contain any characters.
+ *
+ * @generated from message schemapb.PathSegment
+ */
+export type PathSegment = Message<"schemapb.PathSegment"> & {
+  /**
+   * @generated from oneof schemapb.PathSegment.segment
+   */
+  segment: {
+    /**
+     * @generated from field: string key = 1;
+     */
+    value: string;
+    case: "key";
+  } | {
+    /**
+     * @generated from field: uint64 index = 2;
+     */
+    value: bigint;
+    case: "index";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Unambiguous location in a value tree. Keys may contain any characters.
+ *
+ * @generated from message schemapb.PathSegment
+ */
+export type PathSegmentJson = {
+  /**
+   * @generated from field: string key = 1;
+   */
+  key?: string;
+
+  /**
+   * @generated from field: uint64 index = 2;
+   */
+  index?: string;
+};
+
+/**
+ * Describes the message schemapb.PathSegment.
+ * Use `create(PathSegmentSchema)` to create a new message.
+ */
+export const PathSegmentSchema: GenMessage<PathSegment, {jsonType: PathSegmentJson}> = /*@__PURE__*/
+  messageDesc(file_schemapb_value, 3);
 
 /**
  * NullValue is the singleton null. 

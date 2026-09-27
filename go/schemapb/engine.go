@@ -535,6 +535,8 @@ func (e *Engine) exprDeps(src string) []string {
 
 // selectPath resolves a select/index chain rooted at the `root` identifier to
 // a dotted path ("" for `root` itself; false when not rooted at `root`).
+//
+//nolint:cyclop // exhaustive CEL select/index dispatch
 func selectPath(x celast.Expr) (string, bool) {
 	switch x.Kind() {
 	case celast.IdentKind:
@@ -555,7 +557,7 @@ func selectPath(x celast.Expr) (string, bool) {
 			return sel.FieldName(), true
 		}
 
-		return base + "." + sel.FieldName(), true
+		return joinPath(base, sel.FieldName()), true
 	case celast.CallKind:
 		c := x.AsCall()
 		if c.FunctionName() != "_[_]" || len(c.Args()) != 2 {
@@ -572,16 +574,18 @@ func selectPath(x celast.Expr) (string, bool) {
 			return "", false
 		}
 
-		key, ok := lit.AsLiteral().Value().(string)
-		if !ok {
-			return "", false
+		switch key := lit.AsLiteral().Value().(type) {
+		case string:
+			return joinPath(base, key), true
+		case int64:
+			if key >= 0 {
+				return fmt.Sprintf("%s[%d]", base, key), true
+			}
+		case uint64:
+			return fmt.Sprintf("%s[%d]", base, key), true
 		}
 
-		if base == "" {
-			return key, true
-		}
-
-		return base + "." + key, true
+		return "", false
 	default:
 		return "", false
 	}

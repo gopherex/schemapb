@@ -21,6 +21,65 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Operations performed while resolving a form. No values or expressions.
+type ResolveOperation int32
+
+const (
+	ResolveOperation_RESOLVE_OPERATION_UNSPECIFIED     ResolveOperation = 0
+	ResolveOperation_RESOLVE_OPERATION_DEFAULT_APPLIED ResolveOperation = 1
+	ResolveOperation_RESOLVE_OPERATION_COERCED         ResolveOperation = 2
+	ResolveOperation_RESOLVE_OPERATION_NORMALIZED      ResolveOperation = 3
+	ResolveOperation_RESOLVE_OPERATION_COMPUTED        ResolveOperation = 4
+	ResolveOperation_RESOLVE_OPERATION_INACTIVE        ResolveOperation = 5
+)
+
+// Enum value maps for ResolveOperation.
+var (
+	ResolveOperation_name = map[int32]string{
+		0: "RESOLVE_OPERATION_UNSPECIFIED",
+		1: "RESOLVE_OPERATION_DEFAULT_APPLIED",
+		2: "RESOLVE_OPERATION_COERCED",
+		3: "RESOLVE_OPERATION_NORMALIZED",
+		4: "RESOLVE_OPERATION_COMPUTED",
+		5: "RESOLVE_OPERATION_INACTIVE",
+	}
+	ResolveOperation_value = map[string]int32{
+		"RESOLVE_OPERATION_UNSPECIFIED":     0,
+		"RESOLVE_OPERATION_DEFAULT_APPLIED": 1,
+		"RESOLVE_OPERATION_COERCED":         2,
+		"RESOLVE_OPERATION_NORMALIZED":      3,
+		"RESOLVE_OPERATION_COMPUTED":        4,
+		"RESOLVE_OPERATION_INACTIVE":        5,
+	}
+)
+
+func (x ResolveOperation) Enum() *ResolveOperation {
+	p := new(ResolveOperation)
+	*p = x
+	return p
+}
+
+func (x ResolveOperation) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ResolveOperation) Descriptor() protoreflect.EnumDescriptor {
+	return file_schemapb_runtime_proto_enumTypes[0].Descriptor()
+}
+
+func (ResolveOperation) Type() protoreflect.EnumType {
+	return &file_schemapb_runtime_proto_enumTypes[0]
+}
+
+func (x ResolveOperation) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ResolveOperation.Descriptor instead.
+func (ResolveOperation) EnumDescriptor() ([]byte, []int) {
+	return file_schemapb_runtime_proto_rawDescGZIP(), []int{0}
+}
+
 // SchemaRef selects a schema: either inline, or by identity (resolved from a
 // registry).
 type SchemaRef struct {
@@ -225,6 +284,113 @@ func (x *Baked) GetValues() *StructValue {
 	return nil
 }
 
+type ResolveEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	PathSegments  []*PathSegment         `protobuf:"bytes,2,rep,name=path_segments,json=pathSegments,proto3" json:"path_segments,omitempty"`
+	Operation     ResolveOperation       `protobuf:"varint,3,opt,name=operation,proto3,enum=schemapb.ResolveOperation" json:"operation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveEvent) Reset() {
+	*x = ResolveEvent{}
+	mi := &file_schemapb_runtime_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveEvent) ProtoMessage() {}
+
+func (x *ResolveEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_runtime_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveEvent.ProtoReflect.Descriptor instead.
+func (*ResolveEvent) Descriptor() ([]byte, []int) {
+	return file_schemapb_runtime_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ResolveEvent) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ResolveEvent) GetPathSegments() []*PathSegment {
+	if x != nil {
+		return x.PathSegments
+	}
+	return nil
+}
+
+func (x *ResolveEvent) GetOperation() ResolveOperation {
+	if x != nil {
+		return x.Operation
+	}
+	return ResolveOperation_RESOLVE_OPERATION_UNSPECIFIED
+}
+
+// Execution order: seed, normalize, dependency-ordered computed. Fields use
+// declaration order, lists index order, maps UTF-8 key order. Available even
+// after failure; events describe completed operations, not a valid snapshot.
+type ResolveReport struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Events        []*ResolveEvent        `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveReport) Reset() {
+	*x = ResolveReport{}
+	mi := &file_schemapb_runtime_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveReport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveReport) ProtoMessage() {}
+
+func (x *ResolveReport) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_runtime_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveReport.ProtoReflect.Descriptor instead.
+func (*ResolveReport) Descriptor() ([]byte, []int) {
+	return file_schemapb_runtime_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ResolveReport) GetEvents() []*ResolveEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
 var File_schemapb_runtime_proto protoreflect.FileDescriptor
 
 const file_schemapb_runtime_proto_rawDesc = "" +
@@ -239,7 +405,20 @@ const file_schemapb_runtime_proto_rawDesc = "" +
 	"\x06values\x18\x02 \x01(\v2\x15.schemapb.StructValueR\x06values\"`\n" +
 	"\x05Baked\x12(\n" +
 	"\x06schema\x18\x01 \x01(\v2\x10.schemapb.SchemaR\x06schema\x12-\n" +
-	"\x06values\x18\x02 \x01(\v2\x15.schemapb.StructValueR\x06valuesB*Z(github.com/gopherex/schemapb/go/schemapbb\x06proto3"
+	"\x06values\x18\x02 \x01(\v2\x15.schemapb.StructValueR\x06values\"\x98\x01\n" +
+	"\fResolveEvent\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12:\n" +
+	"\rpath_segments\x18\x02 \x03(\v2\x15.schemapb.PathSegmentR\fpathSegments\x128\n" +
+	"\toperation\x18\x03 \x01(\x0e2\x1a.schemapb.ResolveOperationR\toperation\"?\n" +
+	"\rResolveReport\x12.\n" +
+	"\x06events\x18\x01 \x03(\v2\x16.schemapb.ResolveEventR\x06events*\xdd\x01\n" +
+	"\x10ResolveOperation\x12!\n" +
+	"\x1dRESOLVE_OPERATION_UNSPECIFIED\x10\x00\x12%\n" +
+	"!RESOLVE_OPERATION_DEFAULT_APPLIED\x10\x01\x12\x1d\n" +
+	"\x19RESOLVE_OPERATION_COERCED\x10\x02\x12 \n" +
+	"\x1cRESOLVE_OPERATION_NORMALIZED\x10\x03\x12\x1e\n" +
+	"\x1aRESOLVE_OPERATION_COMPUTED\x10\x04\x12\x1e\n" +
+	"\x1aRESOLVE_OPERATION_INACTIVE\x10\x05B*Z(github.com/gopherex/schemapb/go/schemapbb\x06proto3"
 
 var (
 	file_schemapb_runtime_proto_rawDescOnce sync.Once
@@ -253,27 +432,35 @@ func file_schemapb_runtime_proto_rawDescGZIP() []byte {
 	return file_schemapb_runtime_proto_rawDescData
 }
 
-var file_schemapb_runtime_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_schemapb_runtime_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_schemapb_runtime_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_schemapb_runtime_proto_goTypes = []any{
-	(*SchemaRef)(nil),      // 0: schemapb.SchemaRef
-	(*Filled)(nil),         // 1: schemapb.Filled
-	(*Baked)(nil),          // 2: schemapb.Baked
-	(*SchemaIdentity)(nil), // 3: schemapb.SchemaIdentity
-	(*Schema)(nil),         // 4: schemapb.Schema
-	(*StructValue)(nil),    // 5: schemapb.StructValue
+	(ResolveOperation)(0),  // 0: schemapb.ResolveOperation
+	(*SchemaRef)(nil),      // 1: schemapb.SchemaRef
+	(*Filled)(nil),         // 2: schemapb.Filled
+	(*Baked)(nil),          // 3: schemapb.Baked
+	(*ResolveEvent)(nil),   // 4: schemapb.ResolveEvent
+	(*ResolveReport)(nil),  // 5: schemapb.ResolveReport
+	(*SchemaIdentity)(nil), // 6: schemapb.SchemaIdentity
+	(*Schema)(nil),         // 7: schemapb.Schema
+	(*StructValue)(nil),    // 8: schemapb.StructValue
+	(*PathSegment)(nil),    // 9: schemapb.PathSegment
 }
 var file_schemapb_runtime_proto_depIdxs = []int32{
-	3, // 0: schemapb.SchemaRef.id:type_name -> schemapb.SchemaIdentity
-	4, // 1: schemapb.SchemaRef.schema:type_name -> schemapb.Schema
-	0, // 2: schemapb.Filled.schema:type_name -> schemapb.SchemaRef
-	5, // 3: schemapb.Filled.values:type_name -> schemapb.StructValue
-	4, // 4: schemapb.Baked.schema:type_name -> schemapb.Schema
-	5, // 5: schemapb.Baked.values:type_name -> schemapb.StructValue
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	6, // 0: schemapb.SchemaRef.id:type_name -> schemapb.SchemaIdentity
+	7, // 1: schemapb.SchemaRef.schema:type_name -> schemapb.Schema
+	1, // 2: schemapb.Filled.schema:type_name -> schemapb.SchemaRef
+	8, // 3: schemapb.Filled.values:type_name -> schemapb.StructValue
+	7, // 4: schemapb.Baked.schema:type_name -> schemapb.Schema
+	8, // 5: schemapb.Baked.values:type_name -> schemapb.StructValue
+	9, // 6: schemapb.ResolveEvent.path_segments:type_name -> schemapb.PathSegment
+	0, // 7: schemapb.ResolveEvent.operation:type_name -> schemapb.ResolveOperation
+	4, // 8: schemapb.ResolveReport.events:type_name -> schemapb.ResolveEvent
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_runtime_proto_init() }
@@ -292,13 +479,14 @@ func file_schemapb_runtime_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schemapb_runtime_proto_rawDesc), len(file_schemapb_runtime_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   3,
+			NumEnums:      1,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_schemapb_runtime_proto_goTypes,
 		DependencyIndexes: file_schemapb_runtime_proto_depIdxs,
+		EnumInfos:         file_schemapb_runtime_proto_enumTypes,
 		MessageInfos:      file_schemapb_runtime_proto_msgTypes,
 	}.Build()
 	File_schemapb_runtime_proto = out.File

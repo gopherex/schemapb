@@ -79,10 +79,17 @@ fn is_cel_reserved(name: &str) -> bool {
 
 #[must_use]
 pub fn join_path(prefix: &str, name: &str) -> String {
-    if prefix.is_empty() {
-        name.to_owned()
+    if !name.is_empty() && !name.contains(['.', '[', ']', '"', '\\']) {
+        if prefix.is_empty() {
+            name.into()
+        } else {
+            format!("{prefix}.{name}")
+        }
     } else {
-        format!("{prefix}.{name}")
+        format!(
+            "{prefix}[{}]",
+            serde_json::to_string(name).unwrap_or_default()
+        )
     }
 }
 
@@ -146,6 +153,20 @@ fn check_fields(fields: &[SchemaField], prefix: &str) -> Vec<ValidationError> {
     let mut seen = std::collections::HashSet::new();
     for f in fields {
         let path = join_path(prefix, &f.name);
+        let object_default = match f.kind.as_ref() {
+            Some(K::Object(o)) => o.default.as_ref(),
+            Some(K::Ref(r)) => r.default.as_ref(),
+            _ => None,
+        };
+        if let Some(default) = object_default {
+            if !default.fields.is_empty() {
+                errs.push(schema_err(&path, "object default must be empty"));
+            }
+            if f.immutable {
+                errs.push(schema_err(&path, "object default cannot be immutable"));
+            }
+        }
+
         if f.name.is_empty() {
             errs.push(schema_err(prefix, "field name is required"));
             continue;
