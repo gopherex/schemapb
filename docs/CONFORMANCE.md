@@ -17,6 +17,8 @@ fixtures, and TypeScript, Python and Rust must reproduce them exactly
 | `lookup.json` | Schema path lookup over the kitchen-sink schema: each case pins either the resolved field's kind or the failing `(at, segment, reason)` triple. Error message texts are NOT pinned — each language words its lookup error idiomatically; the triple is the contract. |
 | `value-as.json` | The typed-extraction matrix: source wire value × target kind → re-encoded result or refusal. Pins the one rule — a conversion succeeds iff the value is represented in the target exactly (lossless round-trip); numerics convert across kinds, everything else is strict. |
 | `reflect.json` | The MIRROR MODEL: one logical struct declared natively per language (Go reflect+tags, Python pydantic, TypeScript zod, Rust derive) must reflect into this byte-identical Schema, field order included. |
+| `reflect-attributes.json` | Attribute mirror: Go's descriptor-driven tags and the other ports' native type overrides produce the same secret/default/constraint metadata, including explicit zero and empty defaults. |
+| `reflect-attributes-baked.json` | Baking an empty input against the attribute mirror produces the same typed defaults in every language. |
 | `value-lookup.json` | Value path lookup in the error-path dialect (`replicas[0].name`) over the baked kitchen-sink values: resolved value (protoJSON) or the failing `(at, segment, reason)` triple. |
 | `full-coverage.json` | Which contract features the kitchen-sink schema exercises — a checklist that the goldens stay exhaustive. |
 | `nested-ref-schema.json` | Composition regression schema: named and identity refs, lists, tuples, objects, maps and selected OneOf variants. |
@@ -36,6 +38,13 @@ and re-bake the wire snapshot. Invalid cases compare the complete
 also covers empty/absent lists, nullable items, absent optional objects and
 inactive fields. Go asserts explicit expected values before writing goldens,
 so regeneration cannot silently accept missing defaults or widened wire kinds.
+
+The Go `StructValue.Decode` runner also consumes the existing `value-as.json`
+conversion matrix. Struct field mapping, atomic assignment, native time
+types, custom unmarshaler hooks and error paths have Go-specific tests.
+These are native API adapters; they introduce no new wire kinds or engine
+resolution rules. Attribute reflection uses the Go tag grammar and existing
+type override mechanisms in Python, TypeScript and Rust.
 
 ## Regenerating
 

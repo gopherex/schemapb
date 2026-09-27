@@ -6,12 +6,15 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fromJson, toJson } from "@bufbuild/protobuf";
+import { create, fromJson, toJson } from "@bufbuild/protobuf";
+import { DurationSchema } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
-import { int64, str } from "../src/new.js";
-import { id, Version } from "../src/typed.js";
+import { Engine } from "../src/engine.js";
+import { type Schema_Field, SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
+import { StructValueSchema } from "../src/gen/schemapb/value_pb.js";
+import { bool, duration, int32, int64, str } from "../src/new.js";
+import { fieldName, id, Version } from "../src/typed.js";
 import {
   bytesField,
   durationField,
@@ -100,4 +103,47 @@ describe("reflectZod", () => {
     const wait = schema.fields.find((f) => f.name === "wait");
     expect(wait?.kind.case).toBe("int64");
   });
+});
+
+it("reflect attributes and defaults match Go tags", () => {
+  const Token = z.string();
+  const Workers = i32(z.number().int());
+  const Enabled = z.boolean();
+  const Timeout = durationField();
+  const Empty = z.string();
+  const model = z.object({
+    token: Token,
+    workers: Workers,
+    enabled: Enabled,
+    timeout: Timeout,
+    empty: Empty.nullish(),
+  });
+  const overrides = new Map<unknown, (name: string) => Schema_Field>([
+    [Token, (n) => str(fieldName(n)).secret().default("token").minLen(1n).done()],
+    [Workers, (n) => int32(fieldName(n)).default(4).gte(1).lte(64).done()],
+    [Enabled, (n) => bool(fieldName(n)).default(false).done()],
+    [
+      Timeout,
+      (n) =>
+        duration(fieldName(n))
+          .default(create(DurationSchema, { seconds: 30n }))
+          .done(),
+    ],
+    [Empty, (n) => str(fieldName(n)).default("").done()],
+  ]);
+  const schema = reflectZod(model, id("conformance", "reflect_attributes", Version.of(1, 0, 0)), {
+    overrides,
+  });
+  const want = fromJson(
+    SchemaSchema,
+    JSON.parse(readFileSync(join(goldenDir, "reflect-attributes.json"), "utf8")),
+  );
+  expect(toJson(SchemaSchema, schema)).toEqual(toJson(SchemaSchema, want));
+  const outcome = Engine.compile(schema).bake({});
+  expect(outcome.result.errors).toEqual([]);
+  const values = fromJson(
+    StructValueSchema,
+    JSON.parse(readFileSync(join(goldenDir, "reflect-attributes-baked.json"), "utf8")),
+  );
+  expect(outcome.baked?.values).toStrictEqual(values);
 });

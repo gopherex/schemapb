@@ -26,12 +26,15 @@ package schemapb
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // ReflectOption configures Reflect.
@@ -47,10 +50,24 @@ func WithType(t reflect.Type, f func(name FieldName) *Schema_Field) ReflectOptio
 	}
 }
 
+// WithFieldTags adds a project-specific tag handler. Handlers run in option
+// order, after type inference, legacy tags and the schemapb tag, for each
+// included struct field (including nested fields, excluding flattened wrappers).
+// The descriptor belongs to this reflection call and may be modified in place.
+func WithFieldTags(f func(reflect.StructField, *Schema_Field) error) ReflectOption {
+	return func(r *reflector) {
+		r.fieldTags = append(r.fieldTags, f)
+	}
+}
+
 // Reflect builds a Schema from a Go type. Coercion is enabled on the root:
 // human input arrives as strings ("1h", "256") and the schema converts
 // them itself on resolve.
 func Reflect(t reflect.Type, id *SchemaIdentity, opts ...ReflectOption) (*Schema, error) {
+	if t == nil {
+		return nil, errors.New("schemapb: reflect: nil type")
+	}
+
 	r := &reflector{overrides: map[reflect.Type]func(FieldName) *Schema_Field{}}
 	for _, opt := range opts {
 		opt(r)
@@ -95,6 +112,7 @@ var (
 
 type reflector struct {
 	overrides map[reflect.Type]func(FieldName) *Schema_Field
+	fieldTags []func(reflect.StructField, *Schema_Field) error
 }
 
 func fieldDefs(fields []*Schema_Field) []FieldDef {
@@ -168,10 +186,32 @@ func (r *reflector) fieldsOf(t reflect.Type, visited map[reflect.Type]bool) ([]*
 			return nil, fmt.Errorf("field %s: %w", structField.Name, err)
 		}
 
+		if err := r.decorateField(&structField, field); err != nil {
+			return nil, fmt.Errorf("field %s: %w", structField.Name, err)
+		}
+
 		out = append(out, field)
 	}
 
 	return out, nil
+}
+
+func (r *reflector) decorateField(structField *reflect.StructField, field *Schema_Field) error {
+	if err := applyFieldTags(structField.Tag.Get("schemapb"), field); err != nil {
+		return err
+	}
+
+	for _, handler := range r.fieldTags {
+		if handler == nil {
+			return errors.New("nil field tag handler")
+		}
+
+		if err := handler(*structField, field); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // fieldOf builds one field descriptor for a Go type, enriched with the tag
@@ -206,6 +246,11 @@ func (r *reflector) fieldOf(
 	switch {
 	case r.overrides[t] != nil:
 		field = r.overrides[t](fname)
+		if field == nil {
+			return nil, fmt.Errorf("type override for %s returned nil", t)
+		}
+
+		field, _ = proto.Clone(field).(*Schema_Field)
 	case t == timeType:
 		field = Timestamp(fname).Done()
 	case t == durationType:

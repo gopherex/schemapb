@@ -131,3 +131,92 @@ fn misapplied_constraint_is_loud() {
 
     let _ = reflect_schema::<Bad>(mirror_id());
 }
+
+/// Native trait overrides express the same attributes as Go's generic tags.
+#[test]
+fn reflect_attributes_match_go_tags() {
+    use schemapb::gen::schemapb::schema::{field::Kind, Field};
+    use schemapb::gen::schemapb::StructValue;
+
+    struct Token;
+    impl ReflectField for Token {
+        fn field(name: &str) -> Field {
+            let mut f = String::field(name);
+            f.secret = true;
+            if let Some(Kind::String(k)) = f.kind.as_mut() {
+                k.default = Some("token".into());
+                k.min_len = Some(1);
+            }
+            f
+        }
+    }
+    struct Workers;
+    impl ReflectField for Workers {
+        fn field(name: &str) -> Field {
+            let mut f = i32::field(name);
+            if let Some(Kind::Int32(k)) = f.kind.as_mut() {
+                k.default = Some(4);
+                k.gte = Some(1);
+                k.lte = Some(64);
+            }
+            f
+        }
+    }
+    struct Enabled;
+    impl ReflectField for Enabled {
+        fn field(name: &str) -> Field {
+            let mut f = bool::field(name);
+            if let Some(Kind::Bool(k)) = f.kind.as_mut() {
+                k.default = Some(false);
+            }
+            f
+        }
+    }
+    struct Timeout;
+    impl ReflectField for Timeout {
+        fn field(name: &str) -> Field {
+            let mut f = pbjson_types::Duration::field(name);
+            if let Some(Kind::Duration(k)) = f.kind.as_mut() {
+                k.default = Some(pbjson_types::Duration {
+                    seconds: 30,
+                    nanos: 0,
+                });
+            }
+            f
+        }
+    }
+    struct Empty;
+    impl ReflectField for Empty {
+        fn field(name: &str) -> Field {
+            let mut f = String::field(name);
+            if let Some(Kind::String(k)) = f.kind.as_mut() {
+                k.default = Some(String::new());
+            }
+            f
+        }
+    }
+    #[derive(Reflect)]
+    #[allow(dead_code)]
+    struct Model {
+        token: Token,
+        workers: Workers,
+        enabled: Enabled,
+        timeout: Timeout,
+        empty: Option<Empty>,
+    }
+    let schema = reflect_schema::<Model>(SchemaIdentity {
+        namespace: "conformance".into(),
+        name: "reflect_attributes".into(),
+        version: "v1.0.0".into(),
+    })
+    .unwrap();
+    let want: Schema = serde_json::from_str(&golden("reflect-attributes.json")).unwrap();
+    assert_eq!(schema, want);
+    let e = schemapb::engine::Engine::compile(schema, schemapb::formats::FormatRegistry::new())
+        .unwrap();
+    let outcome = e.bake(&mut schemapb::value::NativeStruct::new());
+    assert!(outcome.result.errors.is_empty());
+    let values: StructValue =
+        serde_json::from_str(&golden("reflect-attributes-baked.json")).unwrap();
+    assert_eq!(outcome.baked.unwrap().values, Some(values));
+}

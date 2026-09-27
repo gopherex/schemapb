@@ -51,6 +51,90 @@ tags for names, the go-playground/validator vocabulary for constraints,
 `example_test.go` walks the entire public API (builders, registry + `Link`,
 `Choice`, `OneOf`, `Ref`, tuples, secrets, merge) in one runnable example.
 
+## Reflection attributes
+
+The `schemapb` struct tag applies protobuf attributes to the reflected field:
+
+```go
+type Config struct {
+    Token   string        `json:"token" schemapb:"secret=true;default=token"`
+    Workers int32         `json:"workers" schemapb:"default=4;gte=1;lte=64"`
+    Timeout time.Duration `json:"timeout" schemapb:"default=30s"`
+    Enabled bool          `json:"enabled" schemapb:"default=false"`
+}
+```
+
+Attributes are discovered from protobuf descriptors. Common attributes such
+as `secret`, `required`, `description`, `normalize` and `rules` address the
+field; attributes such as `default`, `gte`, `pattern` and `min_len` address
+its active kind. Both protobuf snake_case and JSON lowerCamelCase names are
+accepted. Unknown attributes, duplicate names, invalid values, and attempts
+to change `name` or the field kind fail reflection. List/Map/Object defaults
+remain unsupported because those kinds have no default in the contract.
+
+Assignments are separated by `;`. Strings can be bare (`default=` is a
+present empty string) or JSON quoted. Quote strings containing separators or
+unbalanced brackets: `schemapb:"default=\"a;b\""`. Bytes use base64; enums use
+protobuf names. Duration attributes accept Go durations such as `1m30s` or
+protobuf duration strings; timestamps use RFC 3339. Repeated fields, maps
+and message attributes use protoJSON, for example:
+
+```go
+Mode string `json:"mode" validate:"oneof=fast safe" schemapb:"default={\"stringValue\":\"safe\"}"`
+Name string `json:"name" schemapb:"rules=[{\"expr\":\"this != ''\",\"message\":\"required\"}]"`
+```
+
+Precedence is type inference / `WithType`, existing `json` / `validate` /
+`desc` / `pattern` tags, the `schemapb` tag, then `WithFieldTags` callbacks in
+option order. Callbacks receive the original `reflect.StructField` and an
+owned mutable `*Schema_Field`, including for nested struct fields. Skipped
+fields and flattened embedded wrappers do not invoke callbacks. Type
+override templates are cloned before decoration.
+
+Project tag conventions can be added without changing this library:
+
+```go
+spb.WithFieldTags(func(sf reflect.StructField, field *spb.Schema_Field) error {
+    if value, present := sf.Tag.Lookup("default"); present {
+        return spb.SetFieldAttribute(field, "default", value)
+    }
+    return nil
+})
+```
+
+`SetFieldAttribute` uses the same descriptor-driven conversion as the tag.
+Setting one attribute replaces it and preserves sibling attributes; failure
+leaves the field unchanged. Defaults apply to absent keys, not explicit
+zero/false/empty values. Preserve key presence while merging input layers.
+
+## Decoding typed snapshots
+
+```go
+var cfg Config
+if err := baked.Decode(&cfg); err != nil {
+    return err
+}
+// A standalone *StructValue has the same Decode method.
+```
+
+Decode reads typed protobuf values directly into structs, string-keyed maps
+or empty interfaces. It follows Reflect's JSON names and embedded-field
+mapping, supports pointers, named scalars, nested lists/maps, fixed arrays,
+bytes, `time.Duration`, and `time.Time`. Integers remain exact; numeric
+conversions follow the shared `value-as.json` contract. Strings are not
+implicitly parsed. Unknown or ambiguous destination fields, wrong kinds,
+wrong array lengths, overflow, and precision loss return `*DecodeError`
+with a field/index path. Null requires a pointer, map, slice or interface.
+
+The target must be a non-nil pointer. Decode builds a fresh value and replaces
+the target only on success, without aliasing wire buffers or existing target
+containers. Missing fields become zero; defaults and validation belong to
+Resolve/Bake. Nil snapshots are errors. Custom `json.Unmarshaler` and
+`encoding.TextUnmarshaler` implementations run on fresh destination values
+(text hooks require a wire string). Only explicit JSON hooks/RawMessage use
+JSON for their subtree. Native time types are handled before custom hooks.
+Decode errors omit source values and custom-hook error payloads.
+
 `List(Ref(...))` resolves each present element before its validation rules:
 defaults, inherited coercion, normalization and computed fields apply inside
 the referenced schema. Bake preserves declared wire kinds throughout nested

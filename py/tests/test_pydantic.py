@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 import schemapb as spb
 import schemapb.pydantic as sp
 from schemapb import builder as b
-from schemapb._gen.schemapb import Schema
+from schemapb._gen.schemapb import Schema, StructValue
 
 GOLDEN = Path(__file__).parent.parent.parent / "conformance" / "golden"
 
@@ -111,3 +111,35 @@ def test_reflect_override() -> None:
 
 def test_pydantic_version_floor() -> None:
     assert pydantic.VERSION >= "2"
+
+
+def test_reflect_attributes_match_go_tags() -> None:
+    class Token(str):
+        __slots__ = ()
+
+    class Model(BaseModel):
+        model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+        token: Token
+        workers: sp.Int32
+        enabled: bool
+        timeout: dt.timedelta
+        empty: str | None = None
+
+    schema = sp.reflect(
+        Model,
+        spb.make_id("conformance", "reflect_attributes", spb.Version.of(1, 0, 0)),
+        overrides={
+            Token: lambda n: b.str_(n).secret().default("token").min_len(1).done(),
+            int: lambda n: b.int32(n).default(4).gte(1).lte(64).done(),
+            bool: lambda n: b.bool_(n).default(v=False).done(),
+            dt.timedelta: lambda n: b.duration(n).default(dt.timedelta(seconds=30)).done(),
+            str: lambda n: b.str_(n).default("").done(),
+        },
+    )
+    want = Schema().from_json((GOLDEN / "reflect-attributes.json").read_text())
+    assert json.loads(schema.to_json()) == json.loads(want.to_json())
+    outcome = spb.compile_schema(schema).bake({})
+    assert outcome.result.errors == []
+    assert outcome.baked is not None
+    values = StructValue().from_json((GOLDEN / "reflect-attributes-baked.json").read_text())
+    assert outcome.baked.values == values

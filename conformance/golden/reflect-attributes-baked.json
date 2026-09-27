@@ -1,0 +1,19 @@
+{
+  "fields": {
+    "empty": {
+      "stringValue": ""
+    },
+    "enabled": {
+      "boolValue": false
+    },
+    "timeout": {
+      "durationValue": "30s"
+    },
+    "token": {
+      "stringValue": "token"
+    },
+    "workers": {
+      "int32Value": 4
+    }
+  }
+}

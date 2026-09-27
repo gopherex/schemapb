@@ -1,0 +1,49 @@
+{
+  "id": {
+    "namespace": "conformance",
+    "name": "reflect_attributes",
+    "version": "v1.0.0"
+  },
+  "fields": [
+    {
+      "name": "token",
+      "required": true,
+      "string": {
+        "default": "token",
+        "minLen": "1"
+      },
+      "secret": true
+    },
+    {
+      "name": "workers",
+      "required": true,
+      "int32": {
+        "default": 4,
+        "gte": 1,
+        "lte": 64
+      }
+    },
+    {
+      "name": "enabled",
+      "required": true,
+      "bool": {
+        "default": false
+      }
+    },
+    {
+      "name": "timeout",
+      "required": true,
+      "duration": {
+        "default": "30s"
+      }
+    },
+    {
+      "name": "empty",
+      "nullable": true,
+      "string": {
+        "default": ""
+      }
+    }
+  ],
+  "coerce": true
+}
