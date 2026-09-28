@@ -7,8 +7,8 @@ package schemapb_test
 // (reflect.json). Field order is declaration order and part of the
 // contract.
 //
-// Go value-struct sections are optional with an implicit empty default; the
-// mirror's sections are required, so the Go model says so explicitly.
+// Value-struct sections (nested, chain) are optional with an implicit empty
+// object default in every language.
 
 import (
 	"encoding/json"
@@ -55,12 +55,12 @@ type mirrorModel struct {
 	Magic  [4]byte                 `json:"magic"`
 	Limits map[string]int64        `json:"limits"`
 	Extra  map[string]mirrorNested `json:"extra"`
-	Nested mirrorNested            `json:"nested"        validate:"required"`
+	Nested mirrorNested            `json:"nested"`
 	When   time.Time               `json:"when"`
 	Wait   time.Duration           `json:"wait"`
 	Raw    json.RawMessage         `json:"raw"`
 	Any    any                     `json:"anything"`
-	Chain  mirrorNode              `json:"chain"         validate:"required"`
+	Chain  mirrorNode              `json:"chain"`
 	Gone   string                  `json:"-"`
 
 	hidden string //nolint:unused // unexported fields are skipped

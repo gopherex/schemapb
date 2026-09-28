@@ -57,6 +57,16 @@ TypeScript cannot express. zod stays an optional peer dependency — the
 module reads only the published `_zod.def` shape. Pinned by
 conformance/golden/reflect.json.
 
+Object sections are optional by default. A member that is a plain
+`z.object(...)` (not `.optional()`, not `.nullable()`) reflects as an
+Object with an implicit empty default, the same as Go's
+`schemapb:"default={}"`: an absent section is materialized and its inner
+defaults apply, and a missing required inner field is reported at its own
+path (`db.host`), not at the section. Wrap it as `required(DB)` to require
+the section itself (Go's `validate:"required"`); the wrapper is a marked
+view, so a shared `DB` schema stays unmarked. Optional and nullable
+members, `overrides`, array items and record values are unchanged.
+
 ## Using schemapb types from your own protos
 
 If your `.proto` files embed schemapb messages and you generate them with

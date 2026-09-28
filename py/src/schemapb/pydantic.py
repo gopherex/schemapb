@@ -8,10 +8,16 @@ Choice, ``datetime``/``timedelta`` to Timestamp/Duration, nested models to
 Objects (inheritance flattens), ``dict[str, V]`` to Map (``value_schema``
 for models, ``value_field`` otherwise), model cycles to JSON.
 
+A field annotated with a nested model — not ``X | None``, no default — is a
+section: optional with an implicit empty object default (Go's
+``schemapb:"default={}"``), so an absent section resolves its inner
+defaults. ``required()`` keeps it required without a default (Go's
+``validate:"required"``).
+
 Python's type system lacks sized numerics and a few schema notions, so
 this module exports markers to close the gap: ``Int32``/``UInt32``/
-``UInt64``/``Float32`` annotated ints/floats, ``exact_len(n)`` and
-``fmt("email")`` metadata.
+``UInt64``/``Float32`` annotated ints/floats, ``exact_len(n)``,
+``fmt("email")`` and ``required()`` metadata.
 
 pydantic is an OPTIONAL dependency: ``pip install schemapb[pydantic]``.
 Everything unrepresentable fails LOUDLY.
@@ -47,6 +53,7 @@ __all__ = [
     "exact_len",
     "fmt",
     "reflect",
+    "required",
 ]
 
 
@@ -65,6 +72,11 @@ class _Fmt:
     name: str
 
 
+@dataclass(frozen=True)
+class _Required:
+    pass
+
+
 Int32 = Annotated[int, _KindMarker("int32")]
 UInt32 = Annotated[int, _KindMarker("uint32")]
 UInt64 = Annotated[int, _KindMarker("uint64")]
@@ -81,6 +93,16 @@ def fmt(name: str) -> _Fmt:
     return _Fmt(name)
 
 
+def required() -> _Required:
+    """Explicitly required (Go's ``validate:"required"``).
+
+    A nested-model section stays required with no implicit empty default;
+    any other field is forced required even when it has a default or is
+    ``X | None``.
+    """
+    return _Required()
+
+
 @dataclass
 class _Constraints:
     ge: int | float | None = None
@@ -93,6 +115,7 @@ class _Constraints:
     pattern: str | None = None
     fmt: str | None = None
     kind: str | None = None
+    required: bool = False
 
 
 def _collect(metadata: list[Any]) -> _Constraints:
@@ -104,6 +127,8 @@ def _collect(metadata: list[Any]) -> _Constraints:
             c.exact = m.n
         elif isinstance(m, _Fmt):
             c.fmt = m.name
+        elif isinstance(m, _Required):
+            c.required = True
         else:
             # annotated_types.Ge/Gt/Le/Lt/MinLen/MaxLen and pydantic
             # StringConstraints all expose these attributes; duck-typing
@@ -158,10 +183,18 @@ class _Reflector:
             name = info.alias or pyname
             if not _FIELD_NAME_RE.match(name):
                 raise _ReflectError(pyname, f"name {name!r} is not a valid schemapb field name")
-            fb = self.field_of(name, info.annotation, list(info.metadata), visited)
+            fb, explicit, nullable = self._member_of(
+                name, info.annotation, list(info.metadata), visited
+            )
             if info.description:
                 fb = fb.desc(info.description)
-            if info.is_required():
+            # A section: a non-nullable nested model without a default is
+            # optional with an implicit empty default (Go's
+            # `schemapb:"default={}"`) unless explicitly required. Overrides
+            # and cycles never build an ObjectB, so they never are.
+            if isinstance(fb, b.ObjectB) and not nullable and info.is_required() and not explicit:
+                fb = fb.default_empty()
+            elif explicit or info.is_required():
                 fb = fb.required()
             out.append(fb)
         return out
@@ -173,6 +206,16 @@ class _Reflector:
         metadata: list[Any],
         visited: set[type],
     ) -> b.FieldB:
+        return self._member_of(name, ann, metadata, visited)[0]
+
+    def _member_of(
+        self,
+        name: str,
+        ann: Any,  # noqa: ANN401 - annotations are typing objects
+        metadata: list[Any],
+        visited: set[type],
+    ) -> tuple[b.FieldB, bool, bool]:
+        """The field, whether it is explicitly required, and whether it is nullable."""
         nullable = False
         ann, opt = _unwrap_optional(ann)
         if opt:
@@ -186,7 +229,7 @@ class _Reflector:
         fb = self._base_field(name, ann, c, visited)
         if nullable:
             fb = fb.nullable()
-        return fb
+        return fb, c.required, nullable
 
     def _base_field(  # noqa: C901, PLR0911, PLR0912 - flat exhaustive dispatch
         self,

@@ -8,11 +8,17 @@
  * `value_field` otherwise), `z.lazy` cycles to JSON, `.default(v)` to the
  * field default.
  *
+ * A member that is a plain `z.object(...)` (not `.optional()`, not
+ * `.nullable()`) is a section: optional with an implicit empty object
+ * default (Go's `schemapb:"default={}"`), so an absent section resolves its
+ * inner defaults. `required(...)` keeps it required without a default (Go's
+ * `validate:"required"`).
+ *
  * TypeScript lacks sized numerics and some schema notions, so this module
  * exports markers to close the gap — applied to the fully-built inner
  * schema: `i32(z.number().int())`, `u32(...)`, `u64(z.bigint())`,
- * `f32(z.number())`, and the leaf helpers `bytesField(...)`,
- * `durationField()`, `timestampField()`.
+ * `f32(z.number())`, `required(...)`, and the leaf helpers
+ * `bytesField(...)`, `durationField()`, `timestampField()`.
  *
  * zod is an OPTIONAL peer dependency (only its published `_zod.def` shape
  * is read; nothing from the zod runtime is imported). Everything
@@ -37,6 +43,7 @@ import {
   map,
   mapOf,
   newSchema,
+  ObjectB,
   object,
   str,
   timestamp,
@@ -85,8 +92,13 @@ interface ZodCheckLike {
 
 const KIND = Symbol("schemapb.kind");
 const BYTES = Symbol("schemapb.bytes");
+const REQUIRED = Symbol("schemapb.required");
 
-type Marked = ZodLike & { [KIND]?: string; [BYTES]?: { min?: number; max?: number; len?: number } };
+type Marked = ZodLike & {
+  [KIND]?: string;
+  [BYTES]?: { min?: number; max?: number; len?: number };
+  [REQUIRED]?: ZodLike;
+};
 
 function mark<T>(s: T, kind: string): T {
   (s as Marked)[KIND] = kind;
@@ -108,6 +120,19 @@ export function u64<T>(s: T): T {
 /** Marks a fully-built numeric schema as float32. Apply LAST. */
 export function f32<T>(s: T): T {
   return mark(s, "float");
+}
+
+/**
+ * Explicitly required (Go's `validate:"required"`): a `z.object` section
+ * stays required with no implicit empty default, and an `.optional()` or
+ * `.nullish()` schema is forced required. Returns a marked view of `s`
+ * (prototype-linked, so zod still parses through it); `s` itself — often a
+ * shared object schema — stays unmarked.
+ */
+export function required<T>(s: T): T {
+  const view = Object.create(s as object) as Marked;
+  view[REQUIRED] = s as ZodLike;
+  return view as T;
 }
 
 /** A bytes leaf (zod has no bytes type). */
@@ -176,18 +201,27 @@ class Reflector {
     visited = new Set(visited).add(obj);
     const out: FieldB[] = [];
     for (const [name, sub] of Object.entries(obj._zod.def.shape ?? {})) {
-      out.push(this.fieldOf(name, sub, visited));
+      out.push(this.fieldOf(name, sub, visited, true));
     }
     return out;
   }
 
-  // Unwraps optional/nullable wrappers, then dispatches on kind.
-  fieldOf(name: string, s: ZodLike, visited: Set<ZodLike>): FieldB {
+  // Unwraps optional/nullable wrappers and the required() marker, then
+  // dispatches on kind. A member is a named object field (never a list item
+  // or a map value): only a member can be a section.
+  fieldOf(name: string, s: ZodLike, visited: Set<ZodLike>, member = false): FieldB {
     let required = true;
     let nullable = false;
+    let explicit = false;
 
     let cur = s;
     for (;;) {
+      const marked = Object.hasOwn(cur, REQUIRED) ? (cur as Marked)[REQUIRED] : undefined;
+      if (marked !== undefined) {
+        explicit = true;
+        cur = marked;
+        continue;
+      }
       const t = cur._zod.def.type;
       if (t === "optional") {
         required = false;
@@ -212,7 +246,12 @@ class Reflector {
 
     const fb = this.baseField(name, cur, visited);
     const done = fb.done();
-    if (required) {
+    // A section: a required, non-nullable object member is optional with
+    // an implicit empty default unless explicitly required. Overrides and
+    // cycles never build an ObjectB, so they never are.
+    if (member && required && !nullable && !explicit && fb instanceof ObjectB) {
+      fb.defaultEmpty();
+    } else if (required || explicit) {
       done.required = true;
     }
     if (nullable) {

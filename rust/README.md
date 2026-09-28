@@ -60,6 +60,15 @@ string-keyed maps become Map, `serde_json::Value` JSON, `pbjson_types`
 Duration/Timestamp their kinds, and a type cycle degrades to JSON. The
 derive mirror model is pinned by conformance/golden/reflect.json.
 
+Struct sections are optional by default. A field whose type is a derived
+struct (not `Option<T>`) reflects as an Object with an implicit empty
+default, the same as Go's `schemapb:"default={}"`: an absent section is
+materialized and its inner defaults apply, and a missing required inner
+field is reported at its own path (`db.host`), not at the section. Add
+`#[schemapb(required)]` to require the section itself (Go's
+`validate:"required"`). `Option<T>` fields, hand-written `ReflectField`
+impls (overrides), list items and map values are unchanged.
+
 ## Using schemapb types from your own protos
 
 When your `.proto` files embed schemapb messages (`schemapb.Schema`,

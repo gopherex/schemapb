@@ -15,6 +15,13 @@
 //! `value_field` otherwise), `serde_json::Value` -> JSON,
 //! `pbjson_types::{Duration, Timestamp}` -> Duration/Timestamp, and a
 //! type CYCLE degrades to JSON (detected at runtime via a visit stack).
+//!
+//! A struct field whose type is a derived struct (not `Option<T>`) is a
+//! SECTION: optional with an implicit empty object default (Go's
+//! `schemapb:"default={}"`), so an absent section resolves its inner
+//! defaults. `#[schemapb(required)]` keeps it required without a default
+//! (Go's `validate:"required"`); a hand-written [`ReflectField`] impl (an
+//! override) is never a section.
 
 use std::any::TypeId;
 use std::cell::RefCell;
@@ -31,6 +38,11 @@ pub trait ReflectField {
     /// Whether an unwrapped value of this type is present by default
     /// (`Option<T>` flips this off).
     const REQUIRED: bool = true;
+
+    /// Whether a struct field of this type is a section (optional with an
+    /// implicit empty object default). `#[derive(Reflect)]` sets it; an
+    /// override impl leaves it off.
+    const SECTION: bool = false;
 
     /// The field definition for this type under `name`.
     fn field(name: &str) -> Field;
@@ -160,6 +172,7 @@ impl<T: ReflectField> ReflectField for Option<T> {
 
 impl<T: ReflectField> ReflectField for Box<T> {
     const REQUIRED: bool = T::REQUIRED;
+    const SECTION: bool = T::SECTION;
 
     fn field(name: &str) -> Field {
         T::field(name)
@@ -321,6 +334,22 @@ pub mod apply {
 
     pub const fn required(f: &mut Field) {
         f.required = true;
+    }
+
+    /// Presence of a struct field without `#[schemapb(required)]`.
+    ///
+    /// The type's own [`ReflectField::REQUIRED`], except that a section (a
+    /// derived struct that reflected as an Object, not a cycle) is optional
+    /// with an implicit empty object default.
+    pub fn presence<T: super::ReflectField>(f: &mut Field) {
+        f.required = T::REQUIRED;
+        if !T::SECTION || !T::REQUIRED || f.nullable {
+            return;
+        }
+        if let Some(K::Object(o)) = f.kind.as_mut() {
+            o.default = Some(crate::gen::schemapb::StructValue::default());
+            f.required = false;
+        }
     }
 
     pub const fn secret(f: &mut Field) {

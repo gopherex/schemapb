@@ -59,6 +59,16 @@ are immutable. TypeScript builders expose
 `defaultEmpty()`, Python builders `default_empty()`. Rust uses the generated
 Object/Ref descriptor's `default: Some(StructValue::default())`.
 
+Every reflector applies the same implicit empty default to a non-optional
+nested-object field (a section), so an absent section resolves its inner
+defaults and a missing inner field is reported at its own path: Python for
+a pydantic model field that is not `X | None` and has no default, TypeScript
+for a plain `z.object(...)` member, Rust for a derived-struct field that is
+not `Option<T>`. The explicit opt-outs mirror `validate:"required"`:
+`sp.required()` metadata, the `required(...)` zod wrapper and
+`#[schemapb(required)]`. Type overrides, cycles, list items and map values
+never become sections. `reflect.json` pins this across languages.
+
 ## Paths
 
 `ValidationError.path_segments` and `ResolveEvent.path_segments` contain

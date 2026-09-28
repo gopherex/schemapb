@@ -56,6 +56,15 @@ over; markers (`sp.Int32`, `sp.UInt64`, `sp.exact_len`, `sp.fmt`) close
 the gaps Python's type system cannot express. Pinned by
 conformance/golden/reflect.json.
 
+Nested-model sections are optional by default. A field annotated with a
+model (not `X | None`, no default) reflects as an Object with an implicit
+empty default, the same as Go's `schemapb:"default={}"`: an absent section
+is materialized and its inner defaults apply, and a missing required inner
+field is reported at its own path (`db.host`), not at the section. Mark
+the field `Annotated[DB, sp.required()]` to require the section itself
+(Go's `validate:"required"`). `DB | None` fields, fields with a pydantic
+default, `overrides`, list items and map values are unchanged.
+
 ## Using schemapb types from your own protos
 
 If your `.proto` files embed schemapb messages and you generate them with

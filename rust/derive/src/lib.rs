@@ -14,6 +14,10 @@
 //!
 //! Nested types recurse through the trait — implementing `ReflectField`
 //! for your own type IS the override mechanism (serde-style).
+//!
+//! A field of a derived struct type (not `Option<T>`) is a section:
+//! optional with an implicit empty object default, so an absent section
+//! resolves its inner defaults. `required` keeps it required without one.
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -97,7 +101,7 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
         let required = if attrs.required {
             quote! { f.required = true; }
         } else {
-            quote! { f.required = <#ty as ::schemapb::reflect::ReflectField>::REQUIRED; }
+            quote! { ::schemapb::reflect::apply::presence::<#ty>(&mut f); }
         };
 
         field_exprs.push(quote! {
@@ -115,6 +119,8 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
 
     Ok(quote! {
         impl #impl_generics ::schemapb::reflect::ReflectField for #ident #ty_generics #where_clause {
+            const SECTION: bool = true;
+
             fn field(name: &str) -> ::schemapb::gen::schemapb::schema::Field {
                 ::schemapb::reflect::visiting(
                     ::std::any::TypeId::of::<Self>(),

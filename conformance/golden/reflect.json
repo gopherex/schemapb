@@ -204,7 +204,6 @@
     },
     {
       "name": "nested",
-      "required": true,
       "object": {
         "schema": {
           "fields": [
@@ -214,7 +213,8 @@
               "bool": {}
             }
           ]
-        }
+        },
+        "default": {}
       }
     },
     {
@@ -239,7 +239,6 @@
     },
     {
       "name": "chain",
-      "required": true,
       "object": {
         "schema": {
           "fields": [
@@ -249,7 +248,8 @@
               "json": {}
             }
           ]
-        }
+        },
+        "default": {}
       }
     }
   ],
