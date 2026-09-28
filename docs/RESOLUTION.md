@@ -53,7 +53,9 @@ independent mutable data. Resolving an already present section does not
 replace it with another empty object.
 
 Go builders expose `Object(...).DefaultEmpty()` and `Ref(...).DefaultEmpty()`;
-reflection accepts `schemapb:"default={}"`. TypeScript builders expose
+reflection accepts `schemapb:"default={}"` and applies it implicitly to
+value (non-pointer) struct fields unless they carry `validate:"required"` or
+are immutable. TypeScript builders expose
 `defaultEmpty()`, Python builders `default_empty()`. Rust uses the generated
 Object/Ref descriptor's `default: Some(StructValue::default())`.
 

@@ -48,6 +48,17 @@ text, err := engine.Render("conf", values) // Mustache from the schema
 tags for names, the go-playground/validator vocabulary for constraints,
 `WithType` for domain-type overrides) — see the package docs.
 
+Struct sections are optional by default. A value (non-pointer) struct field
+reflects as an Object with an implicit empty default, exactly as if tagged
+`schemapb:"default={}"`: an absent section is materialized and its inner
+defaults apply, and a missing required inner field is reported at its own
+path (`db.host`), not at the section. This makes validation more permissive
+than before, when every value struct section was required. Add
+`validate:"required"` to require the section itself; an explicit `schemapb`
+tag still overrides the implicit default (an `immutable` section keeps the
+old required, default-less shape). Pointer sections (`*T`) are unchanged:
+optional, nullable, not materialized.
+
 `example_test.go` walks the entire public API (builders, registry + `Link`,
 `Choice`, `OneOf`, `Ref`, tuples, secrets, merge) in one runnable example.
 
@@ -113,8 +124,8 @@ zero/false/empty values. Preserve key presence while merging input layers.
 Coercion and normalization apply recursively to scalar and container values
 in lists, tuples and maps, including Ref and OneOf. Object and Ref builders
 support `DefaultEmpty()`; the equivalent reflection tag is
-`schemapb:"default={}"`. Missing sections are created only with this explicit
-default. Explicit null is preserved and checked against nullable.
+`schemapb:"default={}"`, which reflection also applies implicitly to value
+struct fields. Explicit null is preserved and checked against nullable.
 
 ```go
 baked, validation, report, err := schema.BakeDetailed(input)

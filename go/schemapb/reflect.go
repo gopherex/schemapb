@@ -7,6 +7,9 @@
 // Shape rules:
 //   - struct -> Object (recursively); embedded struct without a json tag
 //     flattens, like encoding/json
+//   - a value struct field is a section: optional with an implicit empty
+//     default (`schemapb:"default={}"`), so an absent section resolves its
+//     inner defaults; `validate:"required"` makes it required again
 //   - slice -> List, [N]T -> List with exactly N items, []byte/[N]byte -> Bytes
 //   - map[string]V -> Map: struct values via value_schema, everything else
 //     via value_field
@@ -238,7 +241,10 @@ func (r *reflector) fieldOf(
 		required = true
 	}
 
-	var field *Schema_Field
+	var (
+		field   *Schema_Field
+		section bool
+	)
 
 	switch {
 	case r.overrides[t] != nil:
@@ -265,14 +271,38 @@ func (r *reflector) fieldOf(
 		if err != nil {
 			return nil, err
 		}
+
+		// Only a named, non-pointer struct field can be a section.
+		section = structField != nil && t.Kind() == reflect.Struct && !info.nullable && !c.required
 	}
 
+	return r.finishField(field, structField, info, c, required, section)
+}
+
+// finishField applies presence, tags and type hooks to a built field.
+//
+// A section — a value struct field without `validate:"required"` — is
+// optional with an implicit empty object default, the same as
+// `schemapb:"default={}"`, so an absent section still resolves its inner
+// defaults. Field tags and hooks run afterwards and override both. An
+// immutable section cannot be materialized, so it keeps the plain rule
+// (required, no default) unless a tag set the default explicitly.
+func (r *reflector) finishField(
+	field *Schema_Field, structField *reflect.StructField, info reflectedType, c *fieldConstraints,
+	required, section bool,
+) (*Schema_Field, error) {
 	if c.desc != "" {
 		d := c.desc
 		field.Description = &d
 	}
 
-	field.Required = required
+	var implicit *StructValue
+	if section {
+		implicit = &StructValue{}
+		field.GetObject().Default = implicit
+	}
+
+	field.Required = required && !section
 	if info.nullable {
 		field.Nullable = true
 	}
@@ -285,6 +315,11 @@ func (r *reflector) fieldOf(
 
 	if err := info.configure(field); err != nil {
 		return nil, err
+	}
+
+	if section && field.GetImmutable() && field.GetObject().GetDefault() == implicit {
+		field.GetObject().Default = nil
+		field.Required = required
 	}
 
 	return field, nil
