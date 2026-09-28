@@ -31,6 +31,7 @@ from schemapb.duration import format_go_duration, format_rfc3339, parse_go_durat
 from schemapb.engine import Engine, compile_schema
 from schemapb.formats import FormatRegistry, core_formats
 from schemapb.lookup import LookupReason, SchemaLookupError, list_items, lookup, lookup_path
+from schemapb.masked import masked
 from schemapb.messages import MESSAGE_TEMPLATES, render_message
 from schemapb.registry import InMemoryRegistry, RegistryError, identity_key, link
 from schemapb.render import display_string, kind_name, native_equals
@@ -77,6 +78,7 @@ __all__ = [  # noqa: RUF022 - grouped by module
     "BakeOutcome",
     "bake",
     "baked_matches",
+    "masked",
     "build_render_context",
     "filled_bake",
     "merge",

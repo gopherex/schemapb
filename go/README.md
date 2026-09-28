@@ -179,3 +179,18 @@ From the repository root: `make configure` once, then `make lint-go` /
 `make test-go`. Regenerate goldens after intentional behaviour changes with
 `go test ./schemapb -run Golden -update` (run from `go/`) — every other
 language's conformance suite depends on them.
+
+## Masked display values
+
+`baked.Masked()` returns an independent `*StructValue` with present secret
+fields replaced by the string `***`. It descends through objects, collections,
+Ref and OneOf without rerunning resolution or CEL; the original snapshot stays
+intact. Secret containers are hidden as a whole, and inactive secrets are also
+masked. Public values retain their wire types and precision.
+
+```go
+visible := baked.Masked() // values for instance state or UI cards
+```
+
+The result is for display and may no longer conform to the execution schema.
+See [the masking contract](../docs/MASKING.md) for edge cases and other languages.

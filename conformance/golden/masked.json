@@ -1,0 +1,1680 @@
+[
+  {
+    "name": "identity-ref",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "db",
+            "ref": {
+              "id": {
+                "namespace": "test",
+                "name": "child",
+                "version": "v1.0.0"
+              }
+            }
+          }
+        ],
+        "defs": {
+          "test\u0000child\u0000v1.0.0": {
+            "id": {
+              "namespace": "conformance",
+              "name": "masked",
+              "version": "v1.0.0"
+            },
+            "fields": [
+              {
+                "name": "token",
+                "string": {},
+                "secret": true
+              },
+              {
+                "name": "port",
+                "int32": {}
+              }
+            ]
+          }
+        }
+      },
+      "values": {
+        "fields": {
+          "db": {
+            "structValue": {
+              "fields": {
+                "port": {
+                  "int32Value": 80
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int32Value": 80
+              },
+              "token": {
+                "stringValue": "***"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "missing-ref",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "db",
+            "ref": {
+              "id": {
+                "namespace": "test",
+                "name": "missing",
+                "version": "v1.0.0"
+              }
+            }
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "db": {
+            "structValue": {
+              "fields": {
+                "port": {
+                  "int32Value": 80
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "db": {
+          "stringValue": "***"
+        }
+      }
+    }
+  },
+  {
+    "name": "recursive-ref",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "recursive",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "tree",
+            "ref": {
+              "name": "node"
+            }
+          }
+        ],
+        "defs": {
+          "node": {
+            "fields": [
+              {
+                "name": "token",
+                "string": {},
+                "secret": true
+              },
+              {
+                "name": "child",
+                "ref": {
+                  "name": "node"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "values": {
+        "fields": {
+          "tree": {
+            "structValue": {
+              "fields": {
+                "child": {
+                  "structValue": {
+                    "fields": {
+                      "token": {
+                        "stringValue": "inner"
+                      }
+                    }
+                  }
+                },
+                "token": {
+                  "stringValue": "outer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "tree": {
+          "structValue": {
+            "fields": {
+              "child": {
+                "structValue": {
+                  "fields": {
+                    "token": {
+                      "stringValue": "***"
+                    }
+                  }
+                }
+              },
+              "token": {
+                "stringValue": "***"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "container-shape-mismatch",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "db",
+            "object": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "token",
+                    "string": {},
+                    "secret": true
+                  },
+                  {
+                    "name": "port",
+                    "int32": {}
+                  }
+                ]
+              }
+            },
+            "when": "false"
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "db": {
+            "stringValue": "sensitive"
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "db": {
+          "stringValue": "***"
+        }
+      }
+    }
+  },
+  {
+    "name": "oneof-in-collections",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "jobs",
+            "list": {
+              "items": [
+                {
+                  "oneOf": {
+                    "discriminator": "kind",
+                    "variants": {
+                      "a": {
+                        "fields": [
+                          {
+                            "name": "kind",
+                            "string": {}
+                          },
+                          {
+                            "name": "token",
+                            "string": {},
+                            "secret": true
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "map",
+            "map": {
+              "valueField": {
+                "name": "value",
+                "oneOf": {
+                  "discriminator": "kind",
+                  "variants": {
+                    "a": {
+                      "fields": [
+                        {
+                          "name": "kind",
+                          "string": {}
+                        },
+                        {
+                          "name": "token",
+                          "string": {},
+                          "secret": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "jobs": {
+            "listValue": {
+              "items": [
+                {
+                  "structValue": {
+                    "fields": {
+                      "kind": {
+                        "stringValue": "a"
+                      },
+                      "token": {
+                        "stringValue": "sensitive"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "map": {
+            "structValue": {
+              "fields": {
+                "x": {
+                  "structValue": {
+                    "fields": {
+                      "kind": {
+                        "stringValue": "a"
+                      },
+                      "token": {
+                        "stringValue": "sensitive"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "jobs": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "kind": {
+                      "stringValue": "a"
+                    },
+                    "token": {
+                      "stringValue": "***"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "map": {
+          "structValue": {
+            "fields": {
+              "x": {
+                "structValue": {
+                  "fields": {
+                    "kind": {
+                      "stringValue": "a"
+                    },
+                    "token": {
+                      "stringValue": "***"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "scalar-null-absent-inactive",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "token",
+            "string": {},
+            "secret": true
+          },
+          {
+            "name": "pin",
+            "int64": {},
+            "secret": true
+          },
+          {
+            "name": "nil",
+            "nullable": true,
+            "string": {},
+            "secret": true
+          },
+          {
+            "name": "absent",
+            "string": {},
+            "secret": true
+          },
+          {
+            "name": "inactive",
+            "string": {},
+            "secret": true,
+            "when": "false"
+          },
+          {
+            "name": "public",
+            "string": {}
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "inactive": {
+            "stringValue": "hidden too"
+          },
+          "nil": {
+            "nullValue": "NULL_VALUE"
+          },
+          "pin": {
+            "int64Value": "123"
+          },
+          "public": {
+            "stringValue": "ok"
+          },
+          "token": {
+            "stringValue": "sensitive"
+          },
+          "unknown": {
+            "int32Value": 7
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "inactive": {
+          "stringValue": "***"
+        },
+        "nil": {
+          "stringValue": "***"
+        },
+        "pin": {
+          "stringValue": "***"
+        },
+        "public": {
+          "stringValue": "ok"
+        },
+        "token": {
+          "stringValue": "***"
+        },
+        "unknown": {
+          "int32Value": 7
+        }
+      }
+    }
+  },
+  {
+    "name": "secret-containers",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "db",
+            "object": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "token",
+                    "string": {},
+                    "secret": true
+                  },
+                  {
+                    "name": "port",
+                    "int32": {}
+                  }
+                ]
+              }
+            },
+            "secret": true
+          },
+          {
+            "name": "items",
+            "list": {
+              "items": [
+                {
+                  "string": {}
+                }
+              ]
+            },
+            "secret": true
+          },
+          {
+            "name": "map",
+            "map": {
+              "valueField": {
+                "name": "value",
+                "string": {}
+              }
+            },
+            "secret": true
+          },
+          {
+            "name": "json",
+            "json": {},
+            "secret": true
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "db": {
+            "structValue": {
+              "fields": {
+                "port": {
+                  "int32Value": 80
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          },
+          "items": {
+            "listValue": {
+              "items": [
+                {
+                  "stringValue": "sensitive"
+                }
+              ]
+            }
+          },
+          "json": {
+            "structValue": {
+              "fields": {
+                "port": {
+                  "int32Value": 80
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          },
+          "map": {
+            "structValue": {
+              "fields": {
+                "port": {
+                  "int32Value": 80
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "db": {
+          "stringValue": "***"
+        },
+        "items": {
+          "stringValue": "***"
+        },
+        "json": {
+          "stringValue": "***"
+        },
+        "map": {
+          "stringValue": "***"
+        }
+      }
+    }
+  },
+  {
+    "name": "object-list-tuple",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "db",
+            "object": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "token",
+                    "string": {},
+                    "secret": true
+                  },
+                  {
+                    "name": "port",
+                    "int32": {}
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "servers",
+            "list": {
+              "items": [
+                {
+                  "object": {
+                    "schema": {
+                      "fields": [
+                        {
+                          "name": "token",
+                          "string": {},
+                          "secret": true
+                        },
+                        {
+                          "name": "port",
+                          "int32": {}
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "tuple",
+            "list": {
+              "items": [
+                {
+                  "string": {},
+                  "secret": true
+                },
+                {
+                  "int32": {}
+                }
+              ]
+            }
+          },
+          {
+            "name": "tokens",
+            "list": {
+              "items": [
+                {
+                  "string": {},
+                  "secret": true
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "db": {
+            "structValue": {
+              "fields": {
+                "port": {
+                  "int32Value": 80
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          },
+          "servers": {
+            "listValue": {
+              "items": [
+                {
+                  "structValue": {
+                    "fields": {
+                      "port": {
+                        "int32Value": 80
+                      },
+                      "token": {
+                        "stringValue": "sensitive"
+                      }
+                    }
+                  }
+                },
+                {
+                  "nullValue": "NULL_VALUE"
+                }
+              ]
+            }
+          },
+          "tokens": {
+            "listValue": {
+              "items": [
+                {
+                  "stringValue": "sensitive"
+                },
+                {
+                  "nullValue": "NULL_VALUE"
+                }
+              ]
+            }
+          },
+          "tuple": {
+            "listValue": {
+              "items": [
+                {
+                  "stringValue": "sensitive"
+                },
+                {
+                  "int32Value": 80
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int32Value": 80
+              },
+              "token": {
+                "stringValue": "***"
+              }
+            }
+          }
+        },
+        "servers": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "port": {
+                      "int32Value": 80
+                    },
+                    "token": {
+                      "stringValue": "***"
+                    }
+                  }
+                }
+              },
+              {
+                "nullValue": "NULL_VALUE"
+              }
+            ]
+          }
+        },
+        "tokens": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "***"
+              },
+              {
+                "stringValue": "***"
+              }
+            ]
+          }
+        },
+        "tuple": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "***"
+              },
+              {
+                "int32Value": 80
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "maps",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "tokens",
+            "map": {
+              "valueField": {
+                "name": "value",
+                "string": {},
+                "secret": true
+              }
+            }
+          },
+          {
+            "name": "tenants",
+            "map": {
+              "valueSchema": {
+                "fields": [
+                  {
+                    "name": "token",
+                    "string": {},
+                    "secret": true
+                  },
+                  {
+                    "name": "port",
+                    "int32": {}
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "nested",
+            "map": {
+              "valueField": {
+                "name": "value",
+                "list": {
+                  "items": [
+                    {
+                      "object": {
+                        "schema": {
+                          "fields": [
+                            {
+                              "name": "token",
+                              "string": {},
+                              "secret": true
+                            },
+                            {
+                              "name": "port",
+                              "int32": {}
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "nested": {
+            "structValue": {
+              "fields": {
+                "x": {
+                  "listValue": {
+                    "items": [
+                      {
+                        "structValue": {
+                          "fields": {
+                            "port": {
+                              "int32Value": 80
+                            },
+                            "token": {
+                              "stringValue": "sensitive"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "tenants": {
+            "structValue": {
+              "fields": {
+                "customer.a": {
+                  "structValue": {
+                    "fields": {
+                      "port": {
+                        "int32Value": 80
+                      },
+                      "token": {
+                        "stringValue": "sensitive"
+                      }
+                    }
+                  }
+                },
+                "null": {
+                  "nullValue": "NULL_VALUE"
+                }
+              }
+            }
+          },
+          "tokens": {
+            "structValue": {
+              "fields": {
+                "customer.a": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "nested": {
+          "structValue": {
+            "fields": {
+              "x": {
+                "listValue": {
+                  "items": [
+                    {
+                      "structValue": {
+                        "fields": {
+                          "port": {
+                            "int32Value": 80
+                          },
+                          "token": {
+                            "stringValue": "***"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tenants": {
+          "structValue": {
+            "fields": {
+              "customer.a": {
+                "structValue": {
+                  "fields": {
+                    "port": {
+                      "int32Value": 80
+                    },
+                    "token": {
+                      "stringValue": "***"
+                    }
+                  }
+                }
+              },
+              "null": {
+                "nullValue": "NULL_VALUE"
+              }
+            }
+          }
+        },
+        "tokens": {
+          "structValue": {
+            "fields": {
+              "customer.a": {
+                "stringValue": "***"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "refs",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "db",
+            "ref": {
+              "name": "child"
+            }
+          },
+          {
+            "name": "servers",
+            "list": {
+              "items": [
+                {
+                  "ref": {
+                    "name": "child"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "tenants",
+            "map": {
+              "valueField": {
+                "name": "value",
+                "ref": {
+                  "name": "child"
+                }
+              }
+            }
+          }
+        ],
+        "defs": {
+          "child": {
+            "fields": [
+              {
+                "name": "token",
+                "string": {},
+                "secret": true
+              },
+              {
+                "name": "port",
+                "int32": {}
+              }
+            ]
+          }
+        }
+      },
+      "values": {
+        "fields": {
+          "db": {
+            "structValue": {
+              "fields": {
+                "port": {
+                  "int32Value": 80
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          },
+          "servers": {
+            "listValue": {
+              "items": [
+                {
+                  "structValue": {
+                    "fields": {
+                      "port": {
+                        "int32Value": 80
+                      },
+                      "token": {
+                        "stringValue": "sensitive"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "tenants": {
+            "structValue": {
+              "fields": {
+                "x": {
+                  "structValue": {
+                    "fields": {
+                      "port": {
+                        "int32Value": 80
+                      },
+                      "token": {
+                        "stringValue": "sensitive"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int32Value": 80
+              },
+              "token": {
+                "stringValue": "***"
+              }
+            }
+          }
+        },
+        "servers": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "port": {
+                      "int32Value": 80
+                    },
+                    "token": {
+                      "stringValue": "***"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "tenants": {
+          "structValue": {
+            "fields": {
+              "x": {
+                "structValue": {
+                  "fields": {
+                    "port": {
+                      "int32Value": 80
+                    },
+                    "token": {
+                      "stringValue": "***"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "oneof-secret-discriminator",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "job",
+            "oneOf": {
+              "discriminator": "kind",
+              "variants": {
+                "a": {
+                  "fields": [
+                    {
+                      "name": "kind",
+                      "string": {},
+                      "secret": true
+                    },
+                    {
+                      "name": "token",
+                      "string": {},
+                      "secret": true
+                    }
+                  ]
+                },
+                "b": {
+                  "fields": [
+                    {
+                      "name": "kind",
+                      "string": {}
+                    },
+                    {
+                      "name": "token",
+                      "string": {}
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "job": {
+            "structValue": {
+              "fields": {
+                "kind": {
+                  "stringValue": "a"
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "job": {
+          "structValue": {
+            "fields": {
+              "kind": {
+                "stringValue": "***"
+              },
+              "token": {
+                "stringValue": "***"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "oneof-selected-variant",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "job",
+            "oneOf": {
+              "discriminator": "kind",
+              "variants": {
+                "a": {
+                  "fields": [
+                    {
+                      "name": "kind",
+                      "string": {}
+                    },
+                    {
+                      "name": "token",
+                      "string": {},
+                      "secret": true
+                    }
+                  ]
+                },
+                "b": {
+                  "fields": [
+                    {
+                      "name": "kind",
+                      "string": {}
+                    },
+                    {
+                      "name": "token",
+                      "string": {}
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "job": {
+            "structValue": {
+              "fields": {
+                "kind": {
+                  "stringValue": "b"
+                },
+                "token": {
+                  "stringValue": "public"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "job": {
+          "structValue": {
+            "fields": {
+              "kind": {
+                "stringValue": "b"
+              },
+              "token": {
+                "stringValue": "public"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "no-cel-execution",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "db",
+            "object": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "token",
+                    "string": {},
+                    "secret": true
+                  },
+                  {
+                    "name": "port",
+                    "int32": {}
+                  }
+                ]
+              }
+            },
+            "when": "root.missing"
+          },
+          {
+            "name": "counter",
+            "int64": {},
+            "normalize": "this + 1"
+          },
+          {
+            "name": "result",
+            "computed": {
+              "expr": "root.missing"
+            },
+            "secret": true
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "counter": {
+            "int64Value": "1"
+          },
+          "db": {
+            "structValue": {
+              "fields": {
+                "port": {
+                  "int32Value": 80
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          },
+          "result": {
+            "stringValue": "sensitive"
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "counter": {
+          "int64Value": "1"
+        },
+        "db": {
+          "structValue": {
+            "fields": {
+              "port": {
+                "int32Value": 80
+              },
+              "token": {
+                "stringValue": "***"
+              }
+            }
+          }
+        },
+        "result": {
+          "stringValue": "***"
+        }
+      }
+    }
+  },
+  {
+    "name": "unknown-variant",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "job",
+            "oneOf": {
+              "discriminator": "kind",
+              "variants": {
+                "a": {
+                  "fields": [
+                    {
+                      "name": "token",
+                      "string": {},
+                      "secret": true
+                    }
+                  ]
+                }
+              }
+            },
+            "when": "false"
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "job": {
+            "structValue": {
+              "fields": {
+                "kind": {
+                  "stringValue": "__proto__"
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "job": {
+          "stringValue": "***"
+        }
+      }
+    }
+  },
+  {
+    "name": "missing-schema",
+    "baked": {
+      "values": {
+        "fields": {
+          "db": {
+            "structValue": {
+              "fields": {
+                "port": {
+                  "int32Value": 80
+                },
+                "token": {
+                  "stringValue": "sensitive"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "db": {
+          "stringValue": "***"
+        }
+      }
+    }
+  },
+  {
+    "name": "null-container",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "db",
+            "nullable": true,
+            "object": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "token",
+                    "string": {},
+                    "secret": true
+                  },
+                  {
+                    "name": "port",
+                    "int32": {}
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "values": {
+        "fields": {
+          "db": {
+            "nullValue": "NULL_VALUE"
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "db": {
+          "nullValue": "NULL_VALUE"
+        }
+      }
+    }
+  },
+  {
+    "name": "empty",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        },
+        "fields": [
+          {
+            "name": "absent",
+            "string": {},
+            "secret": true
+          }
+        ]
+      },
+      "values": {}
+    },
+    "masked": {}
+  },
+  {
+    "name": "public-wire-values",
+    "baked": {
+      "schema": {
+        "id": {
+          "namespace": "conformance",
+          "name": "masked",
+          "version": "v1.0.0"
+        }
+      },
+      "values": {
+        "fields": {
+          "bool": {
+            "boolValue": true
+          },
+          "bytes": {
+            "bytesValue": "AQI="
+          },
+          "double": {
+            "doubleValue": 1.5
+          },
+          "duration": {
+            "durationValue": "1s"
+          },
+          "float": {
+            "floatValue": 1.25
+          },
+          "int64": {
+            "int64Value": "-9007199254740993"
+          },
+          "nested": {
+            "structValue": {
+              "fields": {
+                "list": {
+                  "listValue": {
+                    "items": [
+                      {
+                        "int32Value": 7
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "null": {
+            "nullValue": "NULL_VALUE"
+          },
+          "string": {
+            "stringValue": "public"
+          },
+          "timestamp": {
+            "timestampValue": "1970-01-01T00:02:03.000000456Z"
+          },
+          "u64": {
+            "uint64Value": "18446744073709551615"
+          },
+          "uint32": {
+            "uint32Value": 42
+          }
+        }
+      }
+    },
+    "masked": {
+      "fields": {
+        "bool": {
+          "boolValue": true
+        },
+        "bytes": {
+          "bytesValue": "AQI="
+        },
+        "double": {
+          "doubleValue": 1.5
+        },
+        "duration": {
+          "durationValue": "1s"
+        },
+        "float": {
+          "floatValue": 1.25
+        },
+        "int64": {
+          "int64Value": "-9007199254740993"
+        },
+        "nested": {
+          "structValue": {
+            "fields": {
+              "list": {
+                "listValue": {
+                  "items": [
+                    {
+                      "int32Value": 7
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "null": {
+          "nullValue": "NULL_VALUE"
+        },
+        "string": {
+          "stringValue": "public"
+        },
+        "timestamp": {
+          "timestampValue": "1970-01-01T00:02:03.000000456Z"
+        },
+        "u64": {
+          "uint64Value": "18446744073709551615"
+        },
+        "uint32": {
+          "uint32Value": 42
+        }
+      }
+    }
+  }
+]

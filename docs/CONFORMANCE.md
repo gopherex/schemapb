@@ -24,6 +24,7 @@ fixtures, and TypeScript, Python and Rust must reproduce them exactly
 | `nested-ref-schema.json` | Composition regression schema: named and identity refs, lists, tuples, objects, maps and selected OneOf variants. |
 | `nested-ref-cases.json` | Shared typed inputs, complete validation results and canonical baked values for nested refs. Pins defaults before rules, inherited coercion, normalization, nested computed fields, wire kinds and repeated baking. |
 | `recursive-resolve.json` | Shared per-case schemas, typed inputs, full results, structured paths, operation reports and baked values for recursive collection resolve, object defaults, null/absence, inactive data and computed dependencies. |
+| `masked.json` | Baked snapshots and their masked display values: nested secrets, collections, Ref/OneOf, inactive/null values, exact public wire kinds and incomplete-schema fallback. |
 | `object-default-errors.json` | Nonempty Object/Ref defaults that every port must reject during schema compilation. |
 
 The valid/broken inputs are defined in `go/schemapb/golden_test.go` and

@@ -10,6 +10,7 @@ export * from "./gen/schemapb/runtime_pb.js";
 export * from "./gen/schemapb/schema_pb.js";
 export * from "./gen/schemapb/value_pb.js";
 export * from "./lookup.js";
+export * from "./masked.js";
 export * from "./messages.js";
 export * from "./new.js";
 export * from "./registry.js";
