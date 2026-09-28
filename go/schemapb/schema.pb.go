@@ -465,7 +465,11 @@ type Schema_Field struct {
 	// field. `this` is NOT bound (a field's own value must not gate its
 	// existence). Empty/absent => always active. A non-bool result is a
 	// runtime error.
-	When          *string `protobuf:"bytes,30,opt,name=when,proto3,oneof" json:"when,omitempty"`
+	When *string `protobuf:"bytes,30,opt,name=when,proto3,oneof" json:"when,omitempty"`
+	// Application-owned metadata. Keys should be namespaced (e.g.
+	// "backplate.live"). Unknown keys and typed values are preserved;
+	// the validation, resolution and masking engines do not interpret them.
+	Annotations   map[string]*Value `protobuf:"bytes,34,rep,name=annotations,proto3" json:"annotations,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -774,6 +778,13 @@ func (x *Schema_Field) GetWhen() string {
 		return *x.When
 	}
 	return ""
+}
+
+func (x *Schema_Field) GetAnnotations() map[string]*Value {
+	if x != nil {
+		return x.Annotations
+	}
+	return nil
 }
 
 type isSchema_Field_Kind interface {
@@ -2782,7 +2793,7 @@ type Schema_Field_Choice_Option struct {
 
 func (x *Schema_Field_Choice_Option) Reset() {
 	*x = Schema_Field_Choice_Option{}
-	mi := &file_schemapb_schema_proto_msgTypes[25]
+	mi := &file_schemapb_schema_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2794,7 +2805,7 @@ func (x *Schema_Field_Choice_Option) String() string {
 func (*Schema_Field_Choice_Option) ProtoMessage() {}
 
 func (x *Schema_Field_Choice_Option) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_schema_proto_msgTypes[25]
+	mi := &file_schemapb_schema_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2842,7 +2853,7 @@ var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xd49\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xf0:\n" +
 	"\x06Schema\x12(\n" +
 	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
@@ -2854,7 +2865,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x06coerce\x18\b \x01(\bR\x06coerce\x12.\n" +
 	"\x04defs\x18\t \x03(\v2\x1a.schemapb.Schema.DefsEntryR\x04defs\x12=\n" +
 	"\ttemplates\x18\n" +
-	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xdf4\n" +
+	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xfb5\n" +
 	"\x05Field\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
@@ -2891,7 +2902,8 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\bexamples\x18\x19 \x03(\v2\x0f.schemapb.ValueR\bexamples\x12\x16\n" +
 	"\x06secret\x18\x1a \x01(\bR\x06secret\x12!\n" +
 	"\tnormalize\x18\x1b \x01(\tH\x05R\tnormalize\x88\x01\x01\x12\x17\n" +
-	"\x04when\x18\x1e \x01(\tH\x06R\x04when\x88\x01\x01\x1a\xaa\x02\n" +
+	"\x04when\x18\x1e \x01(\tH\x06R\x04when\x88\x01\x01\x12I\n" +
+	"\vannotations\x18\" \x03(\v2'.schemapb.Schema.Field.AnnotationsEntryR\vannotations\x1a\xaa\x02\n" +
 	"\x05Float\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\x02H\x00R\adefault\x88\x01\x01\x12\x19\n" +
 	"\x05const\x18\x02 \x01(\x02H\x01R\x05const\x88\x01\x01\x12\x13\n" +
@@ -3149,7 +3161,10 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\adefault\x18\x03 \x01(\v2\x15.schemapb.StructValueH\x01R\adefault\x88\x01\x01B\b\n" +
 	"\x06targetB\n" +
 	"\n" +
-	"\b_default\"\x80\x02\n" +
+	"\b_default\x1aO\n" +
+	"\x10AnnotationsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12%\n" +
+	"\x05value\x18\x02 \x01(\v2\x0f.schemapb.ValueR\x05value:\x028\x01\"\x80\x02\n" +
 	"\n" +
 	"ResultType\x12\x1b\n" +
 	"\x17RESULT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -3201,7 +3216,7 @@ func file_schemapb_schema_proto_rawDescGZIP() []byte {
 }
 
 var file_schemapb_schema_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_schemapb_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_schemapb_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_schemapb_schema_proto_goTypes = []any{
 	(Schema_Field_ResultType)(0),       // 0: schemapb.Schema.Field.ResultType
 	(Schema_Field_Severity)(0),         // 1: schemapb.Schema.Field.Severity
@@ -3230,12 +3245,13 @@ var file_schemapb_schema_proto_goTypes = []any{
 	(*Schema_Field_Rule)(nil),          // 24: schemapb.Schema.Field.Rule
 	(*Schema_Field_OneOf)(nil),         // 25: schemapb.Schema.Field.OneOf
 	(*Schema_Field_Ref)(nil),           // 26: schemapb.Schema.Field.Ref
-	(*Schema_Field_Choice_Option)(nil), // 27: schemapb.Schema.Field.Choice.Option
-	nil,                                // 28: schemapb.Schema.Field.OneOf.VariantsEntry
-	(*Value)(nil),                      // 29: schemapb.Value
-	(*durationpb.Duration)(nil),        // 30: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),      // 31: google.protobuf.Timestamp
-	(*StructValue)(nil),                // 32: schemapb.StructValue
+	nil,                                // 27: schemapb.Schema.Field.AnnotationsEntry
+	(*Schema_Field_Choice_Option)(nil), // 28: schemapb.Schema.Field.Choice.Option
+	nil,                                // 29: schemapb.Schema.Field.OneOf.VariantsEntry
+	(*Value)(nil),                      // 30: schemapb.Value
+	(*durationpb.Duration)(nil),        // 31: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),      // 32: google.protobuf.Timestamp
+	(*StructValue)(nil),                // 33: schemapb.StructValue
 }
 var file_schemapb_schema_proto_depIdxs = []int32{
 	3,  // 0: schemapb.Schema.id:type_name -> schemapb.SchemaIdentity
@@ -3263,38 +3279,40 @@ var file_schemapb_schema_proto_depIdxs = []int32{
 	22, // 22: schemapb.Schema.Field.map:type_name -> schemapb.Schema.Field.Map
 	15, // 23: schemapb.Schema.Field.bytes:type_name -> schemapb.Schema.Field.Bytes
 	16, // 24: schemapb.Schema.Field.json:type_name -> schemapb.Schema.Field.Json
-	29, // 25: schemapb.Schema.Field.examples:type_name -> schemapb.Value
-	2,  // 26: schemapb.Schema.DefsEntry.value:type_name -> schemapb.Schema
-	29, // 27: schemapb.Schema.Field.Json.default:type_name -> schemapb.Value
-	27, // 28: schemapb.Schema.Field.Choice.options:type_name -> schemapb.Schema.Field.Choice.Option
-	29, // 29: schemapb.Schema.Field.Choice.default:type_name -> schemapb.Value
-	30, // 30: schemapb.Schema.Field.Duration.default:type_name -> google.protobuf.Duration
-	30, // 31: schemapb.Schema.Field.Duration.gt:type_name -> google.protobuf.Duration
-	30, // 32: schemapb.Schema.Field.Duration.gte:type_name -> google.protobuf.Duration
-	30, // 33: schemapb.Schema.Field.Duration.lt:type_name -> google.protobuf.Duration
-	30, // 34: schemapb.Schema.Field.Duration.lte:type_name -> google.protobuf.Duration
-	31, // 35: schemapb.Schema.Field.Timestamp.default:type_name -> google.protobuf.Timestamp
-	31, // 36: schemapb.Schema.Field.Timestamp.gt:type_name -> google.protobuf.Timestamp
-	31, // 37: schemapb.Schema.Field.Timestamp.gte:type_name -> google.protobuf.Timestamp
-	31, // 38: schemapb.Schema.Field.Timestamp.lt:type_name -> google.protobuf.Timestamp
-	31, // 39: schemapb.Schema.Field.Timestamp.lte:type_name -> google.protobuf.Timestamp
-	4,  // 40: schemapb.Schema.Field.List.items:type_name -> schemapb.Schema.Field
-	2,  // 41: schemapb.Schema.Field.Object.schema:type_name -> schemapb.Schema
-	32, // 42: schemapb.Schema.Field.Object.default:type_name -> schemapb.StructValue
-	2,  // 43: schemapb.Schema.Field.Map.value_schema:type_name -> schemapb.Schema
-	4,  // 44: schemapb.Schema.Field.Map.value_field:type_name -> schemapb.Schema.Field
-	0,  // 45: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
-	1,  // 46: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
-	28, // 47: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
-	3,  // 48: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
-	32, // 49: schemapb.Schema.Field.Ref.default:type_name -> schemapb.StructValue
-	29, // 50: schemapb.Schema.Field.Choice.Option.value:type_name -> schemapb.Value
-	2,  // 51: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
-	52, // [52:52] is the sub-list for method output_type
-	52, // [52:52] is the sub-list for method input_type
-	52, // [52:52] is the sub-list for extension type_name
-	52, // [52:52] is the sub-list for extension extendee
-	0,  // [0:52] is the sub-list for field type_name
+	30, // 25: schemapb.Schema.Field.examples:type_name -> schemapb.Value
+	27, // 26: schemapb.Schema.Field.annotations:type_name -> schemapb.Schema.Field.AnnotationsEntry
+	2,  // 27: schemapb.Schema.DefsEntry.value:type_name -> schemapb.Schema
+	30, // 28: schemapb.Schema.Field.Json.default:type_name -> schemapb.Value
+	28, // 29: schemapb.Schema.Field.Choice.options:type_name -> schemapb.Schema.Field.Choice.Option
+	30, // 30: schemapb.Schema.Field.Choice.default:type_name -> schemapb.Value
+	31, // 31: schemapb.Schema.Field.Duration.default:type_name -> google.protobuf.Duration
+	31, // 32: schemapb.Schema.Field.Duration.gt:type_name -> google.protobuf.Duration
+	31, // 33: schemapb.Schema.Field.Duration.gte:type_name -> google.protobuf.Duration
+	31, // 34: schemapb.Schema.Field.Duration.lt:type_name -> google.protobuf.Duration
+	31, // 35: schemapb.Schema.Field.Duration.lte:type_name -> google.protobuf.Duration
+	32, // 36: schemapb.Schema.Field.Timestamp.default:type_name -> google.protobuf.Timestamp
+	32, // 37: schemapb.Schema.Field.Timestamp.gt:type_name -> google.protobuf.Timestamp
+	32, // 38: schemapb.Schema.Field.Timestamp.gte:type_name -> google.protobuf.Timestamp
+	32, // 39: schemapb.Schema.Field.Timestamp.lt:type_name -> google.protobuf.Timestamp
+	32, // 40: schemapb.Schema.Field.Timestamp.lte:type_name -> google.protobuf.Timestamp
+	4,  // 41: schemapb.Schema.Field.List.items:type_name -> schemapb.Schema.Field
+	2,  // 42: schemapb.Schema.Field.Object.schema:type_name -> schemapb.Schema
+	33, // 43: schemapb.Schema.Field.Object.default:type_name -> schemapb.StructValue
+	2,  // 44: schemapb.Schema.Field.Map.value_schema:type_name -> schemapb.Schema
+	4,  // 45: schemapb.Schema.Field.Map.value_field:type_name -> schemapb.Schema.Field
+	0,  // 46: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
+	1,  // 47: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
+	29, // 48: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
+	3,  // 49: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
+	33, // 50: schemapb.Schema.Field.Ref.default:type_name -> schemapb.StructValue
+	30, // 51: schemapb.Schema.Field.AnnotationsEntry.value:type_name -> schemapb.Value
+	30, // 52: schemapb.Schema.Field.Choice.Option.value:type_name -> schemapb.Value
+	2,  // 53: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
+	54, // [54:54] is the sub-list for method output_type
+	54, // [54:54] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_schema_proto_init() }
@@ -3353,7 +3371,7 @@ func file_schemapb_schema_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schemapb_schema_proto_rawDesc), len(file_schemapb_schema_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   27,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

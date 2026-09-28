@@ -585,6 +585,11 @@ message Schema {
      * runtime error.
      */
     optional string when = 30;
+    /* Application-owned metadata. Keys should be namespaced (e.g.
+     * "backplate.live"). Unknown keys and typed values are preserved;
+     * the validation, resolution and masking engines do not interpret them.
+     */
+    map<string, Value> annotations = 34;
   }
 
   /* Stable identity of this schema. Required: the validator rejects a schema

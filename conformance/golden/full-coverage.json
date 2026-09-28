@@ -47,7 +47,12 @@
         ],
         "secret": true,
         "normalize": "this",
-        "when": "true"
+        "when": "true",
+        "annotations": {
+          "backplate.live": {
+            "boolValue": true
+          }
+        }
       },
       {
         "name": "double_all",
@@ -473,7 +478,12 @@
             ],
             "secret": true,
             "normalize": "this",
-            "when": "true"
+            "when": "true",
+            "annotations": {
+              "backplate.live": {
+                "boolValue": true
+              }
+            }
           },
           {
             "name": "double_all",
@@ -865,7 +875,12 @@
           ],
           "secret": true,
           "normalize": "this",
-          "when": "true"
+          "when": "true",
+          "annotations": {
+            "backplate.live": {
+              "boolValue": true
+            }
+          }
         },
         {
           "name": "double_all",

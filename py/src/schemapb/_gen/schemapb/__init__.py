@@ -925,6 +925,19 @@ class SchemaField(betterproto2.Message):
     runtime error.
     """
 
+    annotations: "dict[str, Value]" = betterproto2.field(
+        34,
+        betterproto2.TYPE_MAP,
+        map_meta=betterproto2.map_meta(
+            betterproto2.TYPE_STRING, betterproto2.TYPE_MESSAGE
+        ),
+    )
+    """
+    Application-owned metadata. Keys should be namespaced (e.g.
+    "backplate.live"). Unknown keys and typed values are preserved;
+    the validation, resolution and masking engines do not interpret them.
+    """
+
 
 default_message_pool.register_message("schemapb", "Schema.Field", SchemaField)
 

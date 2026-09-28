@@ -1,0 +1,1814 @@
+{
+  "schema": {
+    "id": {
+      "namespace": "conformance",
+      "name": "annotations",
+      "version": "v1.0.0"
+    },
+    "fields": [
+      {
+        "name": "port",
+        "int32": {
+          "default": 10
+        },
+        "normalize": "this + 1",
+        "annotations": {
+          "backplate.live": {
+            "boolValue": true
+          },
+          "normalize": {
+            "stringValue": "root.missing"
+          },
+          "secret": {
+            "boolValue": true
+          },
+          "unknown.false": {
+            "boolValue": false
+          },
+          "unknown.large": {
+            "uint64Value": "18446744073709551615"
+          },
+          "unknown.null": {
+            "nullValue": "NULL_VALUE"
+          },
+          "unknown.typed": {
+            "listValue": {
+              "items": [
+                {
+                  "nullValue": "NULL_VALUE"
+                },
+                {
+                  "boolValue": true
+                },
+                {
+                  "int32Value": 1
+                },
+                {
+                  "int64Value": "2"
+                },
+                {
+                  "uint32Value": 3
+                },
+                {
+                  "uint64Value": "4"
+                },
+                {
+                  "floatValue": 1.5
+                },
+                {
+                  "doubleValue": 2.5
+                },
+                {
+                  "stringValue": "s"
+                },
+                {
+                  "bytesValue": "/w=="
+                },
+                {
+                  "durationValue": "1.500s"
+                },
+                {
+                  "timestampValue": "2026-06-01T12:00:00Z"
+                },
+                {
+                  "listValue": {
+                    "items": [
+                      {
+                        "boolValue": false
+                      }
+                    ]
+                  }
+                },
+                {
+                  "structValue": {
+                    "fields": {
+                      "k": {
+                        "nullValue": "NULL_VALUE"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "db",
+        "ref": {
+          "name": "db",
+          "default": {}
+        },
+        "annotations": {
+          "backplate.live": {
+            "boolValue": true
+          },
+          "normalize": {
+            "stringValue": "root.missing"
+          },
+          "secret": {
+            "boolValue": true
+          },
+          "unknown.false": {
+            "boolValue": false
+          },
+          "unknown.large": {
+            "uint64Value": "18446744073709551615"
+          },
+          "unknown.null": {
+            "nullValue": "NULL_VALUE"
+          },
+          "unknown.typed": {
+            "listValue": {
+              "items": [
+                {
+                  "nullValue": "NULL_VALUE"
+                },
+                {
+                  "boolValue": true
+                },
+                {
+                  "int32Value": 1
+                },
+                {
+                  "int64Value": "2"
+                },
+                {
+                  "uint32Value": 3
+                },
+                {
+                  "uint64Value": "4"
+                },
+                {
+                  "floatValue": 1.5
+                },
+                {
+                  "doubleValue": 2.5
+                },
+                {
+                  "stringValue": "s"
+                },
+                {
+                  "bytesValue": "/w=="
+                },
+                {
+                  "durationValue": "1.500s"
+                },
+                {
+                  "timestampValue": "2026-06-01T12:00:00Z"
+                },
+                {
+                  "listValue": {
+                    "items": [
+                      {
+                        "boolValue": false
+                      }
+                    ]
+                  }
+                },
+                {
+                  "structValue": {
+                    "fields": {
+                      "k": {
+                        "nullValue": "NULL_VALUE"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "workers",
+        "list": {
+          "items": [
+            {
+              "object": {
+                "schema": {
+                  "fields": [
+                    {
+                      "name": "cpu",
+                      "int32": {
+                        "default": 2
+                      }
+                    }
+                  ]
+                }
+              },
+              "annotations": {
+                "backplate.live": {
+                  "boolValue": true
+                },
+                "normalize": {
+                  "stringValue": "root.missing"
+                },
+                "secret": {
+                  "boolValue": true
+                },
+                "unknown.false": {
+                  "boolValue": false
+                },
+                "unknown.large": {
+                  "uint64Value": "18446744073709551615"
+                },
+                "unknown.null": {
+                  "nullValue": "NULL_VALUE"
+                },
+                "unknown.typed": {
+                  "listValue": {
+                    "items": [
+                      {
+                        "nullValue": "NULL_VALUE"
+                      },
+                      {
+                        "boolValue": true
+                      },
+                      {
+                        "int32Value": 1
+                      },
+                      {
+                        "int64Value": "2"
+                      },
+                      {
+                        "uint32Value": 3
+                      },
+                      {
+                        "uint64Value": "4"
+                      },
+                      {
+                        "floatValue": 1.5
+                      },
+                      {
+                        "doubleValue": 2.5
+                      },
+                      {
+                        "stringValue": "s"
+                      },
+                      {
+                        "bytesValue": "/w=="
+                      },
+                      {
+                        "durationValue": "1.500s"
+                      },
+                      {
+                        "timestampValue": "2026-06-01T12:00:00Z"
+                      },
+                      {
+                        "listValue": {
+                          "items": [
+                            {
+                              "boolValue": false
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "structValue": {
+                          "fields": {
+                            "k": {
+                              "nullValue": "NULL_VALUE"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "annotations": {
+          "backplate.live": {
+            "boolValue": true
+          },
+          "normalize": {
+            "stringValue": "root.missing"
+          },
+          "secret": {
+            "boolValue": true
+          },
+          "unknown.false": {
+            "boolValue": false
+          },
+          "unknown.large": {
+            "uint64Value": "18446744073709551615"
+          },
+          "unknown.null": {
+            "nullValue": "NULL_VALUE"
+          },
+          "unknown.typed": {
+            "listValue": {
+              "items": [
+                {
+                  "nullValue": "NULL_VALUE"
+                },
+                {
+                  "boolValue": true
+                },
+                {
+                  "int32Value": 1
+                },
+                {
+                  "int64Value": "2"
+                },
+                {
+                  "uint32Value": 3
+                },
+                {
+                  "uint64Value": "4"
+                },
+                {
+                  "floatValue": 1.5
+                },
+                {
+                  "doubleValue": 2.5
+                },
+                {
+                  "stringValue": "s"
+                },
+                {
+                  "bytesValue": "/w=="
+                },
+                {
+                  "durationValue": "1.500s"
+                },
+                {
+                  "timestampValue": "2026-06-01T12:00:00Z"
+                },
+                {
+                  "listValue": {
+                    "items": [
+                      {
+                        "boolValue": false
+                      }
+                    ]
+                  }
+                },
+                {
+                  "structValue": {
+                    "fields": {
+                      "k": {
+                        "nullValue": "NULL_VALUE"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "labels",
+        "map": {
+          "valueField": {
+            "name": "value",
+            "string": {},
+            "annotations": {
+              "backplate.live": {
+                "boolValue": true
+              },
+              "normalize": {
+                "stringValue": "root.missing"
+              },
+              "secret": {
+                "boolValue": true
+              },
+              "unknown.false": {
+                "boolValue": false
+              },
+              "unknown.large": {
+                "uint64Value": "18446744073709551615"
+              },
+              "unknown.null": {
+                "nullValue": "NULL_VALUE"
+              },
+              "unknown.typed": {
+                "listValue": {
+                  "items": [
+                    {
+                      "nullValue": "NULL_VALUE"
+                    },
+                    {
+                      "boolValue": true
+                    },
+                    {
+                      "int32Value": 1
+                    },
+                    {
+                      "int64Value": "2"
+                    },
+                    {
+                      "uint32Value": 3
+                    },
+                    {
+                      "uint64Value": "4"
+                    },
+                    {
+                      "floatValue": 1.5
+                    },
+                    {
+                      "doubleValue": 2.5
+                    },
+                    {
+                      "stringValue": "s"
+                    },
+                    {
+                      "bytesValue": "/w=="
+                    },
+                    {
+                      "durationValue": "1.500s"
+                    },
+                    {
+                      "timestampValue": "2026-06-01T12:00:00Z"
+                    },
+                    {
+                      "listValue": {
+                        "items": [
+                          {
+                            "boolValue": false
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "structValue": {
+                        "fields": {
+                          "k": {
+                            "nullValue": "NULL_VALUE"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "annotations": {
+          "backplate.live": {
+            "boolValue": true
+          },
+          "normalize": {
+            "stringValue": "root.missing"
+          },
+          "secret": {
+            "boolValue": true
+          },
+          "unknown.false": {
+            "boolValue": false
+          },
+          "unknown.large": {
+            "uint64Value": "18446744073709551615"
+          },
+          "unknown.null": {
+            "nullValue": "NULL_VALUE"
+          },
+          "unknown.typed": {
+            "listValue": {
+              "items": [
+                {
+                  "nullValue": "NULL_VALUE"
+                },
+                {
+                  "boolValue": true
+                },
+                {
+                  "int32Value": 1
+                },
+                {
+                  "int64Value": "2"
+                },
+                {
+                  "uint32Value": 3
+                },
+                {
+                  "uint64Value": "4"
+                },
+                {
+                  "floatValue": 1.5
+                },
+                {
+                  "doubleValue": 2.5
+                },
+                {
+                  "stringValue": "s"
+                },
+                {
+                  "bytesValue": "/w=="
+                },
+                {
+                  "durationValue": "1.500s"
+                },
+                {
+                  "timestampValue": "2026-06-01T12:00:00Z"
+                },
+                {
+                  "listValue": {
+                    "items": [
+                      {
+                        "boolValue": false
+                      }
+                    ]
+                  }
+                },
+                {
+                  "structValue": {
+                    "fields": {
+                      "k": {
+                        "nullValue": "NULL_VALUE"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "auth",
+        "oneOf": {
+          "discriminator": "kind",
+          "variants": {
+            "password": {
+              "fields": [
+                {
+                  "name": "kind",
+                  "string": {}
+                },
+                {
+                  "name": "token",
+                  "string": {},
+                  "secret": true,
+                  "annotations": {
+                    "backplate.live": {
+                      "boolValue": true
+                    },
+                    "normalize": {
+                      "stringValue": "root.missing"
+                    },
+                    "secret": {
+                      "boolValue": true
+                    },
+                    "unknown.false": {
+                      "boolValue": false
+                    },
+                    "unknown.large": {
+                      "uint64Value": "18446744073709551615"
+                    },
+                    "unknown.null": {
+                      "nullValue": "NULL_VALUE"
+                    },
+                    "unknown.typed": {
+                      "listValue": {
+                        "items": [
+                          {
+                            "nullValue": "NULL_VALUE"
+                          },
+                          {
+                            "boolValue": true
+                          },
+                          {
+                            "int32Value": 1
+                          },
+                          {
+                            "int64Value": "2"
+                          },
+                          {
+                            "uint32Value": 3
+                          },
+                          {
+                            "uint64Value": "4"
+                          },
+                          {
+                            "floatValue": 1.5
+                          },
+                          {
+                            "doubleValue": 2.5
+                          },
+                          {
+                            "stringValue": "s"
+                          },
+                          {
+                            "bytesValue": "/w=="
+                          },
+                          {
+                            "durationValue": "1.500s"
+                          },
+                          {
+                            "timestampValue": "2026-06-01T12:00:00Z"
+                          },
+                          {
+                            "listValue": {
+                              "items": [
+                                {
+                                  "boolValue": false
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "structValue": {
+                              "fields": {
+                                "k": {
+                                  "nullValue": "NULL_VALUE"
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "annotations": {
+          "backplate.live": {
+            "boolValue": true
+          },
+          "normalize": {
+            "stringValue": "root.missing"
+          },
+          "secret": {
+            "boolValue": true
+          },
+          "unknown.false": {
+            "boolValue": false
+          },
+          "unknown.large": {
+            "uint64Value": "18446744073709551615"
+          },
+          "unknown.null": {
+            "nullValue": "NULL_VALUE"
+          },
+          "unknown.typed": {
+            "listValue": {
+              "items": [
+                {
+                  "nullValue": "NULL_VALUE"
+                },
+                {
+                  "boolValue": true
+                },
+                {
+                  "int32Value": 1
+                },
+                {
+                  "int64Value": "2"
+                },
+                {
+                  "uint32Value": 3
+                },
+                {
+                  "uint64Value": "4"
+                },
+                {
+                  "floatValue": 1.5
+                },
+                {
+                  "doubleValue": 2.5
+                },
+                {
+                  "stringValue": "s"
+                },
+                {
+                  "bytesValue": "/w=="
+                },
+                {
+                  "durationValue": "1.500s"
+                },
+                {
+                  "timestampValue": "2026-06-01T12:00:00Z"
+                },
+                {
+                  "listValue": {
+                    "items": [
+                      {
+                        "boolValue": false
+                      }
+                    ]
+                  }
+                },
+                {
+                  "structValue": {
+                    "fields": {
+                      "k": {
+                        "nullValue": "NULL_VALUE"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "defs": {
+      "db": {
+        "fields": [
+          {
+            "name": "token",
+            "string": {
+              "default": "private"
+            },
+            "secret": true,
+            "annotations": {
+              "backplate.live": {
+                "boolValue": true
+              },
+              "normalize": {
+                "stringValue": "root.missing"
+              },
+              "secret": {
+                "boolValue": true
+              },
+              "unknown.false": {
+                "boolValue": false
+              },
+              "unknown.large": {
+                "uint64Value": "18446744073709551615"
+              },
+              "unknown.null": {
+                "nullValue": "NULL_VALUE"
+              },
+              "unknown.typed": {
+                "listValue": {
+                  "items": [
+                    {
+                      "nullValue": "NULL_VALUE"
+                    },
+                    {
+                      "boolValue": true
+                    },
+                    {
+                      "int32Value": 1
+                    },
+                    {
+                      "int64Value": "2"
+                    },
+                    {
+                      "uint32Value": 3
+                    },
+                    {
+                      "uint64Value": "4"
+                    },
+                    {
+                      "floatValue": 1.5
+                    },
+                    {
+                      "doubleValue": 2.5
+                    },
+                    {
+                      "stringValue": "s"
+                    },
+                    {
+                      "bytesValue": "/w=="
+                    },
+                    {
+                      "durationValue": "1.500s"
+                    },
+                    {
+                      "timestampValue": "2026-06-01T12:00:00Z"
+                    },
+                    {
+                      "listValue": {
+                        "items": [
+                          {
+                            "boolValue": false
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "structValue": {
+                        "fields": {
+                          "k": {
+                            "nullValue": "NULL_VALUE"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "input": {
+    "fields": {
+      "auth": {
+        "structValue": {
+          "fields": {
+            "kind": {
+              "stringValue": "password"
+            },
+            "token": {
+              "stringValue": "private"
+            }
+          }
+        }
+      },
+      "labels": {
+        "structValue": {
+          "fields": {
+            "a": {
+              "stringValue": "b"
+            }
+          }
+        }
+      },
+      "workers": {
+        "listValue": {
+          "items": [
+            {
+              "structValue": {}
+            }
+          ]
+        }
+      }
+    }
+  },
+  "baked": {
+    "schema": {
+      "id": {
+        "namespace": "conformance",
+        "name": "annotations",
+        "version": "v1.0.0"
+      },
+      "fields": [
+        {
+          "name": "port",
+          "int32": {
+            "default": 10
+          },
+          "normalize": "this + 1",
+          "annotations": {
+            "backplate.live": {
+              "boolValue": true
+            },
+            "normalize": {
+              "stringValue": "root.missing"
+            },
+            "secret": {
+              "boolValue": true
+            },
+            "unknown.false": {
+              "boolValue": false
+            },
+            "unknown.large": {
+              "uint64Value": "18446744073709551615"
+            },
+            "unknown.null": {
+              "nullValue": "NULL_VALUE"
+            },
+            "unknown.typed": {
+              "listValue": {
+                "items": [
+                  {
+                    "nullValue": "NULL_VALUE"
+                  },
+                  {
+                    "boolValue": true
+                  },
+                  {
+                    "int32Value": 1
+                  },
+                  {
+                    "int64Value": "2"
+                  },
+                  {
+                    "uint32Value": 3
+                  },
+                  {
+                    "uint64Value": "4"
+                  },
+                  {
+                    "floatValue": 1.5
+                  },
+                  {
+                    "doubleValue": 2.5
+                  },
+                  {
+                    "stringValue": "s"
+                  },
+                  {
+                    "bytesValue": "/w=="
+                  },
+                  {
+                    "durationValue": "1.500s"
+                  },
+                  {
+                    "timestampValue": "2026-06-01T12:00:00Z"
+                  },
+                  {
+                    "listValue": {
+                      "items": [
+                        {
+                          "boolValue": false
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "structValue": {
+                      "fields": {
+                        "k": {
+                          "nullValue": "NULL_VALUE"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "db",
+          "ref": {
+            "name": "db",
+            "default": {}
+          },
+          "annotations": {
+            "backplate.live": {
+              "boolValue": true
+            },
+            "normalize": {
+              "stringValue": "root.missing"
+            },
+            "secret": {
+              "boolValue": true
+            },
+            "unknown.false": {
+              "boolValue": false
+            },
+            "unknown.large": {
+              "uint64Value": "18446744073709551615"
+            },
+            "unknown.null": {
+              "nullValue": "NULL_VALUE"
+            },
+            "unknown.typed": {
+              "listValue": {
+                "items": [
+                  {
+                    "nullValue": "NULL_VALUE"
+                  },
+                  {
+                    "boolValue": true
+                  },
+                  {
+                    "int32Value": 1
+                  },
+                  {
+                    "int64Value": "2"
+                  },
+                  {
+                    "uint32Value": 3
+                  },
+                  {
+                    "uint64Value": "4"
+                  },
+                  {
+                    "floatValue": 1.5
+                  },
+                  {
+                    "doubleValue": 2.5
+                  },
+                  {
+                    "stringValue": "s"
+                  },
+                  {
+                    "bytesValue": "/w=="
+                  },
+                  {
+                    "durationValue": "1.500s"
+                  },
+                  {
+                    "timestampValue": "2026-06-01T12:00:00Z"
+                  },
+                  {
+                    "listValue": {
+                      "items": [
+                        {
+                          "boolValue": false
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "structValue": {
+                      "fields": {
+                        "k": {
+                          "nullValue": "NULL_VALUE"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "workers",
+          "list": {
+            "items": [
+              {
+                "object": {
+                  "schema": {
+                    "fields": [
+                      {
+                        "name": "cpu",
+                        "int32": {
+                          "default": 2
+                        }
+                      }
+                    ]
+                  }
+                },
+                "annotations": {
+                  "backplate.live": {
+                    "boolValue": true
+                  },
+                  "normalize": {
+                    "stringValue": "root.missing"
+                  },
+                  "secret": {
+                    "boolValue": true
+                  },
+                  "unknown.false": {
+                    "boolValue": false
+                  },
+                  "unknown.large": {
+                    "uint64Value": "18446744073709551615"
+                  },
+                  "unknown.null": {
+                    "nullValue": "NULL_VALUE"
+                  },
+                  "unknown.typed": {
+                    "listValue": {
+                      "items": [
+                        {
+                          "nullValue": "NULL_VALUE"
+                        },
+                        {
+                          "boolValue": true
+                        },
+                        {
+                          "int32Value": 1
+                        },
+                        {
+                          "int64Value": "2"
+                        },
+                        {
+                          "uint32Value": 3
+                        },
+                        {
+                          "uint64Value": "4"
+                        },
+                        {
+                          "floatValue": 1.5
+                        },
+                        {
+                          "doubleValue": 2.5
+                        },
+                        {
+                          "stringValue": "s"
+                        },
+                        {
+                          "bytesValue": "/w=="
+                        },
+                        {
+                          "durationValue": "1.500s"
+                        },
+                        {
+                          "timestampValue": "2026-06-01T12:00:00Z"
+                        },
+                        {
+                          "listValue": {
+                            "items": [
+                              {
+                                "boolValue": false
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "structValue": {
+                            "fields": {
+                              "k": {
+                                "nullValue": "NULL_VALUE"
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "annotations": {
+            "backplate.live": {
+              "boolValue": true
+            },
+            "normalize": {
+              "stringValue": "root.missing"
+            },
+            "secret": {
+              "boolValue": true
+            },
+            "unknown.false": {
+              "boolValue": false
+            },
+            "unknown.large": {
+              "uint64Value": "18446744073709551615"
+            },
+            "unknown.null": {
+              "nullValue": "NULL_VALUE"
+            },
+            "unknown.typed": {
+              "listValue": {
+                "items": [
+                  {
+                    "nullValue": "NULL_VALUE"
+                  },
+                  {
+                    "boolValue": true
+                  },
+                  {
+                    "int32Value": 1
+                  },
+                  {
+                    "int64Value": "2"
+                  },
+                  {
+                    "uint32Value": 3
+                  },
+                  {
+                    "uint64Value": "4"
+                  },
+                  {
+                    "floatValue": 1.5
+                  },
+                  {
+                    "doubleValue": 2.5
+                  },
+                  {
+                    "stringValue": "s"
+                  },
+                  {
+                    "bytesValue": "/w=="
+                  },
+                  {
+                    "durationValue": "1.500s"
+                  },
+                  {
+                    "timestampValue": "2026-06-01T12:00:00Z"
+                  },
+                  {
+                    "listValue": {
+                      "items": [
+                        {
+                          "boolValue": false
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "structValue": {
+                      "fields": {
+                        "k": {
+                          "nullValue": "NULL_VALUE"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "labels",
+          "map": {
+            "valueField": {
+              "name": "value",
+              "string": {},
+              "annotations": {
+                "backplate.live": {
+                  "boolValue": true
+                },
+                "normalize": {
+                  "stringValue": "root.missing"
+                },
+                "secret": {
+                  "boolValue": true
+                },
+                "unknown.false": {
+                  "boolValue": false
+                },
+                "unknown.large": {
+                  "uint64Value": "18446744073709551615"
+                },
+                "unknown.null": {
+                  "nullValue": "NULL_VALUE"
+                },
+                "unknown.typed": {
+                  "listValue": {
+                    "items": [
+                      {
+                        "nullValue": "NULL_VALUE"
+                      },
+                      {
+                        "boolValue": true
+                      },
+                      {
+                        "int32Value": 1
+                      },
+                      {
+                        "int64Value": "2"
+                      },
+                      {
+                        "uint32Value": 3
+                      },
+                      {
+                        "uint64Value": "4"
+                      },
+                      {
+                        "floatValue": 1.5
+                      },
+                      {
+                        "doubleValue": 2.5
+                      },
+                      {
+                        "stringValue": "s"
+                      },
+                      {
+                        "bytesValue": "/w=="
+                      },
+                      {
+                        "durationValue": "1.500s"
+                      },
+                      {
+                        "timestampValue": "2026-06-01T12:00:00Z"
+                      },
+                      {
+                        "listValue": {
+                          "items": [
+                            {
+                              "boolValue": false
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "structValue": {
+                          "fields": {
+                            "k": {
+                              "nullValue": "NULL_VALUE"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "annotations": {
+            "backplate.live": {
+              "boolValue": true
+            },
+            "normalize": {
+              "stringValue": "root.missing"
+            },
+            "secret": {
+              "boolValue": true
+            },
+            "unknown.false": {
+              "boolValue": false
+            },
+            "unknown.large": {
+              "uint64Value": "18446744073709551615"
+            },
+            "unknown.null": {
+              "nullValue": "NULL_VALUE"
+            },
+            "unknown.typed": {
+              "listValue": {
+                "items": [
+                  {
+                    "nullValue": "NULL_VALUE"
+                  },
+                  {
+                    "boolValue": true
+                  },
+                  {
+                    "int32Value": 1
+                  },
+                  {
+                    "int64Value": "2"
+                  },
+                  {
+                    "uint32Value": 3
+                  },
+                  {
+                    "uint64Value": "4"
+                  },
+                  {
+                    "floatValue": 1.5
+                  },
+                  {
+                    "doubleValue": 2.5
+                  },
+                  {
+                    "stringValue": "s"
+                  },
+                  {
+                    "bytesValue": "/w=="
+                  },
+                  {
+                    "durationValue": "1.500s"
+                  },
+                  {
+                    "timestampValue": "2026-06-01T12:00:00Z"
+                  },
+                  {
+                    "listValue": {
+                      "items": [
+                        {
+                          "boolValue": false
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "structValue": {
+                      "fields": {
+                        "k": {
+                          "nullValue": "NULL_VALUE"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "auth",
+          "oneOf": {
+            "discriminator": "kind",
+            "variants": {
+              "password": {
+                "fields": [
+                  {
+                    "name": "kind",
+                    "string": {}
+                  },
+                  {
+                    "name": "token",
+                    "string": {},
+                    "secret": true,
+                    "annotations": {
+                      "backplate.live": {
+                        "boolValue": true
+                      },
+                      "normalize": {
+                        "stringValue": "root.missing"
+                      },
+                      "secret": {
+                        "boolValue": true
+                      },
+                      "unknown.false": {
+                        "boolValue": false
+                      },
+                      "unknown.large": {
+                        "uint64Value": "18446744073709551615"
+                      },
+                      "unknown.null": {
+                        "nullValue": "NULL_VALUE"
+                      },
+                      "unknown.typed": {
+                        "listValue": {
+                          "items": [
+                            {
+                              "nullValue": "NULL_VALUE"
+                            },
+                            {
+                              "boolValue": true
+                            },
+                            {
+                              "int32Value": 1
+                            },
+                            {
+                              "int64Value": "2"
+                            },
+                            {
+                              "uint32Value": 3
+                            },
+                            {
+                              "uint64Value": "4"
+                            },
+                            {
+                              "floatValue": 1.5
+                            },
+                            {
+                              "doubleValue": 2.5
+                            },
+                            {
+                              "stringValue": "s"
+                            },
+                            {
+                              "bytesValue": "/w=="
+                            },
+                            {
+                              "durationValue": "1.500s"
+                            },
+                            {
+                              "timestampValue": "2026-06-01T12:00:00Z"
+                            },
+                            {
+                              "listValue": {
+                                "items": [
+                                  {
+                                    "boolValue": false
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "structValue": {
+                                "fields": {
+                                  "k": {
+                                    "nullValue": "NULL_VALUE"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "annotations": {
+            "backplate.live": {
+              "boolValue": true
+            },
+            "normalize": {
+              "stringValue": "root.missing"
+            },
+            "secret": {
+              "boolValue": true
+            },
+            "unknown.false": {
+              "boolValue": false
+            },
+            "unknown.large": {
+              "uint64Value": "18446744073709551615"
+            },
+            "unknown.null": {
+              "nullValue": "NULL_VALUE"
+            },
+            "unknown.typed": {
+              "listValue": {
+                "items": [
+                  {
+                    "nullValue": "NULL_VALUE"
+                  },
+                  {
+                    "boolValue": true
+                  },
+                  {
+                    "int32Value": 1
+                  },
+                  {
+                    "int64Value": "2"
+                  },
+                  {
+                    "uint32Value": 3
+                  },
+                  {
+                    "uint64Value": "4"
+                  },
+                  {
+                    "floatValue": 1.5
+                  },
+                  {
+                    "doubleValue": 2.5
+                  },
+                  {
+                    "stringValue": "s"
+                  },
+                  {
+                    "bytesValue": "/w=="
+                  },
+                  {
+                    "durationValue": "1.500s"
+                  },
+                  {
+                    "timestampValue": "2026-06-01T12:00:00Z"
+                  },
+                  {
+                    "listValue": {
+                      "items": [
+                        {
+                          "boolValue": false
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "structValue": {
+                      "fields": {
+                        "k": {
+                          "nullValue": "NULL_VALUE"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "defs": {
+        "db": {
+          "fields": [
+            {
+              "name": "token",
+              "string": {
+                "default": "private"
+              },
+              "secret": true,
+              "annotations": {
+                "backplate.live": {
+                  "boolValue": true
+                },
+                "normalize": {
+                  "stringValue": "root.missing"
+                },
+                "secret": {
+                  "boolValue": true
+                },
+                "unknown.false": {
+                  "boolValue": false
+                },
+                "unknown.large": {
+                  "uint64Value": "18446744073709551615"
+                },
+                "unknown.null": {
+                  "nullValue": "NULL_VALUE"
+                },
+                "unknown.typed": {
+                  "listValue": {
+                    "items": [
+                      {
+                        "nullValue": "NULL_VALUE"
+                      },
+                      {
+                        "boolValue": true
+                      },
+                      {
+                        "int32Value": 1
+                      },
+                      {
+                        "int64Value": "2"
+                      },
+                      {
+                        "uint32Value": 3
+                      },
+                      {
+                        "uint64Value": "4"
+                      },
+                      {
+                        "floatValue": 1.5
+                      },
+                      {
+                        "doubleValue": 2.5
+                      },
+                      {
+                        "stringValue": "s"
+                      },
+                      {
+                        "bytesValue": "/w=="
+                      },
+                      {
+                        "durationValue": "1.500s"
+                      },
+                      {
+                        "timestampValue": "2026-06-01T12:00:00Z"
+                      },
+                      {
+                        "listValue": {
+                          "items": [
+                            {
+                              "boolValue": false
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "structValue": {
+                          "fields": {
+                            "k": {
+                              "nullValue": "NULL_VALUE"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "values": {
+      "fields": {
+        "auth": {
+          "structValue": {
+            "fields": {
+              "kind": {
+                "stringValue": "password"
+              },
+              "token": {
+                "stringValue": "private"
+              }
+            }
+          }
+        },
+        "db": {
+          "structValue": {
+            "fields": {
+              "token": {
+                "stringValue": "private"
+              }
+            }
+          }
+        },
+        "labels": {
+          "structValue": {
+            "fields": {
+              "a": {
+                "stringValue": "b"
+              }
+            }
+          }
+        },
+        "port": {
+          "int32Value": 11
+        },
+        "workers": {
+          "listValue": {
+            "items": [
+              {
+                "structValue": {
+                  "fields": {
+                    "cpu": {
+                      "int32Value": 2
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "masked": {
+    "fields": {
+      "auth": {
+        "structValue": {
+          "fields": {
+            "kind": {
+              "stringValue": "password"
+            },
+            "token": {
+              "stringValue": "***"
+            }
+          }
+        }
+      },
+      "db": {
+        "structValue": {
+          "fields": {
+            "token": {
+              "stringValue": "***"
+            }
+          }
+        }
+      },
+      "labels": {
+        "structValue": {
+          "fields": {
+            "a": {
+              "stringValue": "b"
+            }
+          }
+        }
+      },
+      "port": {
+        "int32Value": 11
+      },
+      "workers": {
+        "listValue": {
+          "items": [
+            {
+              "structValue": {
+                "fields": {
+                  "cpu": {
+                    "int32Value": 2
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "report": {
+    "events": [
+      {
+        "path": "port",
+        "pathSegments": [
+          {
+            "key": "port"
+          }
+        ],
+        "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+      },
+      {
+        "path": "db",
+        "pathSegments": [
+          {
+            "key": "db"
+          }
+        ],
+        "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+      },
+      {
+        "path": "db.token",
+        "pathSegments": [
+          {
+            "key": "db"
+          },
+          {
+            "key": "token"
+          }
+        ],
+        "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+      },
+      {
+        "path": "workers[0].cpu",
+        "pathSegments": [
+          {
+            "key": "workers"
+          },
+          {
+            "index": "0"
+          },
+          {
+            "key": "cpu"
+          }
+        ],
+        "operation": "RESOLVE_OPERATION_DEFAULT_APPLIED"
+      },
+      {
+        "path": "port",
+        "pathSegments": [
+          {
+            "key": "port"
+          }
+        ],
+        "operation": "RESOLVE_OPERATION_NORMALIZED"
+      }
+    ]
+  }
+}

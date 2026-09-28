@@ -38,7 +38,9 @@ func (e *DecodeError) Error() string {
 // Decode replaces the target only on success; absent fields become zero.
 // It does not apply defaults, validation, or string coercion. Pointers, native
 // time values, bytes, named scalars and nested containers are supported.
-// JSON/Text unmarshaler hooks run on fresh values; errors omit their payloads.
+// SchemaDecodeTarget unwraps directly into owned inner storage before native
+// decoding. JSON/Text unmarshaler hooks remain a fallback. Hooks run on fresh
+// values; errors omit their payloads.
 func (s *StructValue) Decode(target any) error {
 	dst := reflect.ValueOf(target)
 	if !dst.IsValid() || dst.Kind() != reflect.Pointer || dst.IsNil() {
@@ -77,6 +79,10 @@ func decodeValue(v *Value, dst reflect.Value, path string, depth int) error {
 
 	if !dst.CanSet() {
 		return decodeFailure(v, dst, path, "destination is not settable")
+	}
+
+	if handled, err := decodeWrapper(v, dst, path, depth); handled {
+		return err
 	}
 
 	if v == nil || v.GetKind() == nil || ValueKindName(v) == KindNull {
@@ -231,7 +237,7 @@ func decodeCustom(v *Value, dst reflect.Value, path string, depth int) (bool, er
 }
 
 func decodeSequence(v *Value, dst reflect.Value, path string, depth int) error {
-	if dst.Type().Elem().Kind() == reflect.Uint8 {
+	if dst.Type().Elem().Kind() == reflect.Uint8 && !hasSchemaHooks(dst.Type().Elem()) {
 		b, ok := v.GetKind().(*Value_BytesValue)
 		if !ok {
 			return decodeFailure(v, dst, path, "expected bytes")
@@ -378,7 +384,7 @@ func decodeFieldIndexes(t reflect.Type, prefix []int, visited map[reflect.Type]b
 				sub = sub.Elem()
 			}
 
-			if sub.Kind() == reflect.Struct {
+			if sub.Kind() == reflect.Struct && !hasSchemaHooks(sub) {
 				if err := decodeFieldIndexes(sub, indexes, visited, out); err != nil {
 					return err
 				}

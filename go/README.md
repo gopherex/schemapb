@@ -194,3 +194,21 @@ visible := baked.Masked() // values for instance state or UI cards
 
 The result is for display and may no longer conform to the execution schema.
 See [the masking contract](../docs/MASKING.md) for edge cases and other languages.
+
+## Application type wrappers
+
+Reflect discovers `SchemaWrapper` (`SchemaInner() reflect.Type`) and optional
+`SchemaFieldConfigurer` (`SchemaField(*Schema_Field) error`) automatically,
+including generic instantiations and collection values. Type decorators run
+after field tags, from inner to outer. `WithType` remains an explicit override.
+
+Decode recognizes `SchemaDecodeTarget() any`: return a pointer to the fresh
+wrapper's inner storage, of exactly the type reported by `SchemaInner`.
+This uses the typed decoder directly, preserving duration, numeric precision,
+null semantics and atomic destination replacement. JSON/Text unmarshaler hooks
+remain supported.
+
+Field `Annotations map[string]*Value` stores application metadata such as
+`backplate.live`; the engine preserves it without interpreting it. See
+[the wrapper and annotations contract](../docs/GO_WRAPPERS.md) for examples,
+precedence, ownership rules and root/embedded-type behavior.

@@ -19,6 +19,10 @@
 //   - *T -> optional AND nullable (encoding/json writes null for a nil
 //     pointer); `validate:"required"` forces required back on
 //
+// SchemaWrapper exposes a transparent inner type. SchemaFieldConfigurer runs
+// after field tags, inside out for nested wrappers. Both hooks are discovered
+// automatically on fresh receivers, including in collection elements.
+//
 // WithType overrides bind BEFORE every default branch, stdlib included, so
 // a domain type (or even time.Duration) can be re-described.
 
@@ -54,6 +58,7 @@ func WithType(t reflect.Type, f func(name FieldName) *Schema_Field) ReflectOptio
 // order, after type inference, legacy tags and the schemapb tag, for each
 // included struct field (including nested fields, excluding flattened wrappers).
 // The descriptor belongs to this reflection call and may be modified in place.
+// Type-level SchemaFieldConfigurer hooks run after these handlers.
 func WithFieldTags(f func(reflect.StructField, *Schema_Field) error) ReflectOption {
 	return func(r *reflector) {
 		r.fieldTags = append(r.fieldTags, f)
@@ -79,7 +84,7 @@ func Reflect(t reflect.Type, id *SchemaIdentity, opts ...ReflectOption) (*Schema
 
 	root := NewSchema(id).Coerce()
 
-	if _, isOverride := r.overrides[t]; !isOverride && t.Kind() == reflect.Struct && t != timeType {
+	if _, isOverride := r.overrides[t]; !isOverride && t.Kind() == reflect.Struct && t != timeType && !hasSchemaHooks(t) {
 		fields, err := r.fieldsOf(t, map[reflect.Type]bool{})
 		if err != nil {
 			return nil, fmt.Errorf("schemapb: reflect %s: %w", t, err)
@@ -88,8 +93,8 @@ func Reflect(t reflect.Type, id *SchemaIdentity, opts ...ReflectOption) (*Schema
 		return root.Fields(fieldDefs(fields)...).Build()
 	}
 
-	// A non-struct payload becomes one "value" field.
-	f, err := r.fieldOf("value", t, true, &fieldConstraints{}, map[reflect.Type]bool{})
+	// A scalar, overridden or hook-bearing root becomes one "value" field.
+	f, err := r.fieldOf("value", t, true, &fieldConstraints{}, map[reflect.Type]bool{}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("schemapb: reflect %s: %w", t, err)
 	}
@@ -155,7 +160,7 @@ func (r *reflector) fieldsOf(t reflect.Type, visited map[reflect.Type]bool) ([]*
 				embedded = embedded.Elem()
 			}
 
-			if embedded.Kind() == reflect.Struct {
+			if embedded.Kind() == reflect.Struct && !hasSchemaHooks(embedded) {
 				nested, err := r.fieldsOf(embedded, visited)
 				if err != nil {
 					return nil, err
@@ -181,12 +186,8 @@ func (r *reflector) fieldsOf(t reflect.Type, visited map[reflect.Type]bool) ([]*
 
 		required := structField.Type.Kind() != reflect.Pointer && !omit
 
-		field, err := r.fieldOf(name, structField.Type, required, c, visited)
+		field, err := r.fieldOf(name, structField.Type, required, c, visited, &structField)
 		if err != nil {
-			return nil, fmt.Errorf("field %s: %w", structField.Name, err)
-		}
-
-		if err := r.decorateField(&structField, field); err != nil {
 			return nil, fmt.Errorf("field %s: %w", structField.Name, err)
 		}
 
@@ -221,27 +222,23 @@ func (r *reflector) decorateField(structField *reflect.StructField, field *Schem
 //nolint:cyclop // one branch per special-cased type
 func (r *reflector) fieldOf(
 	name string, t reflect.Type, required bool, c *fieldConstraints, visited map[reflect.Type]bool,
+	structField *reflect.StructField,
 ) (*Schema_Field, error) {
 	fname := FieldName(name)
-	nullable := false
 
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-		required = false
-		// encoding/json writes null for a nil pointer: the schema must
-		// tolerate it.
-		nullable = true
+	info, err := r.unwrapType(t, required)
+	if err != nil {
+		return nil, err
 	}
+
+	t, required = info.typ, info.required
 
 	// `validate:"required"` forces a field required even when it is a pointer.
 	if c.required {
 		required = true
 	}
 
-	var (
-		field *Schema_Field
-		err   error
-	)
+	var field *Schema_Field
 
 	switch {
 	case r.overrides[t] != nil:
@@ -276,8 +273,18 @@ func (r *reflector) fieldOf(
 	}
 
 	field.Required = required
-	if nullable {
+	if info.nullable {
 		field.Nullable = true
+	}
+
+	if structField != nil {
+		if err := r.decorateField(structField, field); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := info.configure(field); err != nil {
+		return nil, err
 	}
 
 	return field, nil
@@ -298,11 +305,11 @@ func (r *reflector) fieldOfKind(
 
 		return Object(fname, fieldDefs(fields)...).Done(), nil
 	case reflect.Slice, reflect.Array:
-		if t.Elem().Kind() == reflect.Uint8 {
+		if t.Elem().Kind() == reflect.Uint8 && !hasSchemaHooks(t.Elem()) {
 			return r.bytesField(fname, t, c)
 		}
 
-		item, err := r.fieldOf("item", t.Elem(), true, &fieldConstraints{}, visited)
+		item, err := r.fieldOf("item", t.Elem(), true, &fieldConstraints{}, visited, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -338,7 +345,7 @@ func (r *reflector) fieldOfKind(
 			elem = elem.Elem()
 		}
 
-		if elem.Kind() == reflect.Struct && r.overrides[elem] == nil &&
+		if elem.Kind() == reflect.Struct && r.overrides[elem] == nil && !hasSchemaHooks(elem) &&
 			elem != timeType && elem != durationType && !visited[elem] &&
 			!elem.Implements(marshalerT) && !reflect.PointerTo(elem).Implements(marshalerT) {
 			fields, err := r.fieldsOf(elem, visited)
@@ -349,7 +356,7 @@ func (r *reflector) fieldOfKind(
 			return Map(fname, fieldDefs(fields)...).Done(), nil
 		}
 
-		value, err := r.fieldOf("value", t.Elem(), true, &fieldConstraints{}, visited)
+		value, err := r.fieldOf("value", t.Elem(), true, &fieldConstraints{}, visited, nil)
 		if err != nil {
 			return nil, err
 		}

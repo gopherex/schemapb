@@ -274,6 +274,11 @@ pub mod schema {
         /// runtime error.
         #[prost(string, optional, tag="30")]
         pub when: ::core::option::Option<::prost::alloc::string::String>,
+        /// Application-owned metadata. Keys should be namespaced (e.g.
+        /// "backplate.live"). Unknown keys and typed values are preserved;
+        /// the validation, resolution and masking engines do not interpret them.
+        #[prost(map="string, message", tag="34")]
+        pub annotations: ::std::collections::HashMap<::prost::alloc::string::String, super::Value>,
         /// The field kind; exactly one must be set. 
         #[prost(oneof="field::Kind", tags="6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 28, 29, 31, 32, 33")]
         pub kind: ::core::option::Option<field::Kind>,

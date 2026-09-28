@@ -59,6 +59,7 @@ func coverageSchema() *schemapb.Schema {
 		Fields: []*schemapb.Schema_Field{
 			{
 				Name:        "float_all",
+				Annotations: map[string]*schemapb.Value{"backplate.live": schemapb.BoolV(true)},
 				Description: ptr("float with every constraint"),
 				Nullable:    true,
 				Required:    true,

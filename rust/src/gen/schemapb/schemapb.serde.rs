@@ -1269,6 +1269,9 @@ impl serde::Serialize for schema::Field {
         if self.when.is_some() {
             len += 1;
         }
+        if !self.annotations.is_empty() {
+            len += 1;
+        }
         if self.kind.is_some() {
             len += 1;
         }
@@ -1314,6 +1317,9 @@ impl serde::Serialize for schema::Field {
         }
         if let Some(v) = self.when.as_ref() {
             struct_ser.serialize_field("when", v)?;
+        }
+        if !self.annotations.is_empty() {
+            struct_ser.serialize_field("annotations", &self.annotations)?;
         }
         if let Some(v) = self.kind.as_ref() {
             match v {
@@ -1400,6 +1406,7 @@ impl<'de> serde::Deserialize<'de> for schema::Field {
             "secret",
             "normalize",
             "when",
+            "annotations",
             "float",
             "double",
             "int32",
@@ -1438,6 +1445,7 @@ impl<'de> serde::Deserialize<'de> for schema::Field {
             Secret,
             Normalize,
             When,
+            Annotations,
             Float,
             Double,
             Int32,
@@ -1492,6 +1500,7 @@ impl<'de> serde::Deserialize<'de> for schema::Field {
                             "secret" => Ok(GeneratedField::Secret),
                             "normalize" => Ok(GeneratedField::Normalize),
                             "when" => Ok(GeneratedField::When),
+                            "annotations" => Ok(GeneratedField::Annotations),
                             "float" => Ok(GeneratedField::Float),
                             "double" => Ok(GeneratedField::Double),
                             "int32" => Ok(GeneratedField::Int32),
@@ -1544,6 +1553,7 @@ impl<'de> serde::Deserialize<'de> for schema::Field {
                 let mut secret__ = None;
                 let mut normalize__ = None;
                 let mut when__ = None;
+                let mut annotations__ = None;
                 let mut kind__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
@@ -1630,6 +1640,14 @@ impl<'de> serde::Deserialize<'de> for schema::Field {
                                 return Err(serde::de::Error::duplicate_field("when"));
                             }
                             when__ = map_.next_value()?;
+                        }
+                        GeneratedField::Annotations => {
+                            if annotations__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("annotations"));
+                            }
+                            annotations__ = Some(
+                                map_.next_value::<std::collections::HashMap<_, _>>()?
+                            );
                         }
                         GeneratedField::Float => {
                             if kind__.is_some() {
@@ -1781,6 +1799,7 @@ impl<'de> serde::Deserialize<'de> for schema::Field {
                     secret: secret__.unwrap_or_default(),
                     normalize: normalize__,
                     when: when__,
+                    annotations: annotations__.unwrap_or_default(),
                     kind: kind__,
                 })
             }
