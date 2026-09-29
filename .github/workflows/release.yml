@@ -1,19 +1,4 @@
-# Release: ONE `vX.Y.Z` tag releases all four languages in lockstep.
-# Tags are cut with `make release` (clean-tree checks, bump menu), which
-# pushes the pair vX.Y.Z + go/vX.Y.Z — the go/ prefix is required by the Go
-# module proxy for a module in the go/ subdirectory and triggers nothing
-# here ("v*" does not match "go/v*").
-#
-# Committed manifests stay 0.0.0; each publish job stamps the version from
-# the tag. Every job re-runs its language's full lint+test gate — a red
-# gate blocks only that language's publish.
-#
-# Auth: registry tokens stored as GitHub repo secrets (NPM_TOKEN,
-# PYPI_TOKEN, CARGO_REGISTRY_TOKEN) — chosen over OIDC trusted publishing
-# for setup simplicity (releases are rare; note the npm token has a max
-# 90-day lifetime and needs re-issuing when it expires). Tokens can also
-# create first-time packages, so the very first release runs fully from CI.
-# See docs/RELEASING.md.
+# Go uses the companion go/vX.Y.Z tag. TypeScript is published to GitHub Packages.
 name: Release
 
 on:
@@ -24,85 +9,49 @@ permissions:
   contents: read
 
 jobs:
-  go:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: ci
     runs-on: ubuntu-latest
     permissions:
-      contents: write # GitHub release
+      contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
         with:
-          go-version-file: go/go.mod
-          cache-dependency-path: go/go.sum
-      - run: cd go && go build ./... && go test ./...
-      - name: GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ github.ref_name }}
-          body: >
-            Go `go get github.com/gopherex/schemapb/go@${{ github.ref_name }}` ·
-            npm `@gopherex/schemapb` · PyPI `schemapb` · crates.io `schemapb`
-
-  ts:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
+          fetch-depth: 0
+      - name: Verify version and Go companion tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[01]\.[0-9]+\.[0-9]+$ ]]
+          test "$(git rev-parse "go/${RELEASE_TAG}^{commit}")" = "$GITHUB_SHA"
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
+          registry-url: https://npm.pkg.github.com
+          scope: '@gopherex'
       - run: corepack enable
-      - run: cd ts && yarn install --immutable
-      - run: cd ts && yarn lint && yarn typecheck && yarn test
-      - run: cd ts && yarn build
-      - name: Stamp version from tag
-        run: cd ts && npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
-      - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: cd ts && npm publish --access public
-
-  py:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v9
-        with:
-          version: "0.9.28"
-          working-directory: py
-      - run: cd py && uv sync --frozen
-      - run: cd py && uv run ruff check src tests && uv run mypy && uv run pytest -q
-      - name: Stamp version from tag
-        run: cd py && uv version "${GITHUB_REF_NAME#v}"
-      - run: cd py && uv build
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: py/dist
-          password: ${{ secrets.PYPI_TOKEN }}
-
-  rust:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-      - run: cd rust && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo fmt --all --check
-      - run: cd rust && cargo test --all-features --quiet
-      - name: Stamp version from tag (both crates, linked)
+      - run: cd ts && yarn install --immutable && yarn build
+      - name: Stamp and pack TypeScript package
+        working-directory: ts
         run: |
-          cd rust
-          v="${GITHUB_REF_NAME#v}"
-          sed -i "0,/^version = \"0.0.0\"/s//version = \"$v\"/" Cargo.toml
-          sed -i "s/^schemapb-derive = { version = \"0.0.0\"/schemapb-derive = { version = \"$v\"/" Cargo.toml
-          sed -i "0,/^version = \"0.0.0\"/s//version = \"$v\"/" derive/Cargo.toml
-          grep -q "^version = \"$v\"" Cargo.toml
-          grep -q "^version = \"$v\"" derive/Cargo.toml
-      - name: Publish to crates.io (derive first, then the main crate)
+          npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+          mkdir -p ../release-artifacts
+          npm pack --pack-destination ../release-artifacts
+          cd ../release-artifacts
+          sha256sum ./*.tgz > SHA256SUMS
+      - name: Publish TypeScript to GitHub Packages
+        working-directory: ts
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          cd rust
-          cargo publish -p schemapb-derive --allow-dirty
-          cargo publish -p schemapb --allow-dirty
+          gh release create "$RELEASE_TAG" release-artifacts/* --verify-tag \
+            --title "$RELEASE_TAG" --generate-notes

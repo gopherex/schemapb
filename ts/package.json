@@ -1,7 +1,7 @@
 {
   "name": "@gopherex/schemapb",
   "version": "0.0.0",
-  "description": "schemapb \u2014 proto-defined form/config schema descriptor: native TypeScript implementation (validation, CEL computed values, Mustache rendering)",
+  "description": "schemapb — proto-defined form/config schema descriptor: native TypeScript implementation (validation, CEL computed values, Mustache rendering)",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -56,5 +56,8 @@
     "zod": {
       "optional": true
     }
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   }
 }

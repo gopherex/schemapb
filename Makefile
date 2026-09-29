@@ -153,7 +153,7 @@ release: ## Interactive lockstep release: one version, tag pair vX.Y.Z + go/vX.Y
 	echo "  3) cancel"
 	read -r -p "> " action
 
-	# One release = one version across all four languages. The go/ prefix
+	# One release = one version for Go and TypeScript. The go/ prefix
 	# twin is required by the Go module proxy (module lives in go/); the
 	# release workflow triggers on the bare v-tag only.
 	tags_for() { echo "v$$1"; echo "go/v$$1"; }

@@ -51,9 +51,13 @@ them byte-for-byte. See [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 | Language | Package | Install |
 |---|---|---|
 | Go | `github.com/gopherex/schemapb/go` | `go get github.com/gopherex/schemapb/go@latest` |
-| TypeScript | [`@gopherex/schemapb`](https://www.npmjs.com/package/@gopherex/schemapb) | `npm install @gopherex/schemapb` (or `yarn add`) |
-| Python | [`schemapb`](https://pypi.org/project/schemapb/) | `pip install schemapb` |
-| Rust | [`schemapb`](https://crates.io/crates/schemapb) | `cargo add schemapb` |
+| TypeScript | [`@gopherex/schemapb`](https://github.com/orgs/gopherex/packages/npm/package/schemapb) | `yarn add @gopherex/schemapb` (GitHub Packages; see below) |
+| Python | source in `py/` | local development only; excluded from CI/releases |
+| Rust | source in `rust/` | local development only; excluded from CI/releases |
+
+For TypeScript, configure `@gopherex:registry=https://npm.pkg.github.com` in
+your project `.npmrc` and authenticate with a GitHub token with `read:packages`.
+See [release and installation details](docs/RELEASING.md).
 
 Each implementation ships only light native dependencies (a CEL evaluator, a
 Mustache renderer, protobuf codegen output). Per-language details, quickstarts
@@ -108,9 +112,9 @@ make lint        # proto lint; lint-go / lint-ts / lint-py / lint-rust per langu
 make test-go test-ts test-py test-rust
 ```
 
-`make help` lists every target. CI runs the same gates
+`make help` lists every target. CI runs proto lint and the Go/TypeScript gates
 (`.github/workflows/ci.yml`). Releasing is `make release`: one `vX.Y.Z` tag
-publishes all four languages in lockstep
+releases Go and TypeScript together
 ([docs/RELEASING.md](docs/RELEASING.md)).
 
 Design rules that hold across all four implementations (typed identifier

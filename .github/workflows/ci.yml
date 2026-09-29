@@ -1,11 +1,12 @@
-# Test CI: every push/PR runs proto lint plus each language's own
-# lint + test gate. Generated code is committed, so no codegen here.
+# Go and TypeScript are the supported CI/release targets.
+# Generated code is committed, so no codegen here.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -60,33 +61,3 @@ jobs:
       - run: cd ts && yarn typecheck
       - run: cd ts && yarn test
       - run: cd ts && yarn build
-
-  py:
-    name: python
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v9
-        with:
-          version: "0.9.28"
-          working-directory: py
-      - run: cd py && uv sync --frozen
-      - run: cd py && uv run ruff check src tests
-      - run: cd py && uv run ruff format --check src tests
-      - run: cd py && uv run mypy
-      - run: cd py && uv run pytest -q
-
-  rust:
-    name: rust
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-      - run: cd rust && cargo clippy --workspace --all-targets --all-features -- -D warnings
-      - run: cd rust && cargo fmt --all --check
-      - run: cd rust && cargo test --all-features --quiet

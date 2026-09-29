@@ -511,6 +511,11 @@ __metadata:
     typescript: "npm:^5.9.0"
     vitest: "npm:^3.2.0"
     zod: "npm:^4.5.4"
+  peerDependencies:
+    zod: ^4.0.0
+  peerDependenciesMeta:
+    zod:
+      optional: true
   languageName: unknown
   linkType: soft
 
