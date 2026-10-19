@@ -514,6 +514,11 @@ class MapB(FieldB):
         self._sub.strict = True
         return self
 
+    def key(self, definition: FieldB) -> Self:
+        """The definition every map key must satisfy (Map.key_field)."""
+        self._k.key_field = definition.done()
+        return self
+
     def min_entries(self, n: int) -> Self:
         self._k.min_entries = n
         return self

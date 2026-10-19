@@ -16,10 +16,14 @@
 //	wrappers          the wrapped scalar, absent when unset
 //	Struct / Value / ListValue     their JSON-shaped value
 //	Empty             empty object  FieldMask    list of path strings
-//	Any               unsupported (ErrUnsupported)
+//	Any               "@type" plus the packed message's fields when its type
+//	                  is listed (WithAnyTypes); only "@type" otherwise
 //
 // Error paths name proto fields; each key segment that names a proto field
 // carries its wire field number (PathSegment.field_number), and the result
 // carries the schema identity, so a client holding only the proto files can
 // map every error back to the field it concerns.
+//
+// Validator.Resolve also writes the resolved values (defaults, normalize,
+// computed) back into the message, all or nothing.
 package protomsg

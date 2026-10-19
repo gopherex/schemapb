@@ -52,7 +52,7 @@ func numberPath(md protoreflect.MessageDescriptor, segments []*schemapb.PathSegm
 	}
 }
 
-//nolint:ireturn // protoreflect exposes descriptors only as interfaces
+//nolint:ireturn,nolintlint // protoreflect exposes descriptors only as interfaces
 func elementMessage(field protoreflect.FieldDescriptor) protoreflect.MessageDescriptor {
 	if field.IsMap() {
 		field = field.MapValue()

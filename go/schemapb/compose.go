@@ -119,8 +119,9 @@ func addDef(root *Schema, key string, def *Schema) error {
 }
 
 // nestedSchemas returns the schemas directly embedded in a field: the object
-// schema, oneof variants, the map value schema, and — recursively — list item
-// schemas. Refs are not embedded.
+// schema, oneof variants, the map value schema, the map value and key fields
+// (as synthetic one-field schemas), and — recursively — list item schemas.
+// Refs are not embedded.
 func nestedSchemas(f *Schema_Field) []*Schema {
 	var out []*Schema
 	if o := f.GetObject(); o != nil && o.GetSchema() != nil {
@@ -142,6 +143,11 @@ func nestedSchemas(f *Schema_Field) []*Schema {
 	// def hoisting) sees inside it.
 	if mp := f.GetMap(); mp != nil && mp.GetValueField() != nil {
 		out = append(out, &Schema{Fields: []*Schema_Field{mp.GetValueField()}})
+	}
+
+	// The key_field walks the same way: its patterns and rules compile.
+	if mp := f.GetMap(); mp != nil && mp.GetKeyField() != nil {
+		out = append(out, &Schema{Fields: []*Schema_Field{mp.GetKeyField()}})
 	}
 
 	if l := f.GetList(); l != nil {

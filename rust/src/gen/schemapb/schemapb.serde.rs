@@ -4302,6 +4302,9 @@ impl serde::Serialize for schema::field::Map {
         if self.value_field.is_some() {
             len += 1;
         }
+        if self.key_field.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("schemapb.Schema.Field.Map", len)?;
         if let Some(v) = self.value_schema.as_ref() {
             struct_ser.serialize_field("valueSchema", v)?;
@@ -4318,6 +4321,9 @@ impl serde::Serialize for schema::field::Map {
         }
         if let Some(v) = self.value_field.as_ref() {
             struct_ser.serialize_field("valueField", v)?;
+        }
+        if let Some(v) = self.key_field.as_ref() {
+            struct_ser.serialize_field("keyField", v)?;
         }
         struct_ser.end()
     }
@@ -4337,6 +4343,8 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
             "maxEntries",
             "value_field",
             "valueField",
+            "key_field",
+            "keyField",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -4345,6 +4353,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
             MinEntries,
             MaxEntries,
             ValueField,
+            KeyField,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -4370,6 +4379,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
                             "minEntries" | "min_entries" => Ok(GeneratedField::MinEntries),
                             "maxEntries" | "max_entries" => Ok(GeneratedField::MaxEntries),
                             "valueField" | "value_field" => Ok(GeneratedField::ValueField),
+                            "keyField" | "key_field" => Ok(GeneratedField::KeyField),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -4393,6 +4403,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
                 let mut min_entries__ = None;
                 let mut max_entries__ = None;
                 let mut value_field__ = None;
+                let mut key_field__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::ValueSchema => {
@@ -4423,6 +4434,12 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
                             }
                             value_field__ = map_.next_value()?;
                         }
+                        GeneratedField::KeyField => {
+                            if key_field__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("keyField"));
+                            }
+                            key_field__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(schema::field::Map {
@@ -4430,6 +4447,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Map {
                     min_entries: min_entries__,
                     max_entries: max_entries__,
                     value_field: value_field__,
+                    key_field: key_field__,
                 })
             }
         }
@@ -6370,6 +6388,9 @@ impl serde::Serialize for ValidationError {
         if !self.path_segments.is_empty() {
             len += 1;
         }
+        if self.key {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("schemapb.ValidationError", len)?;
         if !self.path.is_empty() {
             struct_ser.serialize_field("path", &self.path)?;
@@ -6405,6 +6426,9 @@ impl serde::Serialize for ValidationError {
         if !self.path_segments.is_empty() {
             struct_ser.serialize_field("pathSegments", &self.path_segments)?;
         }
+        if self.key {
+            struct_ser.serialize_field("key", &self.key)?;
+        }
         struct_ser.end()
     }
 }
@@ -6427,6 +6451,7 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
             "message",
             "path_segments",
             "pathSegments",
+            "key",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -6441,6 +6466,7 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
             Severity,
             Message,
             PathSegments,
+            Key,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -6472,6 +6498,7 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
                             "severity" => Ok(GeneratedField::Severity),
                             "message" => Ok(GeneratedField::Message),
                             "pathSegments" | "path_segments" => Ok(GeneratedField::PathSegments),
+                            "key" => Ok(GeneratedField::Key),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -6501,6 +6528,7 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
                 let mut severity__ = None;
                 let mut message__ = None;
                 let mut path_segments__ = None;
+                let mut key__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Path => {
@@ -6563,6 +6591,12 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
                             }
                             path_segments__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::Key => {
+                            if key__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("key"));
+                            }
+                            key__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(ValidationError {
@@ -6576,6 +6610,7 @@ impl<'de> serde::Deserialize<'de> for ValidationError {
                     severity: severity__.unwrap_or_default(),
                     message: message__.unwrap_or_default(),
                     path_segments: path_segments__.unwrap_or_default(),
+                    key: key__.unwrap_or_default(),
                 })
             }
         }

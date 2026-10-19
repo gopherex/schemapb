@@ -3,6 +3,7 @@ package schemapb
 import (
 	"errors"
 	"fmt"
+	"runtime"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -13,6 +14,9 @@ import (
 // returned error is programmatic only (schema does not compile, value cannot
 // be canonicalized).
 func (s *Schema) Bake(values map[string]any) (*Baked, *ValidationResult, error) {
+	// The cached engine holds s weakly: keep s alive while e runs.
+	defer runtime.KeepAlive(s)
+
 	e, err := s.engine()
 	if err != nil {
 		return nil, nil, err
@@ -29,6 +33,9 @@ func (e *Engine) Bake(values map[string]any) (*Baked, *ValidationResult, error) 
 // BakeDetailed performs the same execution as Bake and records schema operations.
 // A failed bake still returns its partial report. Events contain no values.
 func (s *Schema) BakeDetailed(values map[string]any) (*Baked, *ValidationResult, *ResolveReport, error) {
+	// The cached engine holds s weakly: keep s alive while e runs.
+	defer runtime.KeepAlive(s)
+
 	e, err := s.engine()
 	if err != nil {
 		return nil, nil, nil, err

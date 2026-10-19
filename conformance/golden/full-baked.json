@@ -132,6 +132,15 @@
     "pinned": {
       "boolValue": true
     },
+    "ports": {
+      "structValue": {
+        "fields": {
+          "443": {
+            "stringValue": "https"
+          }
+        }
+      }
+    },
     "region": {
       "stringValue": "somewhere-else"
     },

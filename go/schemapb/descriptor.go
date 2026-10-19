@@ -194,6 +194,16 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 			if mp.GetValueSchema() != nil && mp.GetValueField() != nil {
 				errs = append(errs, schemaErr(path, "map field: value_schema and value_field are mutually exclusive"))
 			}
+
+			if kf := mp.GetKeyField(); kf != nil {
+				switch kf.GetKind().(type) {
+				case *Schema_Field_String_, *Schema_Field_Choice_, *Schema_Field_Int32_, *Schema_Field_Int64_,
+					*Schema_Field_Uint32, *Schema_Field_Uint64, *Schema_Field_Bool_:
+				default:
+					errs = append(errs, schemaErr(path,
+						"map field: key_field kind must be string, choice, int32, int64, uint32, uint64 or bool"))
+				}
+			}
 		}
 
 		for _, child := range nestedSchemas(f) {

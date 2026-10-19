@@ -389,6 +389,9 @@ message ValidationError {
   /* Structured counterpart of path; empty for the root.
    */
   repeated PathSegment path_segments = 10;
+  /* True when the failure concerns the map KEY that ends path (see
+   * Schema.Field.Map.key_field), not the value stored under it. */
+  bool key = 11;
 }
 
 /*

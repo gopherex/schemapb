@@ -14,6 +14,7 @@ client in any language reads an error without this library.
 | `constraint` | the structured constraint that failed (`gte`, `pattern`, ...) |
 | `rule_id`, `expr` | the CEL rule that failed or errored |
 | `severity` | `ERROR` blocks; `WARNING` does not |
+| `key` | the failure concerns the map **key** that ends `path` (`Map.key_field`), not its value |
 | `message` | English text rendered from the template; informative, not contract |
 
 `ValidationResult.schema` is set by typed-message validators (`protomsg`):

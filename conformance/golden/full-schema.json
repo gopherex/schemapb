@@ -397,6 +397,36 @@
           "int64": {
             "gte": "0"
           }
+        },
+        "keyField": {
+          "name": "key",
+          "string": {
+            "pattern": "^[a-z]+$"
+          }
+        }
+      }
+    },
+    {
+      "name": "ports",
+      "map": {
+        "valueField": {
+          "name": "value",
+          "string": {
+            "minLen": "1"
+          }
+        },
+        "keyField": {
+          "name": "key",
+          "rules": [
+            {
+              "expr": "this != 22",
+              "message": "ssh port",
+              "id": "no-ssh"
+            }
+          ],
+          "int32": {
+            "gt": 0
+          }
         }
       }
     },

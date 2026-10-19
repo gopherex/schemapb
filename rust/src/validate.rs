@@ -1189,40 +1189,109 @@ fn check_map(
             ));
         }
     }
-    if let Some(vf) = k.value_field.as_ref() {
-        let mut sub = Vec::new();
-        for (key, el) in m {
-            validate_one(
-                e,
-                vf,
-                Some(el),
-                true,
-                &join_path(path, key),
-                root,
-                None,
-                &mut sub,
-            );
-        }
-        out.extend(sub);
-        return out;
-    }
-    let Some(vs) = k.value_schema.as_ref() else {
-        return out;
-    };
+    // Per entry, in key order (BTreeMap: UTF-8 byte order): key errors,
+    // then value errors.
     for (key, el) in m {
         let vpath = join_path(path, key);
-        let Native::Struct(em) = el else {
-            out.push(type_err(&vpath, "object", el));
-            continue;
-        };
-        let mut sub = Vec::new();
-        validate_fields(e, vs, em, root, &vpath, &mut sub);
-        for r in &vs.rules {
-            eval_rule(e, r, &vpath, el, root, None, &mut sub);
+        if let Some(kf) = k.key_field.as_ref() {
+            out.extend(check_map_key(e, kf, key, &vpath, root));
         }
-        out.extend(sub);
+        out.extend(check_map_value(e, k, el, &vpath, root));
     }
     out
+}
+
+/// Reads `key` as the `key_field` kind, checks its constraints and rules;
+/// every error is marked as a key error.
+fn check_map_key(
+    e: &Engine,
+    key_field: &SchemaField,
+    key: &str,
+    path: &str,
+    root: &NativeStruct,
+) -> Vec<ValidationError> {
+    let mut sub = Vec::new();
+    match read_map_key(key_field, key) {
+        None => sub.push(verr(
+            path,
+            ErrorCode::TypeMismatch,
+            "",
+            Some(str_v(map_key_kind(key_field))),
+            Some(str_v(key)),
+        )),
+        Some(native) => {
+            sub.extend(check_kind(e, key_field, &native, path, root));
+            for r in &key_field.rules {
+                eval_rule(e, r, path, &native, root, None, &mut sub);
+            }
+        }
+    }
+    for err in &mut sub {
+        err.key = true;
+    }
+    sub
+}
+
+fn check_map_value(
+    e: &Engine,
+    k: &MapKind,
+    el: &Native,
+    vpath: &str,
+    root: &NativeStruct,
+) -> Vec<ValidationError> {
+    let mut sub = Vec::new();
+    if let Some(vf) = k.value_field.as_ref() {
+        validate_one(e, vf, Some(el), true, vpath, root, None, &mut sub);
+        return sub;
+    }
+    let Some(vs) = k.value_schema.as_ref() else {
+        return sub;
+    };
+    let Native::Struct(em) = el else {
+        return vec![type_err(vpath, "object", el)];
+    };
+    validate_fields(e, vs, em, root, vpath, &mut sub);
+    for r in &vs.rules {
+        eval_rule(e, r, vpath, el, root, None, &mut sub);
+    }
+    sub
+}
+
+/// Reads a wire key as the `key_field` kind (see `Map.key_field`).
+fn read_map_key(key_field: &SchemaField, key: &str) -> Option<Native> {
+    let digits = |s: &str| {
+        let body = s.strip_prefix(['+', '-']).unwrap_or(s);
+        !body.is_empty() && body.bytes().all(|b| b.is_ascii_digit())
+    };
+    match key_field.kind.as_ref()? {
+        K::String(_) | K::Choice(_) => Some(Native::Str(key.to_owned())),
+        K::Bool(_) => match key {
+            "true" => Some(Native::Bool(true)),
+            "false" => Some(Native::Bool(false)),
+            _ => None,
+        },
+        K::Int32(_) if digits(key) => key.parse::<i32>().ok().map(|n| Native::Int(n.into())),
+        K::Int64(_) if digits(key) => key.parse::<i64>().ok().map(Native::Int),
+        K::Uint32(_) if digits(key) && !key.starts_with('-') => {
+            key.parse::<u32>().ok().map(|n| Native::Uint(n.into()))
+        }
+        K::Uint64(_) if digits(key) && !key.starts_with('-') => {
+            key.parse::<u64>().ok().map(Native::Uint)
+        }
+        _ => None,
+    }
+}
+
+/// Names the key kind for `TYPE_MISMATCH`'s expected.
+const fn map_key_kind(key_field: &SchemaField) -> &'static str {
+    match key_field.kind {
+        Some(K::Int32(_)) => "int32",
+        Some(K::Int64(_)) => "int64",
+        Some(K::Uint32(_)) => "uint32",
+        Some(K::Uint64(_)) => "uint64",
+        Some(K::Bool(_)) => "bool",
+        _ => "string",
+    }
 }
 
 fn check_one_of(

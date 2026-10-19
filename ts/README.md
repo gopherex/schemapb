@@ -91,7 +91,10 @@ it is the runtime of `protoc-gen-ts-schemapb`. The value mapping is the Go
 const v = new Validator(UserSchema, rawSchemaBase64); // generated code does this
 v.check(user);     // ValidationResult, warnings included
 v.validate(user);  // throws ValidationFailure when something blocks
+v.resolve(user);   // validate, then write defaults/normalize/computed back
 ```
+
+The third constructor argument lists the message types an Any may hold.
 
 Translate messages with `formatMessage(err, catalog, display?)`; keys are
 `messageKey(err)`. See [docs/ERRORS.md](../docs/ERRORS.md).

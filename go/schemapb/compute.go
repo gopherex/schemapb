@@ -3,6 +3,7 @@ package schemapb
 import (
 	"encoding/base64"
 	"fmt"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -18,6 +19,9 @@ import (
 // Value model: native Go (see value.go). Callers holding a wire StructValue
 // convert with ToGo()/StructFromGo().
 func (s *Schema) Resolve(values map[string]any) (map[string]any, *ValidationResult, error) {
+	// The cached engine holds s weakly: keep s alive while e runs.
+	defer runtime.KeepAlive(s)
+
 	e, err := s.engine()
 	if err != nil {
 		return values, nil, err
@@ -409,6 +413,9 @@ func defaultValue(f *Schema_Field) (any, bool) {
 // given form (its `when` gate over root). A field with no `when` is always
 // active.
 func (s *Schema) FieldActive(name FieldName, root map[string]any) (bool, error) {
+	// The cached engine holds s weakly: keep s alive while e runs.
+	defer runtime.KeepAlive(s)
+
 	e, err := s.engine()
 	if err != nil {
 		return false, err
@@ -435,6 +442,9 @@ func (e *Engine) FieldActive(name FieldName, root map[string]any) (bool, error) 
 // field given the form: the options_expr result when set, the static option
 // values otherwise (in declaration order).
 func (s *Schema) ChoiceOptions(name FieldName, root map[string]any) ([]*Value, error) {
+	// The cached engine holds s weakly: keep s alive while e runs.
+	defer runtime.KeepAlive(s)
+
 	e, err := s.engine()
 	if err != nil {
 		return nil, err
@@ -497,6 +507,9 @@ func (e *Engine) evalChoiceOptions(src string, root map[string]any) ([]any, erro
 // ListCount returns the required length of the named top-level list field as
 // derived from its count_expr over root.
 func (s *Schema) ListCount(name FieldName, root map[string]any) (int64, error) {
+	// The cached engine holds s weakly: keep s alive while e runs.
+	defer runtime.KeepAlive(s)
+
 	e, err := s.engine()
 	if err != nil {
 		return 0, err

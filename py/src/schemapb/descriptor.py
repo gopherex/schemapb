@@ -52,6 +52,9 @@ def nested_schemas(f: SchemaField) -> list[Schema]:
     # sees inside it.
     if f.map is not None and f.map.value_field is not None:
         out.append(Schema(fields=[f.map.value_field]))
+    # The key_field walks the same way: its patterns and rules compile.
+    if f.map is not None and f.map.key_field is not None:
+        out.append(Schema(fields=[f.map.key_field]))
     if f.list is not None:
         for it in f.list.items:
             out.extend(nested_schemas(it))
@@ -188,9 +191,25 @@ def _check_fields(fields: list[SchemaField], prefix: str) -> list[ValidationErro
             errs.append(
                 schema_err(path, "map field: value_schema and value_field are mutually exclusive")
             )
+        errs.extend(_check_map_key_kind(f, path))
         for child in nested_schemas(f):
             errs.extend(_check_fields(child.fields, path))
     return errs
+
+
+def _check_map_key_kind(f: SchemaField, path: str) -> list[ValidationError]:
+    if f.map is None or f.map.key_field is None:
+        return []
+    kinds = ("string", "choice", "int32", "int64", "uint32", "uint64", "bool")
+    if any(getattr(f.map.key_field, kind) is not None for kind in kinds):
+        return []
+    return [
+        schema_err(
+            path,
+            "map field: key_field kind must be string, choice, int32, int64, uint32,"
+            " uint64 or bool",
+        )
+    ]
 
 
 _KIND_ATTRS = (

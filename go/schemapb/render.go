@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -27,6 +28,9 @@ import (
 // Render executes the named template (from the schema's templates map)
 // against the given resolved values.
 func (s *Schema) Render(name TemplateName, values map[string]any) (string, error) {
+	// The cached engine holds s weakly: keep s alive while e runs.
+	defer runtime.KeepAlive(s)
+
 	e, err := s.engine()
 	if err != nil {
 		return "", err

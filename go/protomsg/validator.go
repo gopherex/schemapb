@@ -18,11 +18,13 @@ const SupportPackageIsVersion1 = true
 // concurrent use.
 type Validator struct {
 	compiled func() (*schemapb.Engine, error)
+	mapping  *mapping
 }
 
-// New returns a Validator for a binary-encoded Schema.
-func New(rawSchema string) *Validator {
-	return &Validator{compiled: sync.OnceValues(func() (*schemapb.Engine, error) {
+// New returns a Validator for a binary-encoded Schema. Options configure
+// the value mapping (WithAnyTypes).
+func New(rawSchema string, opts ...Option) *Validator {
+	return &Validator{mapping: newMapping(opts), compiled: sync.OnceValues(func() (*schemapb.Engine, error) {
 		schema := &schemapb.Schema{}
 		if err := proto.Unmarshal([]byte(rawSchema), schema); err != nil {
 			return nil, fmt.Errorf("protomsg: decode embedded schema: %w", err)
@@ -47,19 +49,45 @@ func (v *Validator) Schema() *schemapb.Schema {
 // error is programmatic only: the schema does not compile, or msg holds a
 // field the value mapping cannot express.
 func (v *Validator) Check(msg proto.Message) (*schemapb.ValidationResult, error) {
+	res, _, err := v.check(msg)
+
+	return res, err
+}
+
+// check validates msg and also returns the resolved value tree: the engine
+// applies defaults, normalize and computed values to it in place.
+func (v *Validator) check(msg proto.Message) (*schemapb.ValidationResult, map[string]any, error) {
 	engine, err := v.compiled()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	values, err := Values(msg)
+	values, err := v.mapping.messageValues(msg.ProtoReflect())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	res := engine.Validate(values)
 	res.Schema = engine.Schema().GetId()
 	annotateFieldNumbers(msg.ProtoReflect().Descriptor(), res)
+
+	return res, values, nil
+}
+
+// Resolve validates msg and, when nothing blocks, writes the resolved
+// values (defaults, normalize, computed) back into it. On a blocking
+// result msg is left untouched. The error is programmatic (see Check), or
+// ErrWriteBack when a resolved value does not fit its field; msg is
+// unchanged then too.
+func (v *Validator) Resolve(msg proto.Message) (*schemapb.ValidationResult, error) {
+	res, values, err := v.check(msg)
+	if err != nil || res.Blocking() {
+		return res, err
+	}
+
+	if err := writeBack(msg, values); err != nil {
+		return nil, err
+	}
 
 	return res, nil
 }

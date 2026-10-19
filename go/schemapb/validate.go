@@ -7,7 +7,9 @@ import (
 	"maps"
 	"math"
 	"reflect"
+	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -21,6 +23,9 @@ import (
 // The returned error is programmatic only (schema does not compile); every
 // validation outcome — including warnings — lives in the ValidationResult.
 func (s *Schema) Validate(values map[string]any) (*ValidationResult, error) {
+	// The cached engine holds s weakly: keep s alive while e runs.
+	defer runtime.KeepAlive(s)
+
 	e, err := s.engine()
 	if err != nil {
 		return nil, err
@@ -947,41 +952,119 @@ func (e *Engine) checkMap(path string, m map[string]any, mk *Schema_Field_Map, r
 			UInt64V(mk.GetMaxEntries()), UInt64V(n)))
 	}
 
-	if vf := mk.GetValueField(); vf != nil {
-		sub := &ValidationResult{}
-		for _, k := range slices.Sorted(maps.Keys(m)) {
-			e.validateOne(vf, m[k], true, joinPath(path, k), root, nil, sub)
+	// Per entry, in key order: key errors, then value errors.
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		vpath := joinPath(path, k)
+
+		if kf := mk.GetKeyField(); kf != nil {
+			out = append(out, e.checkMapKey(kf, k, vpath, root)...)
 		}
 
-		return append(out, sub.GetErrors()...)
+		out = append(out, e.checkMapValue(mk, m[k], vpath, root)...)
+	}
+
+	return out
+}
+
+// checkMapKey reads key as key_field's kind and checks the kind constraints
+// and rules; every error is marked as concerning the key.
+func (e *Engine) checkMapKey(keyField *Schema_Field, key, path string, root map[string]any) []*ValidationError {
+	sub := &ValidationResult{}
+
+	if native, ok := readMapKey(keyField, key); !ok {
+		sub.Errors = append(sub.Errors, verr(path, ErrorCode_ERROR_CODE_TYPE_MISMATCH, "",
+			StrV(mapKeyKind(keyField)), StrV(key)))
+	} else {
+		sub.Errors = append(sub.Errors, e.checkKind(keyField, native, path, root)...)
+		for _, r := range keyField.GetRules() {
+			e.evalRule(r, path, native, root, nil, sub)
+		}
+	}
+
+	for _, err := range sub.GetErrors() {
+		err.Key = true
+	}
+
+	return sub.GetErrors()
+}
+
+func (e *Engine) checkMapValue(mk *Schema_Field_Map, val any, vpath string, root map[string]any) []*ValidationError {
+	if vf := mk.GetValueField(); vf != nil {
+		sub := &ValidationResult{}
+		e.validateOne(vf, val, true, vpath, root, nil, sub)
+
+		return sub.GetErrors()
 	}
 
 	vs := mk.GetValueSchema()
 	if vs == nil {
-		return out
+		return nil
 	}
 
-	for _, k := range slices.Sorted(maps.Keys(m)) {
-		vpath := joinPath(path, k)
-		vm, ok := m[k].(map[string]any)
-
-		if !ok {
-			out = append(out, typeErr(vpath, "object", m[k]))
-
-			continue
-		}
-
-		sub := &ValidationResult{}
-		e.validateFields(vs, vm, root, vpath, sub)
-
-		for _, r := range vs.GetRules() {
-			e.evalRule(r, vpath, vm, root, nil, sub)
-		}
-
-		out = append(out, sub.GetErrors()...)
+	vm, ok := val.(map[string]any)
+	if !ok {
+		return []*ValidationError{typeErr(vpath, "object", val)}
 	}
 
-	return out
+	sub := &ValidationResult{}
+	e.validateFields(vs, vm, root, vpath, sub)
+
+	for _, r := range vs.GetRules() {
+		e.evalRule(r, vpath, vm, root, nil, sub)
+	}
+
+	return sub.GetErrors()
+}
+
+// readMapKey reads a wire key as key_field's kind (see Map.key_field).
+func readMapKey(keyField *Schema_Field, key string) (any, bool) {
+	switch keyField.GetKind().(type) {
+	case *Schema_Field_String_, *Schema_Field_Choice_:
+		return key, true
+	case *Schema_Field_Int32_, *Schema_Field_Int64_:
+		bits := 64
+		if keyField.GetInt32() != nil {
+			bits = 32
+		}
+
+		n, err := strconv.ParseInt(key, 10, bits)
+
+		return n, err == nil
+	case *Schema_Field_Uint32, *Schema_Field_Uint64:
+		bits := 64
+		if keyField.GetUint32() != nil {
+			bits = 32
+		}
+
+		n, err := strconv.ParseUint(key, 10, bits)
+
+		return n, err == nil
+	case *Schema_Field_Bool_:
+		b, err := strconv.ParseBool(key)
+
+		// ParseBool also takes "1", "T", ...; keys are exactly true/false.
+		return b, err == nil && key == strconv.FormatBool(b)
+	}
+
+	return nil, false
+}
+
+// mapKeyKind names the key kind for TYPE_MISMATCH's expected.
+func mapKeyKind(kf *Schema_Field) string {
+	switch kf.GetKind().(type) {
+	case *Schema_Field_Int32_:
+		return "int32"
+	case *Schema_Field_Int64_:
+		return "int64"
+	case *Schema_Field_Uint32:
+		return "uint32"
+	case *Schema_Field_Uint64:
+		return "uint64"
+	case *Schema_Field_Bool_:
+		return "bool"
+	default:
+		return "string"
+	}
 }
 
 func (e *Engine) checkOneOf(

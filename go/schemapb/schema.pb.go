@@ -166,7 +166,8 @@ func (Schema_Field_Severity) EnumDescriptor() ([]byte, []int) {
 // must be pure and deterministic (no now()/rand, no implicit timezones) so all
 // implementations agree. Variables bound by the engine:
 //
-//	`this` — the current field's value (field-level rules/normalize only)
+//	`this` — the current field's value (field-level rules/normalize), or
+//	         the schema's own object for Schema.rules
 //	`root` — the whole form as a map (inputs + already-computed values)
 //
 // Render templates are Mustache (https://mustache.github.io); see
@@ -180,7 +181,9 @@ type Schema struct {
 	Description *string `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	// The fields that make up the form.
 	Fields []*Schema_Field `protobuf:"bytes,3,rep,name=fields,proto3" json:"fields,omitempty"`
-	// Form-wide invariant rules (`root` only, no `this`).
+	// Form-wide invariant rules. `this` is bound to this schema's object:
+	// the whole form at the root (same as `root`), the nested object when
+	// the schema is reached through Object/Ref/OneOf/Map.
 	Rules []*Schema_Field_Rule `protobuf:"bytes,4,rep,name=rules,proto3" json:"rules,omitempty"`
 	// If true, any key in the values map that is not a declared field name is
 	// an error (ERROR_CODE_UNKNOWN_FIELD).
@@ -2405,7 +2408,17 @@ type Schema_Field_Map struct {
 	// fields undergo the same recursive resolve as ordinary fields,
 	// including inherited coercion, normalize and computed. Missing map
 	// entries are never invented; explicit null retains its presence.
-	ValueField    *Schema_Field `protobuf:"bytes,4,opt,name=value_field,json=valueField,proto3,oneof" json:"value_field,omitempty"`
+	ValueField *Schema_Field `protobuf:"bytes,4,opt,name=value_field,json=valueField,proto3,oneof" json:"value_field,omitempty"`
+	// Field definition every map KEY must satisfy. Keys are strings on
+	// the wire; the kind says how a key is read: string or a choice of
+	// strings => as is; int32/int64/uint32/uint64 => a decimal integer;
+	// bool => "true"/"false". Other kinds are invalid schemas. A key that
+	// does not read as the kind is ERROR_CODE_TYPE_MISMATCH. Only the
+	// kind constraints and rules apply (`this` is the read key); name,
+	// defaults, normalize and computed are ignored. Errors on a key name
+	// the entry's path and set ValidationError.key. Per entry, in key
+	// order, key errors precede value errors.
+	KeyField      *Schema_Field `protobuf:"bytes,5,opt,name=key_field,json=keyField,proto3,oneof" json:"key_field,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2464,6 +2477,13 @@ func (x *Schema_Field_Map) GetMaxEntries() uint64 {
 func (x *Schema_Field_Map) GetValueField() *Schema_Field {
 	if x != nil {
 		return x.ValueField
+	}
+	return nil
+}
+
+func (x *Schema_Field_Map) GetKeyField() *Schema_Field {
+	if x != nil {
+		return x.KeyField
 	}
 	return nil
 }
@@ -2853,7 +2873,7 @@ var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xf0:\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xb8;\n" +
 	"\x06Schema\x12(\n" +
 	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
@@ -2865,7 +2885,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x06coerce\x18\b \x01(\bR\x06coerce\x12.\n" +
 	"\x04defs\x18\t \x03(\v2\x1a.schemapb.Schema.DefsEntryR\x04defs\x12=\n" +
 	"\ttemplates\x18\n" +
-	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xfb5\n" +
+	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xc36\n" +
 	"\x05Field\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
@@ -3125,7 +3145,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\adefault\x18\x02 \x01(\v2\x15.schemapb.StructValueH\x01R\adefault\x88\x01\x01B\t\n" +
 	"\a_schemaB\n" +
 	"\n" +
-	"\b_default\x1a\x8a\x02\n" +
+	"\b_default\x1a\xd2\x02\n" +
 	"\x03Map\x128\n" +
 	"\fvalue_schema\x18\x01 \x01(\v2\x10.schemapb.SchemaH\x00R\vvalueSchema\x88\x01\x01\x12$\n" +
 	"\vmin_entries\x18\x02 \x01(\x04H\x01R\n" +
@@ -3133,11 +3153,14 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\vmax_entries\x18\x03 \x01(\x04H\x02R\n" +
 	"maxEntries\x88\x01\x01\x12<\n" +
 	"\vvalue_field\x18\x04 \x01(\v2\x16.schemapb.Schema.FieldH\x03R\n" +
-	"valueField\x88\x01\x01B\x0f\n" +
+	"valueField\x88\x01\x01\x128\n" +
+	"\tkey_field\x18\x05 \x01(\v2\x16.schemapb.Schema.FieldH\x04R\bkeyField\x88\x01\x01B\x0f\n" +
 	"\r_value_schemaB\x0e\n" +
 	"\f_min_entriesB\x0e\n" +
 	"\f_max_entriesB\x0e\n" +
-	"\f_value_field\x1ai\n" +
+	"\f_value_fieldB\f\n" +
+	"\n" +
+	"_key_field\x1ai\n" +
 	"\bComputed\x12\x12\n" +
 	"\x04expr\x18\x01 \x01(\tR\x04expr\x12>\n" +
 	"\x06result\x18\x02 \x01(\x0e2!.schemapb.Schema.Field.ResultTypeH\x00R\x06result\x88\x01\x01B\t\n" +
@@ -3300,19 +3323,20 @@ var file_schemapb_schema_proto_depIdxs = []int32{
 	33, // 43: schemapb.Schema.Field.Object.default:type_name -> schemapb.StructValue
 	2,  // 44: schemapb.Schema.Field.Map.value_schema:type_name -> schemapb.Schema
 	4,  // 45: schemapb.Schema.Field.Map.value_field:type_name -> schemapb.Schema.Field
-	0,  // 46: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
-	1,  // 47: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
-	29, // 48: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
-	3,  // 49: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
-	33, // 50: schemapb.Schema.Field.Ref.default:type_name -> schemapb.StructValue
-	30, // 51: schemapb.Schema.Field.AnnotationsEntry.value:type_name -> schemapb.Value
-	30, // 52: schemapb.Schema.Field.Choice.Option.value:type_name -> schemapb.Value
-	2,  // 53: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
-	54, // [54:54] is the sub-list for method output_type
-	54, // [54:54] is the sub-list for method input_type
-	54, // [54:54] is the sub-list for extension type_name
-	54, // [54:54] is the sub-list for extension extendee
-	0,  // [0:54] is the sub-list for field type_name
+	4,  // 46: schemapb.Schema.Field.Map.key_field:type_name -> schemapb.Schema.Field
+	0,  // 47: schemapb.Schema.Field.Computed.result:type_name -> schemapb.Schema.Field.ResultType
+	1,  // 48: schemapb.Schema.Field.Rule.severity:type_name -> schemapb.Schema.Field.Severity
+	29, // 49: schemapb.Schema.Field.OneOf.variants:type_name -> schemapb.Schema.Field.OneOf.VariantsEntry
+	3,  // 50: schemapb.Schema.Field.Ref.id:type_name -> schemapb.SchemaIdentity
+	33, // 51: schemapb.Schema.Field.Ref.default:type_name -> schemapb.StructValue
+	30, // 52: schemapb.Schema.Field.AnnotationsEntry.value:type_name -> schemapb.Value
+	30, // 53: schemapb.Schema.Field.Choice.Option.value:type_name -> schemapb.Value
+	2,  // 54: schemapb.Schema.Field.OneOf.VariantsEntry.value:type_name -> schemapb.Schema
+	55, // [55:55] is the sub-list for method output_type
+	55, // [55:55] is the sub-list for method input_type
+	55, // [55:55] is the sub-list for extension type_name
+	55, // [55:55] is the sub-list for extension extendee
+	0,  // [0:55] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_schema_proto_init() }

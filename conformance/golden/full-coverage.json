@@ -285,6 +285,12 @@
             "int64": {
               "gte": "0"
             }
+          },
+          "keyField": {
+            "name": "key",
+            "string": {
+              "minLen": "1"
+            }
           }
         }
       },
@@ -716,6 +722,12 @@
                 "int64": {
                   "gte": "0"
                 }
+              },
+              "keyField": {
+                "name": "key",
+                "string": {
+                  "minLen": "1"
+                }
               }
             }
           },
@@ -1113,6 +1125,12 @@
               "int64": {
                 "gte": "0"
               }
+            },
+            "keyField": {
+              "name": "key",
+              "string": {
+                "minLen": "1"
+              }
             }
           }
         },
@@ -1252,7 +1270,8 @@
             "key": "float_all",
             "fieldNumber": 7
           }
-        ]
+        ],
+        "key": true
       }
     ],
     "schema": {

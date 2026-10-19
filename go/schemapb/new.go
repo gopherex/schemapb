@@ -1010,6 +1010,13 @@ func (b *MapB) MinEntries(n uint64) *MapB {
 	return b
 }
 
+// Key sets the definition every map key must satisfy (Map.key_field): a
+// string, choice, integer or bool kind with its constraints and rules.
+func (b *MapB) Key(def FieldDef) *MapB {
+	b.k.KeyField = def.Done()
+	return b
+}
+
 // MaxEntries sets the maximum number of map entries.
 func (b *MapB) MaxEntries(n uint64) *MapB {
 	b.k.MaxEntries = &n

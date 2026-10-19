@@ -57,6 +57,7 @@ fn valid_input() -> NativeStruct {
         "limits".into(),
         obj(vec![("cpu", Native::Int(2)), ("mem", Native::Int(4096))]),
     );
+    m.insert("ports".into(), obj(vec![("443", s("https"))]));
     m.insert(
         "labels".into(),
         obj(vec![("team", s("storage")), ("env", s("prod"))]),
@@ -114,7 +115,15 @@ fn broken_input() -> NativeStruct {
     m.insert("tablespaces".into(), obj(vec![("bad", obj(vec![]))]));
     m.insert(
         "limits".into(),
-        obj(vec![("cpu", Native::Int(-1)), ("mem", s("lots"))]),
+        obj(vec![
+            ("cpu", Native::Int(-1)),
+            ("mem", s("lots")),
+            ("Bad", Native::Int(1)),
+        ]),
+    );
+    m.insert(
+        "ports".into(),
+        obj(vec![("0", s("")), ("22", s("ssh")), ("x", s("web"))]),
     );
     m.insert(
         "labels".into(),

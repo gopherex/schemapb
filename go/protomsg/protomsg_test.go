@@ -60,7 +60,7 @@ message_type {
 }
 `
 
-//nolint:ireturn // protoreflect exposes descriptors only as interfaces
+//nolint:ireturn,nolintlint // protoreflect exposes descriptors only as interfaces
 func orderDesc(t *testing.T) protoreflect.MessageDescriptor {
 	t.Helper()
 
@@ -141,10 +141,125 @@ func TestValuesMapping(t *testing.T) {
 
 	set(order, "ttl", msgV(durationpb.New(time.Second)))
 	set(order, "tier", protoreflect.ValueOfEnum(9))
-	set(order, "any", msgV(&anypb.Any{}))
 
-	if _, err := protomsg.Values(order); !errors.Is(err, protomsg.ErrUnsupported) {
-		t.Fatalf("Any: want ErrUnsupported, got %v", err)
+	packed := item(itemMD, "inner")
+
+	raw, err := proto.Marshal(packed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	set(order, "any", msgV(&anypb.Any{TypeUrl: "type.googleapis.com/test.v1.Item", Value: raw}))
+
+	got, err = protomsg.Values(order)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if a, _ := got["any"].(map[string]any); len(a) != 1 || a["@type"] != "type.googleapis.com/test.v1.Item" {
+		t.Fatalf("Any of an unlisted type: got %v, want only @type", got["any"])
+	}
+
+	got, err = protomsg.Values(order, protomsg.WithAnyTypes(dynamicpb.NewMessageType(itemMD)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if a, _ := got["any"].(map[string]any); a["sku"] != "inner" || a["@type"] != "type.googleapis.com/test.v1.Item" {
+		t.Fatalf("Any of a listed type: got %v", got["any"])
+	}
+}
+
+// resolveSchema derives values: a default, nested normalize, a computed id.
+func resolveSchema(t *testing.T, computed string) string {
+	t.Helper()
+
+	schema := schemapb.NewSchema(schemapb.ID("test.v1", "Order", schemapb.Version{})).
+		Fields(
+			schemapb.Computed("id", computed).Result(schemapb.ResultInt64),
+			schemapb.Str("note").Default("n/a"),
+			schemapb.List("items", schemapb.Ref("item", "test.v1.Item")),
+			schemapb.MapOf("by_sku", schemapb.Ref("value", "test.v1.Item")),
+			schemapb.Duration("ttl").Default(30*time.Second),
+		).
+		Def("test.v1.Item", schemapb.Str("sku").MinLen(1).Normalize("this.upperAscii()")).
+		MustBuild()
+
+	raw, err := proto.Marshal(schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return string(raw)
+}
+
+func TestResolveWritesBack(t *testing.T) {
+	t.Parallel()
+
+	desc := orderDesc(t)
+	itemMD := desc.Fields().ByName("items").Message()
+	order := dynamicpb.NewMessage(desc)
+	order.Mutable(desc.Fields().ByName("items")).List().Append(protoreflect.ValueOfMessage(item(itemMD, "a")))
+	order.Mutable(desc.Fields().ByName("items")).List().Append(protoreflect.ValueOfMessage(item(itemMD, "b")))
+	order.Mutable(desc.Fields().ByName("by_sku")).Map().
+		Set(protoreflect.ValueOfString("k").MapKey(), protoreflect.ValueOfMessage(item(itemMD, "c")))
+
+	res, err := protomsg.New(resolveSchema(t, "size(root.items)")).Resolve(order)
+	if err != nil || res.Blocking() {
+		t.Fatalf("Resolve: %v %v", err, res.GetErrors())
+	}
+
+	get := func(name string) protoreflect.Value { return order.Get(desc.Fields().ByName(protoreflect.Name(name))) }
+
+	if get("id").Int() != 2 || get("note").String() != "n/a" {
+		t.Errorf("computed/default not written: id=%v note=%q", get("id"), get("note").String())
+	}
+
+	if sku := get("items").List().Get(1).Message().Get(itemMD.Fields().ByName("sku")).String(); sku != "B" {
+		t.Errorf("list item normalize not written: %q", sku)
+	}
+
+	entry := get("by_sku").Map().Get(protoreflect.ValueOfString("k").MapKey()).Message()
+	if sku := entry.Get(itemMD.Fields().ByName("sku")).String(); sku != "C" {
+		t.Errorf("map value normalize not written: %q", sku)
+	}
+
+	ttl := get("ttl").Message()
+	if ttl.Get(ttl.Descriptor().Fields().ByName("seconds")).Int() != 30 {
+		t.Errorf("duration default not written: %v", ttl)
+	}
+}
+
+func TestResolveLeavesMessageOnFailure(t *testing.T) {
+	t.Parallel()
+
+	desc := orderDesc(t)
+	itemMD := desc.Fields().ByName("items").Message()
+
+	blocked := dynamicpb.NewMessage(desc)
+	blocked.Mutable(desc.Fields().ByName("items")).List().Append(protoreflect.ValueOfMessage(item(itemMD, "")))
+	before := proto.Clone(blocked)
+
+	res, err := protomsg.New(resolveSchema(t, "size(root.items)")).Resolve(blocked)
+	if err != nil || !res.Blocking() {
+		t.Fatalf("want a blocking result, got %v %v", err, res.GetErrors())
+	}
+
+	if !proto.Equal(before, blocked) {
+		t.Error("a blocking Resolve modified the message")
+	}
+
+	misfit := dynamicpb.NewMessage(desc)
+	misfit.Mutable(desc.Fields().ByName("items")).List().Append(protoreflect.ValueOfMessage(item(itemMD, "a")))
+	before = proto.Clone(misfit)
+
+	// 2^40 does not fit the int32 id.
+	if _, err := protomsg.New(resolveSchema(t, "1099511627776")).Resolve(misfit); !errors.Is(err, protomsg.ErrWriteBack) {
+		t.Fatalf("want ErrWriteBack, got %v", err)
+	}
+
+	if !proto.Equal(before, misfit) {
+		t.Error("a failed write-back modified the message")
 	}
 }
 

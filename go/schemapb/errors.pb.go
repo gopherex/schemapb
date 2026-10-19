@@ -399,7 +399,10 @@ type ValidationError struct {
 	// Informative only — NOT part of the conformance contract.
 	Message string `protobuf:"bytes,9,opt,name=message,proto3" json:"message,omitempty"`
 	// Structured counterpart of path; empty for the root.
-	PathSegments  []*PathSegment `protobuf:"bytes,10,rep,name=path_segments,json=pathSegments,proto3" json:"path_segments,omitempty"`
+	PathSegments []*PathSegment `protobuf:"bytes,10,rep,name=path_segments,json=pathSegments,proto3" json:"path_segments,omitempty"`
+	// True when the failure concerns the map KEY that ends path (see
+	// Schema.Field.Map.key_field), not the value stored under it.
+	Key           bool `protobuf:"varint,11,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -504,6 +507,13 @@ func (x *ValidationError) GetPathSegments() []*PathSegment {
 	return nil
 }
 
+func (x *ValidationError) GetKey() bool {
+	if x != nil {
+		return x.Key
+	}
+	return false
+}
+
 // ValidationResult is the complete outcome of validating a form.
 type ValidationResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -589,7 +599,7 @@ const file_schemapb_errors_proto_rawDesc = "" +
 	"\btemplate\x18\x02 \x01(\tR\btemplate\x12 \n" +
 	"\vconstraints\x18\x03 \x03(\tR\vconstraints\x12-\n" +
 	"\bexpected\x18\x04 \x01(\x0e2\x11.schemapb.PayloadR\bexpected\x12)\n" +
-	"\x06actual\x18\x05 \x01(\x0e2\x11.schemapb.PayloadR\x06actual\"\xb7\x03\n" +
+	"\x06actual\x18\x05 \x01(\x0e2\x11.schemapb.PayloadR\x06actual\"\xc9\x03\n" +
 	"\x0fValidationError\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12'\n" +
 	"\x04code\x18\x02 \x01(\x0e2\x13.schemapb.ErrorCodeR\x04code\x120\n" +
@@ -603,7 +613,8 @@ const file_schemapb_errors_proto_rawDesc = "" +
 	"\bseverity\x18\b \x01(\x0e2\x1f.schemapb.Schema.Field.SeverityR\bseverity\x12\x18\n" +
 	"\amessage\x18\t \x01(\tR\amessage\x12:\n" +
 	"\rpath_segments\x18\n" +
-	" \x03(\v2\x15.schemapb.PathSegmentR\fpathSegmentsB\v\n" +
+	" \x03(\v2\x15.schemapb.PathSegmentR\fpathSegments\x12\x10\n" +
+	"\x03key\x18\v \x01(\bR\x03keyB\v\n" +
 	"\t_expectedB\t\n" +
 	"\a_actualB\n" +
 	"\n" +

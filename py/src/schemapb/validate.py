@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 from typing import TYPE_CHECKING
 
 from schemapb._gen.schemapb import (
@@ -823,35 +824,103 @@ def _check_map(
                 uint64_v(n),
             ),
         )
-    if k.value_field is not None:
-        sub_vf: list[ValidationError] = []
-        for key in sorted(m):
-            _validate_one(
-                e,
-                k.value_field,
-                m[key],
-                exists=True,
-                path=join_path(path, key),
-                root=root,
-                index=None,
-                errs=sub_vf,
-            )
-        return out + sub_vf
-    vs = k.value_schema
-    if vs is None:
-        return out
+    # Per entry, in key order: key errors, then value errors. Keys sort by
+    # code point, which is the UTF-8 byte order the spec requires.
     for key in sorted(m):
         vpath = join_path(path, key)
-        el = m[key]
-        if not isinstance(el, dict):
-            out.append(_type_err(vpath, "object", el))
-            continue
-        sub: list[ValidationError] = []
-        _validate_fields(e, vs, el, root, vpath, sub)
-        for r in vs.rules:
-            _eval_rule(e, r, vpath, el, root, None, sub)
-        out.extend(sub)
+        if k.key_field is not None:
+            out.extend(_check_map_key(e, k.key_field, key, vpath, root))
+        out.extend(_check_map_value(e, k, m[key], vpath, root))
     return out
+
+
+def _check_map_key(
+    e: Engine,
+    key_field: SchemaField,
+    key: str,
+    path: str,
+    root: NativeStruct,
+) -> list[ValidationError]:
+    """Reads key as key_field's kind, checks constraints and rules; marks
+    every error as a key error."""
+    sub: list[ValidationError] = []
+    ok, native = _read_map_key(key_field, key)
+    if not ok:
+        sub.append(
+            _verr(path, ErrorCode.TYPE_MISMATCH, "", str_v(_map_key_kind(key_field)), str_v(key))
+        )
+    else:
+        sub.extend(_check_kind(e, key_field, native, path, root))
+        for r in key_field.rules:
+            _eval_rule(e, r, path, native, root, None, sub)
+    for err in sub:
+        err.key = True
+    return sub
+
+
+def _check_map_value(
+    e: Engine,
+    k: SchemaFieldMap,
+    val: Native,
+    vpath: str,
+    root: NativeStruct,
+) -> list[ValidationError]:
+    if k.value_field is not None:
+        sub: list[ValidationError] = []
+        _validate_one(
+            e,
+            k.value_field,
+            val,
+            exists=True,
+            path=vpath,
+            root=root,
+            index=None,
+            errs=sub,
+        )
+        return sub
+    vs = k.value_schema
+    if vs is None:
+        return []
+    if not isinstance(val, dict):
+        return [_type_err(vpath, "object", val)]
+    sub = []
+    _validate_fields(e, vs, val, root, vpath, sub)
+    for r in vs.rules:
+        _eval_rule(e, r, vpath, val, root, None, sub)
+    return sub
+
+
+_KEY_INT_RANGES = {
+    "int32": (-(1 << 31), (1 << 31) - 1),
+    "int64": (-(1 << 63), (1 << 63) - 1),
+    "uint32": (0, (1 << 32) - 1),
+    "uint64": (0, (1 << 64) - 1),
+}
+
+
+def _read_map_key(key_field: SchemaField, key: str) -> tuple[bool, Native]:
+    """Reads a wire key as key_field's kind (see Map.key_field)."""
+    if key_field.string is not None or key_field.choice is not None:
+        return True, key
+    if key_field.bool is not None:
+        if key in ("true", "false"):
+            return True, key == "true"
+        return False, None
+    kind = _map_key_kind(key_field)
+    bounds = _KEY_INT_RANGES.get(kind)
+    if bounds is None:
+        return False, None
+    if not re.fullmatch(r"[+-]?[0-9]+", key) or (kind.startswith("uint") and key.startswith("-")):
+        return False, None
+    n = int(key)
+    return (bounds[0] <= n <= bounds[1]), n
+
+
+def _map_key_kind(key_field: SchemaField) -> str:
+    for kind in ("int32", "int64", "uint32", "uint64", "bool"):
+        if getattr(key_field, kind) is not None:
+            return kind
+    return "string"
 
 
 def _check_one_of(

@@ -1,13 +1,15 @@
 import {
+  clone,
   create,
   createFileRegistry,
   type DescMessage,
+  equals,
   fromJson,
   toBinary,
 } from "@bufbuild/protobuf";
 import { base64Encode } from "@bufbuild/protobuf/wire";
 import {
-  AnySchema,
+  anyPack,
   DurationSchema,
   FieldMaskSchema,
   FileDescriptorProtoSchema,
@@ -22,12 +24,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
 import * as b from "../src/new.js";
-import {
-  messageValues,
-  UnsupportedFieldError,
-  ValidationFailure,
-  Validator,
-} from "../src/protomsg.js";
+import { messageValues, ValidationFailure, Validator, WriteBackError } from "../src/protomsg.js";
 import { id, Version } from "../src/typed.js";
 import { structFromNative } from "../src/value.js";
 
@@ -213,8 +210,14 @@ describe("protomsg", () => {
     };
     expect(structFromNative(got)).toEqual(structFromNative(want));
 
-    order.any = create(AnySchema, {});
-    expect(() => messageValues(orderDesc, order)).toThrow(UnsupportedFieldError);
+    order.any = anyPack(itemDesc, item("inner"));
+    expect(messageValues(orderDesc, order)["any"]).toEqual({
+      "@type": "type.googleapis.com/test.v1.Item",
+    });
+    expect(messageValues(orderDesc, order, [itemDesc])["any"]).toEqual({
+      sku: "inner",
+      "@type": "type.googleapis.com/test.v1.Item",
+    });
   });
 
   it("validates with field numbers and schema identity", () => {
@@ -260,6 +263,52 @@ describe("protomsg", () => {
 
     const res = new Validator(orderDesc, orderSchema()).check(order);
     expect(res.errors.map((e) => e.path)).toContain("by_sku.__proto__.sku");
+  });
+
+  /** Derives values: a default, nested normalize, a computed id. */
+  function resolveSchema(computed: string): string {
+    const { schema } = b
+      .newSchema(id("test.v1", "Order", Version.zero))
+      .fields(
+        b.computed("id", computed).result(b.ResultType.INT64),
+        b.str("note").default("n/a"),
+        b.list("items", b.ref("item", "test.v1.Item")),
+        b.mapOf("by_sku", b.ref("value", "test.v1.Item")),
+        b.duration("ttl").default(create(DurationSchema, { seconds: 30n })),
+      )
+      .def("test.v1.Item", b.str("sku").minLen(1n).normalize("this.upperAscii()"))
+      .build();
+    return base64Encode(toBinary(SchemaSchema, schema));
+  }
+
+  it("resolve writes defaults, normalize and computed values back", () => {
+    const order: Dyn = create(orderDesc, {
+      items: [item("a"), item("b")],
+      bySku: { k: item("c") },
+    } as Dyn);
+    const res = new Validator(orderDesc, resolveSchema("size(root.items)")).resolve(order);
+    expect(res.errors).toEqual([]);
+    expect(order.id).toBe(2);
+    expect(order.note).toBe("n/a");
+    expect(order.items.map((i: Dyn) => i.sku)).toEqual(["A", "B"]);
+    expect(order.bySku.k.sku).toBe("C");
+    expect(order.ttl.seconds).toBe(30n);
+  });
+
+  it("resolve leaves the message untouched on failure", () => {
+    const blocked: Dyn = create(orderDesc, { items: [item("")] } as Dyn);
+    const before = clone(orderDesc, blocked);
+    const res = new Validator(orderDesc, resolveSchema("size(root.items)")).resolve(blocked);
+    expect(res.errors.length).toBeGreaterThan(0);
+    expect(equals(orderDesc, blocked, before)).toBe(true);
+
+    const misfit: Dyn = create(orderDesc, { items: [item("a")] } as Dyn);
+    const untouched = clone(orderDesc, misfit);
+    // 2^40 does not fit the int32 id.
+    expect(() => new Validator(orderDesc, resolveSchema("1099511627776")).resolve(misfit)).toThrow(
+      WriteBackError,
+    );
+    expect(equals(orderDesc, misfit, untouched)).toBe(true);
   });
 
   it("passes a valid message", () => {

@@ -19,13 +19,47 @@ var (
 	ErrOutOfRange = errors.New("protomsg: duration out of range")
 )
 
-// Values presents msg as the value tree the schemapb engine validates (see
-// the package documentation for the mapping).
-func Values(msg proto.Message) (map[string]any, error) {
-	return messageValues(msg.ProtoReflect())
+// Option configures the value mapping.
+type Option func(*mapping)
+
+// WithAnyTypes lists the message types a google.protobuf.Any may hold and
+// that are unpacked into the value tree. An Any holding any other type
+// presents only its "@type".
+func WithAnyTypes(types ...protoreflect.MessageType) Option {
+	return func(m *mapping) {
+		for _, t := range types {
+			m.anyTypes[anyURLPrefix+string(t.Descriptor().FullName())] = t
+		}
+	}
 }
 
-func messageValues(m protoreflect.Message) (map[string]any, error) {
+// anyURLPrefix is the type URL prefix protobuf runtimes write.
+const anyURLPrefix = "type.googleapis.com/"
+
+// AnyTypeKey is the property naming an Any's type URL in the value tree.
+const AnyTypeKey = "@type"
+
+// mapping is the immutable configuration of one conversion.
+type mapping struct {
+	anyTypes map[string]protoreflect.MessageType
+}
+
+func newMapping(opts []Option) *mapping {
+	m := &mapping{anyTypes: map[string]protoreflect.MessageType{}}
+	for _, o := range opts {
+		o(m)
+	}
+
+	return m
+}
+
+// Values presents msg as the value tree the schemapb engine validates (see
+// the package documentation for the mapping).
+func Values(msg proto.Message, opts ...Option) (map[string]any, error) {
+	return newMapping(opts).messageValues(msg.ProtoReflect())
+}
+
+func (mp *mapping) messageValues(m protoreflect.Message) (map[string]any, error) {
 	fields := m.Descriptor().Fields()
 	out := make(map[string]any, fields.Len())
 
@@ -35,7 +69,7 @@ func messageValues(m protoreflect.Message) (map[string]any, error) {
 			continue
 		}
 
-		v, err := fieldValue(field, m.Get(field))
+		v, err := mp.fieldValue(field, m.Get(field))
 		if err != nil {
 			return nil, err
 		}
@@ -46,18 +80,18 @@ func messageValues(m protoreflect.Message) (map[string]any, error) {
 	return out, nil
 }
 
-func fieldValue(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, error) {
+func (mp *mapping) fieldValue(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, error) {
 	switch {
 	case field.IsMap():
-		mp := v.Map()
-		out := make(map[string]any, mp.Len())
+		entries := v.Map()
+		out := make(map[string]any, entries.Len())
 
 		var err error
 
-		mp.Range(func(k protoreflect.MapKey, mv protoreflect.Value) bool {
+		entries.Range(func(k protoreflect.MapKey, mv protoreflect.Value) bool {
 			var x any
 
-			x, err = singular(field.MapValue(), mv)
+			x, err = mp.singular(field.MapValue(), mv)
 			out[k.String()] = x
 
 			return err == nil
@@ -69,7 +103,7 @@ func fieldValue(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, 
 		out := make([]any, list.Len())
 
 		for i := range list.Len() {
-			x, err := singular(field, list.Get(i))
+			x, err := mp.singular(field, list.Get(i))
 			if err != nil {
 				return nil, err
 			}
@@ -79,11 +113,11 @@ func fieldValue(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, 
 
 		return out, nil
 	default:
-		return singular(field, v)
+		return mp.singular(field, v)
 	}
 }
 
-func singular(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, error) {
+func (mp *mapping) singular(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, error) {
 	switch field.Kind() {
 	case protoreflect.BoolKind:
 		return v.Bool(), nil
@@ -106,13 +140,13 @@ func singular(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, er
 	case protoreflect.BytesKind:
 		return v.Bytes(), nil
 	case protoreflect.MessageKind, protoreflect.GroupKind:
-		return messageValue(v.Message())
+		return mp.messageValue(v.Message())
 	default:
 		return nil, fmt.Errorf("%w: %s has kind %s", ErrUnsupported, field.FullName(), field.Kind())
 	}
 }
 
-func messageValue(m protoreflect.Message) (any, error) {
+func (mp *mapping) messageValue(m protoreflect.Message) (any, error) {
 	desc := m.Descriptor()
 
 	switch desc.FullName() {
@@ -126,7 +160,7 @@ func messageValue(m protoreflect.Message) (any, error) {
 		"google.protobuf.BoolValue", "google.protobuf.StringValue", "google.protobuf.BytesValue":
 		value := desc.Fields().ByName("value")
 
-		return singular(value, m.Get(value))
+		return mp.singular(value, m.Get(value))
 	case "google.protobuf.Struct":
 		return structValue(m)
 	case "google.protobuf.Value":
@@ -143,10 +177,36 @@ func messageValue(m protoreflect.Message) (any, error) {
 
 		return out, nil
 	case "google.protobuf.Any":
-		return nil, fmt.Errorf("%w: google.protobuf.Any", ErrUnsupported)
+		return mp.anyValue(m)
 	default:
-		return messageValues(m)
+		return mp.messageValues(m)
 	}
+}
+
+// anyValue unpacks an Any of a listed type into its fields plus "@type";
+// any other Any presents only "@type".
+func (mp *mapping) anyValue(m protoreflect.Message) (any, error) {
+	desc := m.Descriptor()
+	url := m.Get(desc.Fields().ByName("type_url")).String()
+
+	t, ok := mp.anyTypes[url]
+	if !ok {
+		return map[string]any{AnyTypeKey: url}, nil
+	}
+
+	inner := t.New()
+	if err := proto.Unmarshal(m.Get(desc.Fields().ByName("value")).Bytes(), inner.Interface()); err != nil {
+		return nil, fmt.Errorf("protomsg: unpack Any %s: %w", url, err)
+	}
+
+	out, err := mp.messageValues(inner)
+	if err != nil {
+		return nil, err
+	}
+
+	out[AnyTypeKey] = url
+
+	return out, nil
 }
 
 func duration(seconds, nanos int64) (time.Duration, error) {

@@ -1009,33 +1009,112 @@ function checkMap(
       verr(path, ErrorCode.MAX_ENTRIES_VIOLATED, "max_entries", uint64V(k.maxEntries), uint64V(n)),
     );
   }
-  const vf = k.valueField;
-  if (vf !== undefined) {
-    const sub: ValidationError[] = [];
-    for (const key of sortedKeys(m)) {
-      validateOne(e, vf, m[key] ?? null, true, joinPath(path, key), root, undefined, sub);
+  // Per entry, in key order: key errors, then value errors.
+  for (const key of sortedKeys(m)) {
+    const vpath = joinPath(path, key);
+    if (k.keyField !== undefined) {
+      out.push(...checkMapKey(e, k.keyField, key, vpath, root));
     }
-    return [...out, ...sub];
+    out.push(...checkMapValue(e, k, m[key] ?? null, vpath, root));
+  }
+  return out;
+}
+
+/** Reads key as key_field's kind, checks constraints and rules; marks errors as key errors. */
+function checkMapKey(
+  e: Engine,
+  keyField: Schema_Field,
+  key: string,
+  path: string,
+  root: NativeStruct,
+): ValidationError[] {
+  const sub: ValidationError[] = [];
+  const native = readMapKey(keyField, key);
+  if (native === undefined) {
+    sub.push(verr(path, ErrorCode.TYPE_MISMATCH, "", strV(mapKeyKind(keyField)), strV(key)));
+  } else {
+    sub.push(...checkKind(e, keyField, native, path, root));
+    for (const r of keyField.rules) {
+      evalRule(e, r, path, native, root, undefined, sub);
+    }
+  }
+  for (const err of sub) {
+    err.key = true;
+  }
+  return sub;
+}
+
+function checkMapValue(
+  e: Engine,
+  k: Schema_Field_Map,
+  val: Native,
+  vpath: string,
+  root: NativeStruct,
+): ValidationError[] {
+  if (k.valueField !== undefined) {
+    const sub: ValidationError[] = [];
+    validateOne(e, k.valueField, val, true, vpath, root, undefined, sub);
+    return sub;
   }
   const vs = k.valueSchema;
   if (vs === undefined) {
-    return out;
+    return [];
   }
-  for (const key of sortedKeys(m)) {
-    const vpath = joinPath(path, key);
-    const el = m[key] ?? null;
-    if (!isNativeStruct(el)) {
-      out.push(typeErr(vpath, "object", el));
-      continue;
-    }
-    const sub: ValidationError[] = [];
-    validateFields(e, vs, el, root, vpath, sub);
-    for (const r of vs.rules) {
-      evalRule(e, r, vpath, el, root, undefined, sub);
-    }
-    out.push(...sub);
+  if (!isNativeStruct(val)) {
+    return [typeErr(vpath, "object", val)];
   }
-  return out;
+  const sub: ValidationError[] = [];
+  validateFields(e, vs, val, root, vpath, sub);
+  for (const r of vs.rules) {
+    evalRule(e, r, vpath, val, root, undefined, sub);
+  }
+  return sub;
+}
+
+/** Reads a wire key as key_field's kind (see Map.key_field); undefined when it does not read. */
+function readMapKey(keyField: Schema_Field, key: string): Native | undefined {
+  const kind = keyField.kind.case;
+  switch (kind) {
+    case "string":
+    case "choice":
+      return key;
+    case "bool":
+      return key === "true" ? true : key === "false" ? false : undefined;
+    case "int32":
+    case "int64":
+    case "uint32":
+    case "uint64": {
+      if (!/^[+-]?[0-9]+$/.test(key)) {
+        return undefined;
+      }
+      const n = BigInt(key);
+      const [lo, hi] =
+        kind === "int32"
+          ? [-(1n << 31n), (1n << 31n) - 1n]
+          : kind === "int64"
+            ? [INT64_MIN, INT64_MAX]
+            : kind === "uint32"
+              ? [0n, (1n << 32n) - 1n]
+              : [0n, UINT64_MAX];
+      return n >= lo && n <= hi && !(kind.startsWith("uint") && key.startsWith("-"))
+        ? n
+        : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
+/** Names the key kind for TYPE_MISMATCH's expected. */
+function mapKeyKind(keyField: Schema_Field): string {
+  const kind = keyField.kind.case;
+  return kind === "int32" ||
+    kind === "int64" ||
+    kind === "uint32" ||
+    kind === "uint64" ||
+    kind === "bool"
+    ? kind
+    : "string";
 }
 
 function checkOneOf(

@@ -25,6 +25,7 @@ replica_count=1
 replicas=[{"name":"r1","weight":1}]
 tablespaces={"main":{"location":"/var/lib/ts","ttl":"5m0s"}}
 limits={"cpu":2,"mem":4096}
+ports={"443":"https"}
 label_keys=["env","team"]
 flag_text=true
 labels={"env":"prod","team":"storage"}

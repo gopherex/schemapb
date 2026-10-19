@@ -720,6 +720,28 @@
       ]
     },
     {
+      "path": "limits.Bad",
+      "code": "ERROR_CODE_PATTERN_MISMATCH",
+      "expected": {
+        "stringValue": "^[a-z]+$"
+      },
+      "actual": {
+        "stringValue": "Bad"
+      },
+      "constraint": "pattern",
+      "severity": "SEVERITY_ERROR",
+      "message": "must match pattern ^[a-z]+$",
+      "pathSegments": [
+        {
+          "key": "limits"
+        },
+        {
+          "key": "Bad"
+        }
+      ],
+      "key": true
+    },
+    {
       "path": "limits.cpu",
       "code": "ERROR_CODE_GTE_VIOLATED",
       "expected": {
@@ -759,6 +781,87 @@
           "key": "mem"
         }
       ]
+    },
+    {
+      "path": "ports.0",
+      "code": "ERROR_CODE_GT_VIOLATED",
+      "expected": {
+        "int64Value": "0"
+      },
+      "actual": {
+        "int64Value": "0"
+      },
+      "constraint": "gt",
+      "severity": "SEVERITY_ERROR",
+      "message": "must be > 0",
+      "pathSegments": [
+        {
+          "key": "ports"
+        },
+        {
+          "key": "0"
+        }
+      ],
+      "key": true
+    },
+    {
+      "path": "ports.0",
+      "code": "ERROR_CODE_MIN_LEN_VIOLATED",
+      "expected": {
+        "uint64Value": "1"
+      },
+      "actual": {
+        "stringValue": ""
+      },
+      "constraint": "min_len",
+      "severity": "SEVERITY_ERROR",
+      "message": "length must be at least 1",
+      "pathSegments": [
+        {
+          "key": "ports"
+        },
+        {
+          "key": "0"
+        }
+      ]
+    },
+    {
+      "path": "ports.22",
+      "code": "ERROR_CODE_RULE_VIOLATED",
+      "expr": "this != 22",
+      "ruleId": "no-ssh",
+      "severity": "SEVERITY_ERROR",
+      "message": "ssh port",
+      "pathSegments": [
+        {
+          "key": "ports"
+        },
+        {
+          "key": "22"
+        }
+      ],
+      "key": true
+    },
+    {
+      "path": "ports.x",
+      "code": "ERROR_CODE_TYPE_MISMATCH",
+      "expected": {
+        "stringValue": "int32"
+      },
+      "actual": {
+        "stringValue": "x"
+      },
+      "severity": "SEVERITY_ERROR",
+      "message": "expected int32",
+      "pathSegments": [
+        {
+          "key": "ports"
+        },
+        {
+          "key": "x"
+        }
+      ],
+      "key": true
     },
     {
       "path": "labels.bad",

@@ -66,6 +66,10 @@ export function nestedSchemas(f: Schema_Field): Schema[] {
       if (kind.value.valueField !== undefined) {
         out.push(create(SchemaSchema, { fields: [kind.value.valueField] }));
       }
+      // The key_field walks the same way: its patterns and rules compile.
+      if (kind.value.keyField !== undefined) {
+        out.push(create(SchemaSchema, { fields: [kind.value.keyField] }));
+      }
       break;
     case "list":
       for (const it of kind.value.items) {
@@ -230,6 +234,18 @@ function checkFields(fields: Schema_Field[], prefix: string): ValidationError[] 
           mp.minEntries > mp.maxEntries
         ) {
           errs.push(schemaErr(path, "map field: min_entries must be <= max_entries"));
+        }
+        const keyKind = mp.keyField?.kind.case;
+        if (
+          keyKind !== undefined &&
+          !["string", "choice", "int32", "int64", "uint32", "uint64", "bool"].includes(keyKind)
+        ) {
+          errs.push(
+            schemaErr(
+              path,
+              "map field: key_field kind must be string, choice, int32, int64, uint32, uint64 or bool",
+            ),
+          );
         }
         break;
       }

@@ -197,7 +197,11 @@ v := protomsg.New(rawSchema)     // generated code embeds the schema
 res, err := v.Check(msg)         // every failure; err is programmatic only
 err = v.Validate(msg)            // nil, or the *schemapb.ValidationResult
 st, ok := protomsg.Status(err)   // google.rpc.Status for gRPC/Connect
+res, err = v.Resolve(msg)        // validate, then write defaults/normalize/computed back
 ```
+
+Any fields unpack only the types passed with `protomsg.WithAnyTypes`; any
+other Any presents just its `"@type"`.
 
 Error paths carry proto field numbers and the result carries the schema
 identity. Translation and the error contract: [docs/ERRORS.md](../docs/ERRORS.md).

@@ -152,6 +152,10 @@ func coverageSchema() *schemapb.Schema {
 				MinEntries: ptr(uint64(1)), MaxEntries: ptr(uint64(2)),
 			}}},
 			{Name: "map_scalar", Kind: &schemapb.Schema_Field_Map_{Map: &schemapb.Schema_Field_Map{
+				KeyField: &schemapb.Schema_Field{
+					Name: "key",
+					Kind: &schemapb.Schema_Field_String_{String_: &schemapb.Schema_Field_String{MinLen: ptr(uint64(1))}},
+				},
 				ValueField: &schemapb.Schema_Field{
 					Name: "value",
 					Kind: &schemapb.Schema_Field_Int64_{Int64: &schemapb.Schema_Field_Int64{Gte: ptr(int64(0))}},
@@ -248,6 +252,7 @@ func coverageDoc() []struct {
 			RuleId:     ptr("fr"),
 			Severity:   schemapb.SeverityWarning,
 			Message:    "must be >= 4",
+			Key:        true,
 		}}}},
 	}
 }

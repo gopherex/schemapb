@@ -73,7 +73,9 @@ func SetFieldAttribute(field *Schema_Field, name, value string) error {
 	return nil
 }
 
-//nolint:ireturn // protobuf exposes descriptors as interfaces
+// ireturn reports this nondeterministically, hence nolintlint too.
+//
+//nolint:ireturn,nolintlint // protobuf exposes descriptors as interfaces
 func attributeDescriptor(fields protoreflect.FieldDescriptors, name string) protoreflect.FieldDescriptor {
 	if descriptor := fields.ByName(protoreflect.Name(name)); descriptor != nil {
 		return descriptor

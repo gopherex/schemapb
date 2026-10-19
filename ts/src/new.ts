@@ -707,6 +707,12 @@ export class MapB extends FieldB {
     return this;
   }
 
+  /** The definition every map key must satisfy (Map.key_field). */
+  key(def: FieldB): this {
+    this.#k.keyField = def.done();
+    return this;
+  }
+
   minEntries(n: bigint): this {
     this.#k.minEntries = n;
     return this;

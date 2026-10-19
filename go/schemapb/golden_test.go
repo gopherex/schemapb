@@ -135,7 +135,11 @@ func goldenSchema(t *testing.T) *schemapb.Schema {
 
 			schemapb.MapOf("limits",
 				schemapb.Int64("value").Gte(0),
-			).MinEntries(0).MaxEntries(8),
+			).Key(schemapb.Str("key").Pattern("^[a-z]+$")).MinEntries(0).MaxEntries(8),
+
+			// Integer keys read from their wire string, with a key rule.
+			schemapb.MapOf("ports", schemapb.Str("value").MinLen(1)).
+				Key(schemapb.Int32("key").Gt(0).Rules(schemapb.Rule("this != 22", "ssh port").ID("no-ssh"))),
 
 			// value_field carrying a compiled pattern AND a CEL rule: pins
 			// that generic walkers see inside MapOf.
@@ -210,6 +214,7 @@ func validInput() map[string]any {
 			"main": map[string]any{"location": "/var/lib/ts", "ttl": "5m"},
 		},
 		"limits":        map[string]any{"cpu": int64(2), "mem": int64(4096)},
+		"ports":         map[string]any{"443": "https"},
 		"labels":        map[string]any{"team": "storage", "env": "prod"},
 		"backup":        map[string]any{"type": "s3", "bucket": "backups"},
 		"data_volume":   map[string]any{"path": "/data"},
@@ -245,14 +250,15 @@ func brokenInput() map[string]any {
 			map[string]any{"name": "r1"},
 			map[string]any{"weight": int64(2)},
 		},
-		"logging":       map[string]any{"collector": true, "junk": int64(1)},  // UNKNOWN_FIELD (strict object)
-		"tablespaces":   map[string]any{"bad": map[string]any{}},              // nested REQUIRED
-		"limits":        map[string]any{"cpu": int64(-1), "mem": "lots"},      // value_field: GTE + TYPE_MISMATCH
-		"labels":        map[string]any{"bad": "UPPER", "nope": "forbidden"},  // value_field: PATTERN + RULE
-		"backup":        map[string]any{"type": "tape"},                       // UNKNOWN_VARIANT
-		"data_volume":   map[string]any{"path": "/data", "size_gb": int64(0)}, // GT via def
-		"garbage":       int64(1),                                             // UNKNOWN_FIELD (strict root)
-		"endpoint_pair": []any{"", "not-a-port"},                              // tuple: MIN_LEN + TYPE_MISMATCH
+		"logging":       map[string]any{"collector": true, "junk": int64(1)},              // UNKNOWN_FIELD (strict object)
+		"tablespaces":   map[string]any{"bad": map[string]any{}},                          // nested REQUIRED
+		"limits":        map[string]any{"cpu": int64(-1), "mem": "lots", "Bad": int64(1)}, // value_field: GTE + TYPE_MISMATCH; key PATTERN
+		"ports":         map[string]any{"0": "", "22": "ssh", "x": "web"},                 // key GT + value MIN_LEN, key RULE, key TYPE_MISMATCH
+		"labels":        map[string]any{"bad": "UPPER", "nope": "forbidden"},              // value_field: PATTERN + RULE
+		"backup":        map[string]any{"type": "tape"},                                   // UNKNOWN_VARIANT
+		"data_volume":   map[string]any{"path": "/data", "size_gb": int64(0)},             // GT via def
+		"garbage":       int64(1),                                                         // UNKNOWN_FIELD (strict root)
+		"endpoint_pair": []any{"", "not-a-port"},                                          // tuple: MIN_LEN + TYPE_MISMATCH
 	}
 }
 

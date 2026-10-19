@@ -118,6 +118,13 @@ pub fn nested_schemas(f: &SchemaField) -> Vec<std::borrow::Cow<'_, Schema>> {
                     ..Default::default()
                 }));
             }
+            // The key_field walks the same way: its patterns and rules compile.
+            if let Some(kf) = mp.key_field.as_ref() {
+                out.push(Cow::Owned(Schema {
+                    fields: vec![kf.as_ref().clone()],
+                    ..Default::default()
+                }));
+            }
         }
         Some(K::List(l)) => {
             for it in &l.items {
@@ -264,6 +271,26 @@ fn check_fields(fields: &[SchemaField], prefix: &str) -> Vec<ValidationError> {
                         &path,
                         "map field: value_schema and value_field are mutually exclusive",
                     ));
+                }
+                if let Some(kf) = mp.key_field.as_ref() {
+                    if !matches!(
+                        kf.kind,
+                        Some(
+                            K::String(_)
+                                | K::Choice(_)
+                                | K::Int32(_)
+                                | K::Int64(_)
+                                | K::Uint32(_)
+                                | K::Uint64(_)
+                                | K::Bool(_)
+                        )
+                    ) {
+                        errs.push(schema_err(
+                            &path,
+                            "map field: key_field kind must be string, choice, int32, int64, \
+                             uint32, uint64 or bool",
+                        ));
+                    }
                 }
             }
             _ => {}

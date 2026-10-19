@@ -135,7 +135,8 @@ impl NullValue {
 /// Expression language: full CEL spec plus the `strings` extension. Expressions
 /// must be pure and deterministic (no now()/rand, no implicit timezones) so all
 /// implementations agree. Variables bound by the engine:
-///    `this` — the current field's value (field-level rules/normalize only)
+///    `this` — the current field's value (field-level rules/normalize), or
+///             the schema's own object for Schema.rules
 ///    `root` — the whole form as a map (inputs + already-computed values)
 ///
 /// Render templates are Mustache (<https://mustache.github.io>); see
@@ -152,7 +153,9 @@ pub struct Schema {
     /// The fields that make up the form. 
     #[prost(message, repeated, tag="3")]
     pub fields: ::prost::alloc::vec::Vec<schema::Field>,
-    /// Form-wide invariant rules (`root` only, no `this`). 
+    /// Form-wide invariant rules. `this` is bound to this schema's object:
+    /// the whole form at the root (same as `root`), the nested object when
+    /// the schema is reached through Object/Ref/OneOf/Map. 
     #[prost(message, repeated, tag="4")]
     pub rules: ::prost::alloc::vec::Vec<schema::field::Rule>,
     ///
@@ -733,6 +736,18 @@ pub mod schema {
             /// entries are never invented; explicit null retains its presence.
             #[prost(message, optional, boxed, tag="4")]
             pub value_field: ::core::option::Option<::prost::alloc::boxed::Box<super::Field>>,
+            ///
+            /// Field definition every map KEY must satisfy. Keys are strings on
+            /// the wire; the kind says how a key is read: string or a choice of
+            /// strings => as is; int32/int64/uint32/uint64 => a decimal integer;
+            /// bool => "true"/"false". Other kinds are invalid schemas. A key that
+            /// does not read as the kind is ERROR_CODE_TYPE_MISMATCH. Only the
+            /// kind constraints and rules apply (`this` is the read key); name,
+            /// defaults, normalize and computed are ignored. Errors on a key name
+            /// the entry's path and set ValidationError.key. Per entry, in key
+            /// order, key errors precede value errors.
+            #[prost(message, optional, boxed, tag="5")]
+            pub key_field: ::core::option::Option<::prost::alloc::boxed::Box<super::Field>>,
         }
         ///
         /// Computed field kind: a value derived from other values, not entered by
@@ -1061,6 +1076,10 @@ pub struct ValidationError {
     /// Structured counterpart of path; empty for the root.
     #[prost(message, repeated, tag="10")]
     pub path_segments: ::prost::alloc::vec::Vec<PathSegment>,
+    /// True when the failure concerns the map KEY that ends path (see
+    /// Schema.Field.Map.key_field), not the value stored under it. 
+    #[prost(bool, tag="11")]
+    pub key: bool,
 }
 ///
 /// ValidationResult is the complete outcome of validating a form.

@@ -379,6 +379,18 @@ message Schema {
        * entries are never invented; explicit null retains its presence.
        */
       optional Field value_field = 4;
+      /*
+       * Field definition every map KEY must satisfy. Keys are strings on
+       * the wire; the kind says how a key is read: string or a choice of
+       * strings => as is; int32/int64/uint32/uint64 => a decimal integer;
+       * bool => "true"/"false". Other kinds are invalid schemas. A key that
+       * does not read as the kind is ERROR_CODE_TYPE_MISMATCH. Only the
+       * kind constraints and rules apply (`this` is the read key); name,
+       * defaults, normalize and computed are ignored. Errors on a key name
+       * the entry's path and set ValidationError.key. Per entry, in key
+       * order, key errors precede value errors.
+       */
+      optional Field key_field = 5;
     }
     /*
      * Computed field kind: a value derived from other values, not entered by

@@ -14,24 +14,39 @@
  *   wrappers          the wrapped scalar, absent when unset
  *   Struct / Value / ListValue    their JSON-shaped value
  *   Empty             empty object  FieldMask  list of path strings
- *   Any               unsupported (UnsupportedFieldError)
+ *   Any               "@type" plus the fields of the packed message when its
+ *                     type is listed for the validator; only "@type" otherwise
  *
  * Error paths name proto fields; key segments that name a proto field carry
  * their wire field number, and the result carries the schema identity.
  */
 
 import {
+  clone,
   create,
+  createRegistry,
   type DescField,
   type DescMessage,
   fromBinary,
+  fromJson,
+  type JsonValue,
   type Message,
   type MessageShape,
+  type Registry,
   ScalarType,
 } from "@bufbuild/protobuf";
 import { type ReflectMessage, reflect } from "@bufbuild/protobuf/reflect";
 import { base64Decode } from "@bufbuild/protobuf/wire";
-import { DurationSchema, FeatureSet_FieldPresence, TimestampSchema } from "@bufbuild/protobuf/wkt";
+import {
+  type Any,
+  anyUnpack,
+  DurationSchema,
+  FeatureSet_FieldPresence,
+  ListValueSchema,
+  StructSchema,
+  TimestampSchema,
+  ValueSchema,
+} from "@bufbuild/protobuf/wkt";
 import { Engine } from "./engine.js";
 import type { ValidationResult } from "./gen/schemapb/errors_pb.js";
 import { type Schema, SchemaSchema } from "./gen/schemapb/schema_pb.js";
@@ -46,6 +61,20 @@ export class UnsupportedFieldError extends Error {
     this.name = "UnsupportedFieldError";
   }
 }
+
+/** A resolved value that does not fit its proto field. */
+export class WriteBackError extends Error {
+  constructor(what: string) {
+    super(`protomsg: resolved value does not fit the field: ${what}`);
+    this.name = "WriteBackError";
+  }
+}
+
+/** The type URL prefix protobuf runtimes write. */
+const anyUrlPrefix = "type.googleapis.com/";
+
+/** The property naming an Any's type URL in the value tree. */
+export const anyTypeKey = "@type";
 
 /** A blocking validation outcome, thrown by Validator.validate. */
 export class ValidationFailure extends Error {
@@ -70,61 +99,16 @@ function setOwn(out: NativeStruct, key: string, value: Native): void {
   Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
 }
 
-/** Presents a message as the value tree the schemapb engine validates. */
+/**
+ * Presents a message as the value tree the schemapb engine validates.
+ * anyTypes lists the message types an Any may hold and that are unpacked.
+ */
 export function messageValues<Desc extends DescMessage>(
   desc: Desc,
   msg: MessageShape<Desc>,
+  anyTypes: readonly DescMessage[] = [],
 ): NativeStruct {
-  return reflectedValues(reflect(desc, msg));
-}
-
-function reflectedValues(r: ReflectMessage): NativeStruct {
-  const out: NativeStruct = {};
-  for (const field of r.fields) {
-    const always =
-      field.fieldKind === "list" ||
-      field.fieldKind === "map" ||
-      (field.presence === FeatureSet_FieldPresence.IMPLICIT && field.oneof === undefined);
-    if (!always && !r.isSet(field)) {
-      continue;
-    }
-    setOwn(out, field.name, fieldValue(field, r));
-  }
-  return out;
-}
-
-function fieldValue(field: DescField, r: ReflectMessage): Native {
-  switch (field.fieldKind) {
-    case "list": {
-      const list = r.get(field);
-      return Array.from(list, (v) => elementValue(field, v));
-    }
-    case "map": {
-      const out: NativeStruct = {};
-      for (const [k, v] of r.get(field)) {
-        setOwn(out, String(k), elementValue(field, v));
-      }
-      return out;
-    }
-    default:
-      return elementValue(field, r.get(field));
-  }
-}
-
-function elementValue(field: DescField, v: unknown): Native {
-  if (field.enum !== undefined) {
-    const num = v as number;
-    return field.enum.value[num]?.name ?? BigInt(num);
-  }
-  if (field.message !== undefined) {
-    return messageValue(v as ReflectMessage);
-  }
-  // Integer kinds are bigint in the engine's native form; protobuf-es yields
-  // number for 32-bit kinds and, with jstype=JS_STRING, string for 64-bit.
-  if (field.scalar !== undefined && integral.has(field.scalar)) {
-    return BigInt(v as number | bigint | string);
-  }
-  return scalarValue(v);
+  return new Mapping(createRegistry(...anyTypes)).reflected(reflect(desc, msg));
 }
 
 const integral = new Set<ScalarType>([
@@ -140,21 +124,13 @@ const integral = new Set<ScalarType>([
   ScalarType.SINT64,
 ]);
 
-function scalarValue(v: unknown): Native {
-  switch (typeof v) {
-    case "number":
-    case "bigint":
-    case "boolean":
-      return v;
-    case "string":
-      return v;
-    default:
-      if (v instanceof Uint8Array) {
-        return v;
-      }
-      throw new UnsupportedFieldError(typeof v);
-  }
-}
+const int32Kinds = new Set<ScalarType>([
+  ScalarType.INT32,
+  ScalarType.SINT32,
+  ScalarType.SFIXED32,
+  ScalarType.UINT32,
+  ScalarType.FIXED32,
+]);
 
 const wrappers = new Set([
   "google.protobuf.DoubleValue",
@@ -168,38 +144,18 @@ const wrappers = new Set([
   "google.protobuf.BytesValue",
 ]);
 
-function messageValue(r: ReflectMessage): Native {
-  const name = r.desc.typeName;
-  const msg = r.message as Message & Record<string, unknown>;
-  if (name === "google.protobuf.Timestamp") {
-    return create(TimestampSchema, {
-      seconds: msg["seconds"] as bigint,
-      nanos: msg["nanos"] as number,
-    });
-  }
-  if (name === "google.protobuf.Duration") {
-    return create(DurationSchema, {
-      seconds: msg["seconds"] as bigint,
-      nanos: msg["nanos"] as number,
-    });
-  }
-  if (wrappers.has(name)) {
-    const field = r.desc.fields[0] as DescField;
-    return elementValue(field, r.get(field));
-  }
-  switch (name) {
-    case "google.protobuf.Struct":
-      return structValue(r);
-    case "google.protobuf.Value":
-      return jsonValue(r);
-    case "google.protobuf.ListValue":
-      return listValue(r);
-    case "google.protobuf.FieldMask":
-      return [...(msg["paths"] as string[])];
-    case "google.protobuf.Any":
-      throw new UnsupportedFieldError(name);
+function scalarValue(v: unknown): Native {
+  switch (typeof v) {
+    case "number":
+    case "bigint":
+    case "boolean":
+    case "string":
+      return v;
     default:
-      return reflectedValues(r);
+      if (v instanceof Uint8Array) {
+        return v;
+      }
+      throw new UnsupportedFieldError(typeof v);
   }
 }
 
@@ -251,6 +207,352 @@ function jsonValue(r: ReflectMessage): Native {
   }
 }
 
+/** One conversion: the registry holds the Any types to unpack. */
+class Mapping {
+  readonly #anyTypes: Registry;
+
+  constructor(anyTypes: Registry) {
+    this.#anyTypes = anyTypes;
+  }
+
+  reflected(r: ReflectMessage): NativeStruct {
+    const out: NativeStruct = {};
+    for (const field of r.fields) {
+      const always =
+        field.fieldKind === "list" ||
+        field.fieldKind === "map" ||
+        (field.presence === FeatureSet_FieldPresence.IMPLICIT && field.oneof === undefined);
+      if (!always && !r.isSet(field)) {
+        continue;
+      }
+      setOwn(out, field.name, this.#field(field, r));
+    }
+    return out;
+  }
+
+  #field(field: DescField, r: ReflectMessage): Native {
+    switch (field.fieldKind) {
+      case "list":
+        return Array.from(r.get(field), (v) => this.#element(field, v));
+      case "map": {
+        const out: NativeStruct = {};
+        for (const [k, v] of r.get(field)) {
+          setOwn(out, String(k), this.#element(field, v));
+        }
+        return out;
+      }
+      default:
+        return this.#element(field, r.get(field));
+    }
+  }
+
+  #element(field: DescField, v: unknown): Native {
+    if (field.enum !== undefined) {
+      const num = v as number;
+      return field.enum.value[num]?.name ?? BigInt(num);
+    }
+    if (field.message !== undefined) {
+      return this.#message(v as ReflectMessage);
+    }
+    // Integer kinds are bigint in the engine's native form; protobuf-es yields
+    // number for 32-bit kinds and, with jstype=JS_STRING, string for 64-bit.
+    if (field.scalar !== undefined && integral.has(field.scalar)) {
+      return BigInt(v as number | bigint | string);
+    }
+    return scalarValue(v);
+  }
+
+  #message(r: ReflectMessage): Native {
+    const name = r.desc.typeName;
+    const msg = r.message as Message & Record<string, unknown>;
+    if (name === "google.protobuf.Timestamp") {
+      return create(TimestampSchema, {
+        seconds: msg["seconds"] as bigint,
+        nanos: msg["nanos"] as number,
+      });
+    }
+    if (name === "google.protobuf.Duration") {
+      return create(DurationSchema, {
+        seconds: msg["seconds"] as bigint,
+        nanos: msg["nanos"] as number,
+      });
+    }
+    if (wrappers.has(name)) {
+      const field = r.desc.fields[0] as DescField;
+      return this.#element(field, r.get(field));
+    }
+    switch (name) {
+      case "google.protobuf.Struct":
+        return structValue(r);
+      case "google.protobuf.Value":
+        return jsonValue(r);
+      case "google.protobuf.ListValue":
+        return listValue(r);
+      case "google.protobuf.FieldMask":
+        return [...(msg["paths"] as string[])];
+      case "google.protobuf.Any":
+        return this.#any(r.message as Any);
+      default:
+        return this.reflected(r);
+    }
+  }
+
+  /** Unpacks an Any of a listed type into its fields plus "@type". */
+  #any(any: Any): NativeStruct {
+    const out: NativeStruct = {};
+    const name = any.typeUrl.startsWith(anyUrlPrefix) ? any.typeUrl.slice(anyUrlPrefix.length) : "";
+    const desc = name === "" ? undefined : this.#anyTypes.getMessage(name);
+    if (desc !== undefined) {
+      const inner = anyUnpack(any, desc);
+      if (inner !== undefined) {
+        Object.assign(out, this.reflected(reflect(desc, inner)));
+      }
+    }
+    setOwn(out, anyTypeKey, any.typeUrl);
+    return out;
+  }
+}
+
+// =============================================================================
+// Write-back: the resolved value tree into a message
+// =============================================================================
+
+/**
+ * Stores the resolved values into msg, all or nothing: writes a clone and
+ * copies it over msg only when every field converted. Keys absent from
+ * values leave their field unchanged; Any fields are never rewritten.
+ */
+function writeBack<Desc extends DescMessage>(
+  desc: Desc,
+  msg: MessageShape<Desc>,
+  values: NativeStruct,
+): void {
+  const copy = clone(desc, msg);
+  setMessage(reflect(desc, copy), values);
+  Object.assign(msg, copy);
+}
+
+function isObjectMessage(desc: DescMessage | undefined): desc is DescMessage {
+  return desc !== undefined && desc.file.proto.package !== "google.protobuf";
+}
+
+function setMessage(r: ReflectMessage, values: NativeStruct): void {
+  for (const field of r.fields) {
+    if (!Object.hasOwn(values, field.name) || field.message?.typeName === "google.protobuf.Any") {
+      continue;
+    }
+    const x = values[field.name] ?? null;
+    if (x === null) {
+      r.clear(field);
+      continue;
+    }
+    switch (field.fieldKind) {
+      case "list": {
+        if (!Array.isArray(x)) throw misfit(field, x);
+        const list = r.get(field);
+        const old = Array.from(list);
+        list.clear();
+        x.forEach((item, i) => {
+          if (isObjectMessage(field.message)) {
+            const el = (old[i] as ReflectMessage | undefined) ?? reflect(field.message);
+            setMessage(el, asStruct(field, item));
+            list.add(el);
+          } else {
+            list.add(toProto(field, item));
+          }
+        });
+        break;
+      }
+      case "map": {
+        const entries = asStruct(field, x);
+        const mp = r.get(field);
+        const old = new Map(mp);
+        mp.clear();
+        for (const [k, item] of Object.entries(entries)) {
+          const key = mapKey(field, k);
+          if (field.mapKind === "message" && isObjectMessage(field.message)) {
+            const el = (old.get(key) as ReflectMessage | undefined) ?? reflect(field.message);
+            setMessage(el, asStruct(field, item));
+            mp.set(key, el);
+          } else {
+            mp.set(key, toProto(field, item));
+          }
+        }
+        break;
+      }
+      case "message":
+        if (isObjectMessage(field.message)) {
+          const el = r.isSet(field) ? r.get(field) : reflect(field.message);
+          setMessage(el, asStruct(field, x));
+          r.set(field, el);
+        } else {
+          r.set(field, toProto(field, x));
+        }
+        break;
+      default:
+        r.set(field, toProto(field, x));
+    }
+  }
+}
+
+function asStruct(field: DescField, x: Native): NativeStruct {
+  if (
+    x === null ||
+    typeof x !== "object" ||
+    Array.isArray(x) ||
+    x instanceof Uint8Array ||
+    isWkt(x)
+  ) {
+    throw misfit(field, x);
+  }
+  return x as NativeStruct;
+}
+
+function isWkt(x: object): boolean {
+  return "$typeName" in x;
+}
+
+function mapKey(field: DescField, k: string): unknown {
+  if (field.fieldKind !== "map") return k;
+  switch (field.mapKey) {
+    case ScalarType.STRING:
+      return k;
+    case ScalarType.BOOL:
+      if (k === "true" || k === "false") return k === "true";
+      break;
+    default:
+      if (/^-?[0-9]+$/.test(k)) {
+        return int32Kinds.has(field.mapKey) ? Number(k) : BigInt(k);
+      }
+  }
+  throw new WriteBackError(`${field.toString()} key ${JSON.stringify(k)}`);
+}
+
+/** Converts one native value to what ReflectMessage.set/add expects for field. */
+function toProto(field: DescField, x: Native): unknown {
+  if (field.enum !== undefined) {
+    if (typeof x === "string") {
+      const v = field.enum.values.find((ev) => ev.name === x);
+      if (v !== undefined) return v.number;
+    } else if (typeof x === "bigint") {
+      return Number(x);
+    }
+    throw misfit(field, x);
+  }
+  if (field.message !== undefined) {
+    return reflect(field.message, wellKnown(field, field.message, x));
+  }
+  return scalarToProto(field, field.scalar, x);
+}
+
+function scalarToProto(field: DescField, scalar: ScalarType | undefined, x: Native): unknown {
+  switch (scalar) {
+    case ScalarType.BOOL:
+      if (typeof x === "boolean") return x;
+      break;
+    case ScalarType.STRING:
+      if (typeof x === "string") return x;
+      break;
+    case ScalarType.BYTES:
+      if (x instanceof Uint8Array) return x;
+      break;
+    case ScalarType.DOUBLE:
+    case ScalarType.FLOAT:
+      if (typeof x === "number") return x;
+      if (typeof x === "bigint") return Number(x);
+      break;
+    default: {
+      if (scalar === undefined) break;
+      const n =
+        typeof x === "bigint"
+          ? x
+          : typeof x === "number" && Number.isInteger(x)
+            ? BigInt(x)
+            : undefined;
+      if (n === undefined || !fitsInteger(scalar, n)) break;
+      return int32Kinds.has(scalar) ? Number(n) : n;
+    }
+  }
+  throw misfit(field, x);
+}
+
+function fitsInteger(scalar: ScalarType, n: bigint): boolean {
+  switch (scalar) {
+    case ScalarType.INT32:
+    case ScalarType.SINT32:
+    case ScalarType.SFIXED32:
+      return n >= -(1n << 31n) && n < 1n << 31n;
+    case ScalarType.UINT32:
+    case ScalarType.FIXED32:
+      return n >= 0n && n < 1n << 32n;
+    case ScalarType.UINT64:
+    case ScalarType.FIXED64:
+      return n >= 0n && n < 1n << 64n;
+    default:
+      return n >= -(1n << 63n) && n < 1n << 63n;
+  }
+}
+
+/** Builds a well-known-type message from its natural value. */
+function wellKnown(field: DescField, desc: DescMessage, x: Native): Message {
+  const name = desc.typeName;
+  const isMsg = (want: DescMessage) =>
+    x !== null && typeof x === "object" && "$typeName" in x && x.$typeName === want.typeName;
+  if (name === "google.protobuf.Timestamp" && isMsg(TimestampSchema)) return x as Message;
+  if (name === "google.protobuf.Duration" && isMsg(DurationSchema)) return x as Message;
+  if (name === "google.protobuf.Empty") return create(desc);
+  if (
+    name === "google.protobuf.FieldMask" &&
+    Array.isArray(x) &&
+    x.every((p) => typeof p === "string")
+  ) {
+    return create(desc, { paths: x as string[] } as never);
+  }
+  if (wrappers.has(name)) {
+    const inner = desc.fields[0] as DescField;
+    return create(desc, { value: scalarToProto(inner, inner.scalar, x) } as never);
+  }
+  const json = toJsonValue(x);
+  switch (name) {
+    case "google.protobuf.Struct":
+      if (json !== null && typeof json === "object" && !Array.isArray(json))
+        return fromJson(StructSchema, json);
+      break;
+    case "google.protobuf.ListValue":
+      if (Array.isArray(json)) return fromJson(ListValueSchema, json);
+      break;
+    case "google.protobuf.Value":
+      return fromJson(ValueSchema, json);
+  }
+  throw misfit(field, x);
+}
+
+/** A JSON-shaped native value as JsonValue (Struct/Value/ListValue). */
+function toJsonValue(x: Native): JsonValue {
+  if (x === null || typeof x === "string" || typeof x === "boolean" || typeof x === "number")
+    return x;
+  if (typeof x === "bigint") return Number(x);
+  if (Array.isArray(x)) return x.map(toJsonValue);
+  if (x instanceof Uint8Array || "$typeName" in x) {
+    throw new WriteBackError("non-JSON value in a JSON field");
+  }
+  const out: { [k: string]: JsonValue } = {};
+  for (const [k, v] of Object.entries(x)) {
+    Object.defineProperty(out, k, {
+      value: toJsonValue(v),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  return out;
+}
+
+function misfit(field: DescField, x: Native): WriteBackError {
+  const what = x === null ? "null" : Array.isArray(x) ? "list" : typeof x;
+  return new WriteBackError(`${field.toString()} cannot hold ${what}`);
+}
+
 /** Records the wire field number on each key segment that names a proto field. */
 function numberPath(desc: DescMessage, segments: PathSegment[]): void {
   let cur: DescMessage | undefined = desc;
@@ -298,12 +600,17 @@ function objectMessage(desc: DescMessage | undefined): DescMessage | undefined {
 export class Validator<Desc extends DescMessage> {
   readonly desc: Desc;
   readonly #raw: string;
+  readonly #mapping: Mapping;
   #engine: Engine | undefined;
 
-  /** rawSchema is the base64 binary encoding of the Schema. */
-  constructor(desc: Desc, rawSchema: string) {
+  /**
+   * rawSchema is the base64 binary encoding of the Schema; anyTypes the
+   * message types an Any field may hold.
+   */
+  constructor(desc: Desc, rawSchema: string, anyTypes: readonly DescMessage[] = []) {
     this.desc = desc;
     this.#raw = rawSchema;
+    this.#mapping = new Mapping(createRegistry(...anyTypes));
   }
 
   #compiled(): Engine {
@@ -321,14 +628,33 @@ export class Validator<Desc extends DescMessage> {
    * on programmatic failure: SchemaError, UnsupportedFieldError.
    */
   check(msg: MessageShape<Desc>): ValidationResult {
+    return this.#check(msg).res;
+  }
+
+  /** Validates msg; the engine resolves the returned values in place. */
+  #check(msg: MessageShape<Desc>): { res: ValidationResult; values: NativeStruct } {
     const engine = this.#compiled();
-    const values = messageValues(this.desc, msg);
+    const values = this.#mapping.reflected(reflect(this.desc, msg));
     const res = engine.validate(values);
     if (engine.schema.id !== undefined) {
       res.schema = engine.schema.id;
     }
     for (const err of res.errors) {
       numberPath(this.desc, err.pathSegments);
+    }
+    return { res, values };
+  }
+
+  /**
+   * Validates msg and, when nothing blocks, writes the resolved values
+   * (defaults, normalize, computed) back into it. On a blocking result msg
+   * is left untouched. Throws WriteBackError (msg unchanged) when a
+   * resolved value does not fit its field.
+   */
+  resolve(msg: MessageShape<Desc>): ValidationResult {
+    const { res, values } = this.#check(msg);
+    if (!resultBlocking(res)) {
+      writeBack(this.desc, msg, values);
     }
     return res;
   }
