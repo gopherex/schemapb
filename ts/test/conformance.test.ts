@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { bake, renderBaked } from "../src/bake.js";
+import { checkDescriptor } from "../src/descriptor.js";
 import { Engine } from "../src/engine.js";
 import { ErrorCode, ValidationResultSchema } from "../src/gen/schemapb/errors_pb.js";
 import { SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
@@ -231,4 +232,13 @@ it("empty object defaults own nested byte buffers", () => {
   expect(((second["db"] as NativeStruct)["payload"] as NativeStruct)["blob"]).toEqual(
     new Uint8Array([1, 2]),
   );
+});
+
+describe("descriptor parity", () => {
+  it("reports the descriptor defects of invalid-schema.json like Go", () => {
+    const schema = fromJson(SchemaSchema, JSON.parse(golden("invalid-schema.json")));
+    const want = fromJson(ValidationResultSchema, JSON.parse(golden("invalid-schema-errors.json")));
+    const got = checkDescriptor(schema).map((e) => [e.path, e.message]);
+    expect(got).toEqual(want.errors.map((e) => [e.path, e.message]));
+  });
 });

@@ -222,11 +222,6 @@ function checkFields(fields: Schema_Field[], prefix: string): ValidationError[] 
         break;
       }
       case "map": {
-        if (kind.value.valueSchema !== undefined && kind.value.valueField !== undefined) {
-          errs.push(
-            schemaErr(path, "map field: value_schema and value_field are mutually exclusive"),
-          );
-        }
         const mp = kind.value;
         if (
           mp.minEntries !== undefined &&
@@ -234,6 +229,12 @@ function checkFields(fields: Schema_Field[], prefix: string): ValidationError[] 
           mp.minEntries > mp.maxEntries
         ) {
           errs.push(schemaErr(path, "map field: min_entries must be <= max_entries"));
+        }
+        // Same order as the Go reference: entries bounds, exclusivity, key kind.
+        if (kind.value.valueSchema !== undefined && kind.value.valueField !== undefined) {
+          errs.push(
+            schemaErr(path, "map field: value_schema and value_field are mutually exclusive"),
+          );
         }
         const keyKind = mp.keyField?.kind.case;
         if (

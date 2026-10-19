@@ -4,7 +4,14 @@ conformance/golden/messages.json, written by the Go reference).
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from schemapb._gen.schemapb import ErrorCode, Value
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+
+    from schemapb._gen.schemapb import ValidationError
 from schemapb.render import display_string
 from schemapb.value import to_native
 
@@ -45,15 +52,52 @@ MESSAGE_TEMPLATES: dict[ErrorCode, str] = {
 }
 
 
+def display_value(v: Value) -> str:
+    """The spec's display form of a value, used by the default messages."""
+    return display_string(to_native(v))
+
+
+def _fill(
+    tpl: str,
+    expected: Value | None,
+    actual: Value | None,
+    display: Callable[[Value], str],
+) -> str:
+    def sub(s: str, placeholder: str, v: Value | None) -> str:
+        if placeholder not in s:
+            return s
+        disp = "…" if v is None else display(v)
+        return s.replace(placeholder, disp)
+
+    return sub(sub(tpl, "{expected}", expected), "{actual}", actual)
+
+
 def render_message(code: ErrorCode, expected: Value | None, actual: Value | None) -> str:
     tpl = MESSAGE_TEMPLATES.get(code)
     if tpl is None:
         return ""
+    return _fill(tpl, expected, actual, display_value)
 
-    def sub(s: str, placeholder: str, v: Value | None) -> str:
-        if placeholder not in s:
-            return s
-        disp = "…" if v is None else display_string(to_native(v))
-        return s.replace(placeholder, disp)
 
-    return sub(sub(tpl, "{expected}", expected), "{actual}", actual)
+def message_key(err: ValidationError) -> str:
+    """The catalog key that translates err: the rule id for a violated rule
+    that declares one, the ErrorCode name otherwise."""
+    rule_id: str | None = err.rule_id
+    if err.code == ErrorCode.RULE_VIOLATED and rule_id:
+        return rule_id
+    return f"ERROR_CODE_{ErrorCode(err.code).name}"
+
+
+def format_message(
+    err: ValidationError,
+    catalog: Mapping[str, str],
+    display: Callable[[Value], str] | None = None,
+) -> str:
+    """Renders err from a per-locale catalog (keys: message_key), with the
+    {expected}/{actual} placeholders; a missing key falls back to
+    err.message."""
+    tpl = catalog.get(message_key(err))
+    if tpl is None:
+        message: str = err.message
+        return message
+    return _fill(tpl, err.expected, err.actual, display or display_value)

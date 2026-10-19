@@ -32,7 +32,13 @@ from schemapb.engine import Engine, compile_schema
 from schemapb.formats import FormatRegistry, core_formats
 from schemapb.lookup import LookupReason, SchemaLookupError, list_items, lookup, lookup_path
 from schemapb.masked import masked
-from schemapb.messages import MESSAGE_TEMPLATES, render_message
+from schemapb.messages import (
+    MESSAGE_TEMPLATES,
+    display_value,
+    format_message,
+    message_key,
+    render_message,
+)
 from schemapb.registry import InMemoryRegistry, RegistryError, identity_key, link
 from schemapb.render import display_string, kind_name, native_equals
 from schemapb.typed import (
@@ -109,6 +115,9 @@ __all__ = [  # noqa: RUF022 - grouped by module
     "FormatRegistry",
     "core_formats",
     "MESSAGE_TEMPLATES",
+    "display_value",
+    "format_message",
+    "message_key",
     "render_message",
     "InMemoryRegistry",
     "RegistryError",

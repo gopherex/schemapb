@@ -63,6 +63,11 @@ const ru = { ERROR_CODE_GTE_VIOLATED: "должно быть не меньше {
 formatMessage(err, ru, (v) => displayValue(v));
 ```
 
+Python: `format_message(err, catalog, display=None)` / `message_key(err)`;
+Rust: `messages::format_message(&err, &catalog, None)` / `message_key(&err)`.
+`conformance/golden/catalog.json` pins all four ports to the same keys and
+rendered text.
+
 Give rules an `id` so their messages can be translated. Field labels for a
 message come from the schema (`title`, `description`), found by `path`.
 

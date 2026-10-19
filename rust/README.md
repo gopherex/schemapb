@@ -101,3 +101,7 @@ Known deviations (tracked):
   (the Go reference has `WithCostLimit`).
 - timestamps flow through `chrono::DateTime` inside CEL expressions;
   the conformance goldens only exercise whole-second RFC 3339 values.
+- no typed-message bridge (Go `protomsg`, TS `Validator`) and no generator:
+  `ValidationResult.schema` and `PathSegment.field_number` are never set
+  here, and ErrorCode specs come from the template table (checked against
+  `messages.json`) rather than from the `error_spec` options.

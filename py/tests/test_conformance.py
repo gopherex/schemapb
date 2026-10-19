@@ -8,7 +8,14 @@ from pathlib import Path
 import pytest
 
 import schemapb as spb
-from schemapb._gen.schemapb import ErrorCode, ResolveReport, Schema, StructValue, ValidationResult
+from schemapb._gen.schemapb import (
+    ErrorCode,
+    ResolveReport,
+    Schema,
+    StructValue,
+    ValidationError,
+    ValidationResult,
+)
 
 GOLDEN = Path(__file__).parent.parent.parent / "conformance" / "golden"
 
@@ -165,3 +172,19 @@ def test_recursive_resolve_conformance(case: dict[str, object]) -> None:
 def test_nonempty_object_default(case: dict[str, object]) -> None:
     with pytest.raises(spb.SchemaError):
         spb.compile_schema(Schema().from_json(json.dumps(case["schema"])))
+
+
+def test_catalog_golden() -> None:
+    doc = json.loads(golden("catalog.json"))
+    catalog = doc["catalog"]
+    for case in doc["cases"]:
+        err = ValidationError().from_json(json.dumps(case["error"]))
+        assert spb.message_key(err) == case["key"]
+        assert spb.format_message(err, catalog) == case["message"]
+
+
+def test_invalid_schema_golden() -> None:
+    schema = Schema().from_json(golden("invalid-schema.json"))
+    want = ValidationResult().from_json(golden("invalid-schema-errors.json"))
+    got = spb.check_descriptor(schema)
+    assert [(e.path, e.message) for e in got] == [(e.path, e.message) for e in want.errors]

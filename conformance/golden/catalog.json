@@ -1,0 +1,1139 @@
+{
+  "catalog": {
+    "ERROR_CODE_GTE_VIOLATED": "должно быть не меньше {expected} (сейчас {actual})",
+    "ERROR_CODE_PATTERN_MISMATCH": "не соответствует шаблону {expected}",
+    "ERROR_CODE_REQUIRED_MISSING": "обязательное поле",
+    "ERROR_CODE_UNKNOWN_VARIANT": "неизвестный вариант {actual}",
+    "cross": "i64 должно покрывать i32",
+    "no-ssh": "порт 22 запрещён"
+  },
+  "cases": [
+    {
+      "error": {
+        "path": "garbage",
+        "code": "ERROR_CODE_UNKNOWN_FIELD",
+        "actual": {
+          "int64Value": "1"
+        },
+        "constraint": "strict",
+        "severity": "SEVERITY_ERROR",
+        "message": "unknown field",
+        "pathSegments": [
+          {
+            "key": "garbage"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_UNKNOWN_FIELD",
+      "message": "unknown field"
+    },
+    {
+      "error": {
+        "path": "f32",
+        "code": "ERROR_CODE_IN_FORBIDDEN_SET",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "doubleValue": 0.25
+              }
+            ]
+          }
+        },
+        "actual": {
+          "doubleValue": 0.25
+        },
+        "constraint": "not_in",
+        "severity": "SEVERITY_ERROR",
+        "message": "must not be one of [0.25]",
+        "pathSegments": [
+          {
+            "key": "f32"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_IN_FORBIDDEN_SET",
+      "message": "must not be one of [0.25]"
+    },
+    {
+      "error": {
+        "path": "f64",
+        "code": "ERROR_CODE_CONST_MISMATCH",
+        "expected": {
+          "doubleValue": 1.5
+        },
+        "actual": {
+          "doubleValue": 2
+        },
+        "constraint": "const",
+        "severity": "SEVERITY_ERROR",
+        "message": "must equal 1.5",
+        "pathSegments": [
+          {
+            "key": "f64"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_CONST_MISMATCH",
+      "message": "must equal 1.5"
+    },
+    {
+      "error": {
+        "path": "i32",
+        "code": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "int64Value": "2"
+              },
+              {
+                "int64Value": "4"
+              },
+              {
+                "int64Value": "8"
+              },
+              {
+                "int64Value": "16"
+              },
+              {
+                "int64Value": "32"
+              },
+              {
+                "int64Value": "64"
+              }
+            ]
+          }
+        },
+        "actual": {
+          "int64Value": "5"
+        },
+        "constraint": "in",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be one of [2,4,8,16,32,64]",
+        "pathSegments": [
+          {
+            "key": "i32"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+      "message": "must be one of [2,4,8,16,32,64]"
+    },
+    {
+      "error": {
+        "path": "i32",
+        "code": "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+        "expected": {
+          "int64Value": "2"
+        },
+        "actual": {
+          "int64Value": "5"
+        },
+        "constraint": "multiple_of",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be a multiple of 2",
+        "pathSegments": [
+          {
+            "key": "i32"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+      "message": "must be a multiple of 2"
+    },
+    {
+      "error": {
+        "path": "i64",
+        "code": "ERROR_CODE_GTE_VIOLATED",
+        "expected": {
+          "int64Value": "16"
+        },
+        "actual": {
+          "int64Value": "8"
+        },
+        "constraint": "gte",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be \u003e= 16",
+        "pathSegments": [
+          {
+            "key": "i64"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_GTE_VIOLATED",
+      "message": "должно быть не меньше 16 (сейчас 8)"
+    },
+    {
+      "error": {
+        "path": "u32",
+        "code": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "uint64Value": "1"
+              },
+              {
+                "uint64Value": "2"
+              },
+              {
+                "uint64Value": "4"
+              }
+            ]
+          }
+        },
+        "actual": {
+          "uint64Value": "3"
+        },
+        "constraint": "in",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be one of [1,2,4]",
+        "pathSegments": [
+          {
+            "key": "u32"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+      "message": "must be one of [1,2,4]"
+    },
+    {
+      "error": {
+        "path": "u64",
+        "code": "ERROR_CODE_IN_FORBIDDEN_SET",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "uint64Value": "0"
+              }
+            ]
+          }
+        },
+        "actual": {
+          "uint64Value": "0"
+        },
+        "constraint": "not_in",
+        "severity": "SEVERITY_ERROR",
+        "message": "must not be one of [0]",
+        "pathSegments": [
+          {
+            "key": "u64"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_IN_FORBIDDEN_SET",
+      "message": "must not be one of [0]"
+    },
+    {
+      "error": {
+        "path": "pinned",
+        "code": "ERROR_CODE_CONST_MISMATCH",
+        "expected": {
+          "boolValue": true
+        },
+        "actual": {
+          "boolValue": false
+        },
+        "constraint": "const",
+        "severity": "SEVERITY_ERROR",
+        "message": "must equal true",
+        "pathSegments": [
+          {
+            "key": "pinned"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_CONST_MISMATCH",
+      "message": "must equal true"
+    },
+    {
+      "error": {
+        "path": "name",
+        "code": "ERROR_CODE_PATTERN_MISMATCH",
+        "expected": {
+          "stringValue": "^[a-z][a-z0-9-]*$"
+        },
+        "actual": {
+          "stringValue": "Bad Name!"
+        },
+        "constraint": "pattern",
+        "severity": "SEVERITY_ERROR",
+        "message": "must match pattern ^[a-z][a-z0-9-]*$",
+        "pathSegments": [
+          {
+            "key": "name"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_PATTERN_MISMATCH",
+      "message": "не соответствует шаблону ^[a-z][a-z0-9-]*$"
+    },
+    {
+      "error": {
+        "path": "mode",
+        "code": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "fast"
+              },
+              {
+                "stringValue": "slow"
+              }
+            ]
+          }
+        },
+        "actual": {
+          "stringValue": "legacy"
+        },
+        "constraint": "in",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be one of [\"fast\",\"slow\"]",
+        "pathSegments": [
+          {
+            "key": "mode"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+      "message": "must be one of [\"fast\",\"slow\"]"
+    },
+    {
+      "error": {
+        "path": "mode",
+        "code": "ERROR_CODE_IN_FORBIDDEN_SET",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "legacy"
+              }
+            ]
+          }
+        },
+        "actual": {
+          "stringValue": "legacy"
+        },
+        "constraint": "not_in",
+        "severity": "SEVERITY_ERROR",
+        "message": "must not be one of [\"legacy\"]",
+        "pathSegments": [
+          {
+            "key": "mode"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_IN_FORBIDDEN_SET",
+      "message": "must not be one of [\"legacy\"]"
+    },
+    {
+      "error": {
+        "path": "exact",
+        "code": "ERROR_CODE_LEN_MISMATCH",
+        "expected": {
+          "uint64Value": "4"
+        },
+        "actual": {
+          "stringValue": "abcde"
+        },
+        "constraint": "len",
+        "severity": "SEVERITY_ERROR",
+        "message": "length must be exactly 4",
+        "pathSegments": [
+          {
+            "key": "exact"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_LEN_MISMATCH",
+      "message": "length must be exactly 4"
+    },
+    {
+      "error": {
+        "path": "mail",
+        "code": "ERROR_CODE_FORMAT_MISMATCH",
+        "expected": {
+          "stringValue": "email"
+        },
+        "actual": {
+          "stringValue": "not-an-email"
+        },
+        "constraint": "format",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be a valid email",
+        "pathSegments": [
+          {
+            "key": "mail"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_FORMAT_MISMATCH",
+      "message": "must be a valid email"
+    },
+    {
+      "error": {
+        "path": "token",
+        "code": "ERROR_CODE_MIN_LEN_VIOLATED",
+        "expected": {
+          "uint64Value": "8"
+        },
+        "constraint": "min_len",
+        "severity": "SEVERITY_ERROR",
+        "message": "length must be at least 8",
+        "pathSegments": [
+          {
+            "key": "token"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_MIN_LEN_VIOLATED",
+      "message": "length must be at least 8"
+    },
+    {
+      "error": {
+        "path": "license",
+        "code": "ERROR_CODE_MIN_LEN_VIOLATED",
+        "expected": {
+          "uint64Value": "4"
+        },
+        "actual": {
+          "bytesValue": "WFg="
+        },
+        "constraint": "min_len",
+        "severity": "SEVERITY_ERROR",
+        "message": "length must be at least 4",
+        "pathSegments": [
+          {
+            "key": "license"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_MIN_LEN_VIOLATED",
+      "message": "length must be at least 4"
+    },
+    {
+      "error": {
+        "path": "license",
+        "code": "ERROR_CODE_PREFIX_MISMATCH",
+        "expected": {
+          "bytesValue": "TElDLQ=="
+        },
+        "actual": {
+          "bytesValue": "WFg="
+        },
+        "constraint": "prefix",
+        "severity": "SEVERITY_ERROR",
+        "message": "must start with TElDLQ==",
+        "pathSegments": [
+          {
+            "key": "license"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_PREFIX_MISMATCH",
+      "message": "must start with TElDLQ=="
+    },
+    {
+      "error": {
+        "path": "license",
+        "code": "ERROR_CODE_SUFFIX_MISMATCH",
+        "expected": {
+          "bytesValue": "LUVORA=="
+        },
+        "actual": {
+          "bytesValue": "WFg="
+        },
+        "constraint": "suffix",
+        "severity": "SEVERITY_ERROR",
+        "message": "must end with LUVORA==",
+        "pathSegments": [
+          {
+            "key": "license"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_SUFFIX_MISMATCH",
+      "message": "must end with LUVORA=="
+    },
+    {
+      "error": {
+        "path": "magic",
+        "code": "ERROR_CODE_CONST_MISMATCH",
+        "expected": {
+          "bytesValue": "3q0="
+        },
+        "actual": {
+          "bytesValue": "AA=="
+        },
+        "constraint": "const",
+        "severity": "SEVERITY_ERROR",
+        "message": "must equal 3q0=",
+        "pathSegments": [
+          {
+            "key": "magic"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_CONST_MISMATCH",
+      "message": "must equal 3q0="
+    },
+    {
+      "error": {
+        "path": "magic",
+        "code": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "bytesValue": "3q0="
+              },
+              {
+                "bytesValue": "vu8="
+              }
+            ]
+          }
+        },
+        "actual": {
+          "bytesValue": "AA=="
+        },
+        "constraint": "in",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be one of [\"3q0=\",\"vu8=\"]",
+        "pathSegments": [
+          {
+            "key": "magic"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_NOT_IN_ALLOWED_SET",
+      "message": "must be one of [\"3q0=\",\"vu8=\"]"
+    },
+    {
+      "error": {
+        "path": "magic",
+        "code": "ERROR_CODE_IN_FORBIDDEN_SET",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "bytesValue": "AA=="
+              }
+            ]
+          }
+        },
+        "actual": {
+          "bytesValue": "AA=="
+        },
+        "constraint": "not_in",
+        "severity": "SEVERITY_ERROR",
+        "message": "must not be one of [\"AA==\"]",
+        "pathSegments": [
+          {
+            "key": "magic"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_IN_FORBIDDEN_SET",
+      "message": "must not be one of [\"AA==\"]"
+    },
+    {
+      "error": {
+        "path": "wal_level",
+        "code": "ERROR_CODE_CHOICE_NOT_ALLOWED",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "minimal"
+              },
+              {
+                "stringValue": "replica"
+              },
+              {
+                "stringValue": "logical"
+              }
+            ]
+          }
+        },
+        "actual": {
+          "stringValue": "extreme"
+        },
+        "constraint": "options",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be one of [\"minimal\",\"replica\",\"logical\"]",
+        "pathSegments": [
+          {
+            "key": "wal_level"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_CHOICE_NOT_ALLOWED",
+      "message": "must be one of [\"minimal\",\"replica\",\"logical\"]"
+    },
+    {
+      "error": {
+        "path": "cpu",
+        "code": "ERROR_CODE_CHOICE_NOT_ALLOWED",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "int64Value": "2"
+              },
+              {
+                "int64Value": "4"
+              },
+              {
+                "int64Value": "8"
+              }
+            ]
+          }
+        },
+        "actual": {
+          "int64Value": "3"
+        },
+        "constraint": "options",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be one of [2,4,8]",
+        "pathSegments": [
+          {
+            "key": "cpu"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_CHOICE_NOT_ALLOWED",
+      "message": "must be one of [2,4,8]"
+    },
+    {
+      "error": {
+        "path": "timeout",
+        "code": "ERROR_CODE_LT_VIOLATED",
+        "expected": {
+          "durationValue": "7200s"
+        },
+        "actual": {
+          "durationValue": "10800s"
+        },
+        "constraint": "lt",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be \u003c 2h0m0s",
+        "pathSegments": [
+          {
+            "key": "timeout"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_LT_VIOLATED",
+      "message": "must be \u003c 2h0m0s"
+    },
+    {
+      "error": {
+        "path": "timeout",
+        "code": "ERROR_CODE_LTE_VIOLATED",
+        "expected": {
+          "durationValue": "3600s"
+        },
+        "actual": {
+          "durationValue": "10800s"
+        },
+        "constraint": "lte",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be \u003c= 1h0m0s",
+        "pathSegments": [
+          {
+            "key": "timeout"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_LTE_VIOLATED",
+      "message": "must be \u003c= 1h0m0s"
+    },
+    {
+      "error": {
+        "path": "not_before",
+        "code": "ERROR_CODE_GT_VIOLATED",
+        "expected": {
+          "timestampValue": "2025-12-31T23:59:59Z"
+        },
+        "actual": {
+          "timestampValue": "2020-01-01T00:00:00Z"
+        },
+        "constraint": "gt",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be \u003e 2025-12-31T23:59:59Z",
+        "pathSegments": [
+          {
+            "key": "not_before"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_GT_VIOLATED",
+      "message": "must be \u003e 2025-12-31T23:59:59Z"
+    },
+    {
+      "error": {
+        "path": "not_before",
+        "code": "ERROR_CODE_GTE_VIOLATED",
+        "expected": {
+          "timestampValue": "2026-01-01T00:00:00Z"
+        },
+        "actual": {
+          "timestampValue": "2020-01-01T00:00:00Z"
+        },
+        "constraint": "gte",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be \u003e= 2026-01-01T00:00:00Z",
+        "pathSegments": [
+          {
+            "key": "not_before"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_GTE_VIOLATED",
+      "message": "должно быть не меньше 2026-01-01T00:00:00Z (сейчас 2020-01-01T00:00:00Z)"
+    },
+    {
+      "error": {
+        "path": "endpoint_pair[0]",
+        "code": "ERROR_CODE_MIN_LEN_VIOLATED",
+        "expected": {
+          "uint64Value": "1"
+        },
+        "actual": {
+          "stringValue": ""
+        },
+        "constraint": "min_len",
+        "severity": "SEVERITY_ERROR",
+        "message": "length must be at least 1",
+        "pathSegments": [
+          {
+            "key": "endpoint_pair"
+          },
+          {
+            "index": "0"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_MIN_LEN_VIOLATED",
+      "message": "length must be at least 1"
+    },
+    {
+      "error": {
+        "path": "endpoint_pair[1]",
+        "code": "ERROR_CODE_TYPE_MISMATCH",
+        "expected": {
+          "stringValue": "integer"
+        },
+        "actual": {
+          "stringValue": "not-a-port"
+        },
+        "severity": "SEVERITY_ERROR",
+        "message": "expected integer",
+        "pathSegments": [
+          {
+            "key": "endpoint_pair"
+          },
+          {
+            "index": "1"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_TYPE_MISMATCH",
+      "message": "expected integer"
+    },
+    {
+      "error": {
+        "path": "replicas",
+        "code": "ERROR_CODE_LIST_COUNT_MISMATCH",
+        "expected": {
+          "int64Value": "2"
+        },
+        "actual": {
+          "uint64Value": "3"
+        },
+        "constraint": "count_expr",
+        "severity": "SEVERITY_ERROR",
+        "message": "must have exactly 2 items",
+        "pathSegments": [
+          {
+            "key": "replicas"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_LIST_COUNT_MISMATCH",
+      "message": "must have exactly 2 items"
+    },
+    {
+      "error": {
+        "path": "replicas[1]",
+        "code": "ERROR_CODE_NOT_UNIQUE",
+        "actual": {
+          "structValue": {
+            "fields": {
+              "name": {
+                "stringValue": "r1"
+              },
+              "weight": {
+                "int64Value": "1"
+              }
+            }
+          }
+        },
+        "constraint": "unique",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be unique",
+        "pathSegments": [
+          {
+            "key": "replicas"
+          },
+          {
+            "index": "1"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_NOT_UNIQUE",
+      "message": "must be unique"
+    },
+    {
+      "error": {
+        "path": "replicas[2].name",
+        "code": "ERROR_CODE_REQUIRED_MISSING",
+        "constraint": "required",
+        "severity": "SEVERITY_ERROR",
+        "message": "required",
+        "pathSegments": [
+          {
+            "key": "replicas"
+          },
+          {
+            "index": "2"
+          },
+          {
+            "key": "name"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_REQUIRED_MISSING",
+      "message": "обязательное поле"
+    },
+    {
+      "error": {
+        "path": "logging.junk",
+        "code": "ERROR_CODE_UNKNOWN_FIELD",
+        "actual": {
+          "int64Value": "1"
+        },
+        "constraint": "strict",
+        "severity": "SEVERITY_ERROR",
+        "message": "unknown field",
+        "pathSegments": [
+          {
+            "key": "logging"
+          },
+          {
+            "key": "junk"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_UNKNOWN_FIELD",
+      "message": "unknown field"
+    },
+    {
+      "error": {
+        "path": "tablespaces.bad.location",
+        "code": "ERROR_CODE_REQUIRED_MISSING",
+        "constraint": "required",
+        "severity": "SEVERITY_ERROR",
+        "message": "required",
+        "pathSegments": [
+          {
+            "key": "tablespaces"
+          },
+          {
+            "key": "bad"
+          },
+          {
+            "key": "location"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_REQUIRED_MISSING",
+      "message": "обязательное поле"
+    },
+    {
+      "error": {
+        "path": "limits.Bad",
+        "code": "ERROR_CODE_PATTERN_MISMATCH",
+        "expected": {
+          "stringValue": "^[a-z]+$"
+        },
+        "actual": {
+          "stringValue": "Bad"
+        },
+        "constraint": "pattern",
+        "severity": "SEVERITY_ERROR",
+        "message": "must match pattern ^[a-z]+$",
+        "pathSegments": [
+          {
+            "key": "limits"
+          },
+          {
+            "key": "Bad"
+          }
+        ],
+        "key": true
+      },
+      "key": "ERROR_CODE_PATTERN_MISMATCH",
+      "message": "не соответствует шаблону ^[a-z]+$"
+    },
+    {
+      "error": {
+        "path": "limits.cpu",
+        "code": "ERROR_CODE_GTE_VIOLATED",
+        "expected": {
+          "int64Value": "0"
+        },
+        "actual": {
+          "int64Value": "-1"
+        },
+        "constraint": "gte",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be \u003e= 0",
+        "pathSegments": [
+          {
+            "key": "limits"
+          },
+          {
+            "key": "cpu"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_GTE_VIOLATED",
+      "message": "должно быть не меньше 0 (сейчас -1)"
+    },
+    {
+      "error": {
+        "path": "limits.mem",
+        "code": "ERROR_CODE_TYPE_MISMATCH",
+        "expected": {
+          "stringValue": "integer"
+        },
+        "actual": {
+          "stringValue": "lots"
+        },
+        "severity": "SEVERITY_ERROR",
+        "message": "expected integer",
+        "pathSegments": [
+          {
+            "key": "limits"
+          },
+          {
+            "key": "mem"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_TYPE_MISMATCH",
+      "message": "expected integer"
+    },
+    {
+      "error": {
+        "path": "ports.0",
+        "code": "ERROR_CODE_GT_VIOLATED",
+        "expected": {
+          "int64Value": "0"
+        },
+        "actual": {
+          "int64Value": "0"
+        },
+        "constraint": "gt",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be \u003e 0",
+        "pathSegments": [
+          {
+            "key": "ports"
+          },
+          {
+            "key": "0"
+          }
+        ],
+        "key": true
+      },
+      "key": "ERROR_CODE_GT_VIOLATED",
+      "message": "must be \u003e 0"
+    },
+    {
+      "error": {
+        "path": "ports.0",
+        "code": "ERROR_CODE_MIN_LEN_VIOLATED",
+        "expected": {
+          "uint64Value": "1"
+        },
+        "actual": {
+          "stringValue": ""
+        },
+        "constraint": "min_len",
+        "severity": "SEVERITY_ERROR",
+        "message": "length must be at least 1",
+        "pathSegments": [
+          {
+            "key": "ports"
+          },
+          {
+            "key": "0"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_MIN_LEN_VIOLATED",
+      "message": "length must be at least 1"
+    },
+    {
+      "error": {
+        "path": "ports.22",
+        "code": "ERROR_CODE_RULE_VIOLATED",
+        "expr": "this != 22",
+        "ruleId": "no-ssh",
+        "severity": "SEVERITY_ERROR",
+        "message": "ssh port",
+        "pathSegments": [
+          {
+            "key": "ports"
+          },
+          {
+            "key": "22"
+          }
+        ],
+        "key": true
+      },
+      "key": "no-ssh",
+      "message": "порт 22 запрещён"
+    },
+    {
+      "error": {
+        "path": "ports.x",
+        "code": "ERROR_CODE_TYPE_MISMATCH",
+        "expected": {
+          "stringValue": "int32"
+        },
+        "actual": {
+          "stringValue": "x"
+        },
+        "severity": "SEVERITY_ERROR",
+        "message": "expected int32",
+        "pathSegments": [
+          {
+            "key": "ports"
+          },
+          {
+            "key": "x"
+          }
+        ],
+        "key": true
+      },
+      "key": "ERROR_CODE_TYPE_MISMATCH",
+      "message": "expected int32"
+    },
+    {
+      "error": {
+        "path": "labels.bad",
+        "code": "ERROR_CODE_PATTERN_MISMATCH",
+        "expected": {
+          "stringValue": "^[a-z]+$"
+        },
+        "actual": {
+          "stringValue": "UPPER"
+        },
+        "constraint": "pattern",
+        "severity": "SEVERITY_ERROR",
+        "message": "must match pattern ^[a-z]+$",
+        "pathSegments": [
+          {
+            "key": "labels"
+          },
+          {
+            "key": "bad"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_PATTERN_MISMATCH",
+      "message": "не соответствует шаблону ^[a-z]+$"
+    },
+    {
+      "error": {
+        "path": "labels.nope",
+        "code": "ERROR_CODE_RULE_VIOLATED",
+        "expr": "this != \"forbidden\"",
+        "severity": "SEVERITY_ERROR",
+        "message": "label value forbidden",
+        "pathSegments": [
+          {
+            "key": "labels"
+          },
+          {
+            "key": "nope"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_RULE_VIOLATED",
+      "message": "label value forbidden"
+    },
+    {
+      "error": {
+        "path": "backup",
+        "code": "ERROR_CODE_UNKNOWN_VARIANT",
+        "expected": {
+          "listValue": {
+            "items": [
+              {
+                "stringValue": "endpoint"
+              },
+              {
+                "stringValue": "s3"
+              }
+            ]
+          }
+        },
+        "actual": {
+          "stringValue": "tape"
+        },
+        "constraint": "variants",
+        "severity": "SEVERITY_ERROR",
+        "message": "unknown variant tape",
+        "pathSegments": [
+          {
+            "key": "backup"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_UNKNOWN_VARIANT",
+      "message": "неизвестный вариант tape"
+    },
+    {
+      "error": {
+        "path": "data_volume.size_gb",
+        "code": "ERROR_CODE_GT_VIOLATED",
+        "expected": {
+          "int64Value": "0"
+        },
+        "actual": {
+          "int64Value": "0"
+        },
+        "constraint": "gt",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be \u003e 0",
+        "pathSegments": [
+          {
+            "key": "data_volume"
+          },
+          {
+            "key": "size_gb"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_GT_VIOLATED",
+      "message": "must be \u003e 0"
+    }
+  ]
+}

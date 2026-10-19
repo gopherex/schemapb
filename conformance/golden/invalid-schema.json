@@ -1,0 +1,59 @@
+{
+  "id": {
+    "name": "invalid"
+  },
+  "fields": [
+    {
+      "name": "m",
+      "map": {
+        "valueSchema": {},
+        "minEntries": "5",
+        "maxEntries": "2",
+        "valueField": {
+          "name": "value",
+          "string": {}
+        },
+        "keyField": {
+          "name": "key",
+          "double": {}
+        }
+      }
+    },
+    {
+      "string": {}
+    },
+    {
+      "name": "in",
+      "string": {}
+    },
+    {
+      "name": "dup",
+      "string": {}
+    },
+    {
+      "name": "dup",
+      "string": {}
+    },
+    {
+      "name": "nokind"
+    },
+    {
+      "name": "empty_list",
+      "list": {}
+    },
+    {
+      "name": "closed",
+      "choice": {}
+    },
+    {
+      "name": "union",
+      "oneOf": {}
+    },
+    {
+      "name": "ref",
+      "ref": {
+        "name": "missing"
+      }
+    }
+  ]
+}

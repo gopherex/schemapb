@@ -1,7 +1,9 @@
 //! The spec's shared message-template set (must match
 //! conformance/golden/messages.json, written by the Go reference).
 
-use crate::gen::schemapb::{ErrorCode, Value};
+use std::collections::HashMap;
+
+use crate::gen::schemapb::{ErrorCode, ValidationError, Value};
 use crate::render::display_string;
 use crate::value::to_native;
 
@@ -48,18 +50,68 @@ pub const fn template(code: ErrorCode) -> Option<&'static str> {
     }
 }
 
-/// Renders a code's template with the typed values ("…" for absent ones).
+/// The spec's display form of a value, used by the default messages.
 #[must_use]
-pub fn render_message(code: ErrorCode, expected: Option<&Value>, actual: Option<&Value>) -> String {
-    let Some(tpl) = template(code) else {
-        return String::new();
-    };
+pub fn display_value(v: &Value) -> String {
+    display_string(&to_native(Some(v)))
+}
+
+fn fill(
+    tpl: &str,
+    expected: Option<&Value>,
+    actual: Option<&Value>,
+    display: &dyn Fn(&Value) -> String,
+) -> String {
     let sub = |s: &str, placeholder: &str, v: Option<&Value>| -> String {
         if !s.contains(placeholder) {
             return s.to_owned();
         }
-        let disp = v.map_or_else(|| "…".to_owned(), |x| display_string(&to_native(Some(x))));
+        let disp = v.map_or_else(|| "…".to_owned(), display);
         s.replace(placeholder, &disp)
     };
     sub(&sub(tpl, "{expected}", expected), "{actual}", actual)
+}
+
+/// Renders a code's template with the typed values ("…" for absent ones).
+#[must_use]
+pub fn render_message(code: ErrorCode, expected: Option<&Value>, actual: Option<&Value>) -> String {
+    template(code).map_or_else(String::new, |tpl| {
+        fill(tpl, expected, actual, &display_value)
+    })
+}
+
+/// A message catalog for one locale: keys are [`message_key`] values,
+/// templates use the `{expected}` and `{actual}` placeholders.
+pub type Catalog = HashMap<String, String>;
+
+/// The catalog key that translates `err`: the rule id for a violated rule
+/// that declares one, the `ErrorCode` name otherwise.
+#[must_use]
+pub fn message_key(err: &ValidationError) -> String {
+    match err.rule_id.as_deref() {
+        Some(id) if err.code() == ErrorCode::RuleViolated && !id.is_empty() => id.to_owned(),
+        _ => err.code().as_str_name().to_owned(),
+    }
+}
+
+/// Renders `err` from `catalog`, substituting the typed values with
+/// `display` (`None` => [`display_value`]); a missing key falls back to
+/// `err.message`.
+#[must_use]
+pub fn format_message(
+    err: &ValidationError,
+    catalog: &Catalog,
+    display: Option<&dyn Fn(&Value) -> String>,
+) -> String {
+    catalog.get(&message_key(err)).map_or_else(
+        || err.message.clone(),
+        |tpl| {
+            fill(
+                tpl,
+                err.expected.as_ref(),
+                err.actual.as_ref(),
+                display.unwrap_or(&display_value),
+            )
+        },
+    )
 }

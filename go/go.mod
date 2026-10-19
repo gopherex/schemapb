@@ -18,3 +18,8 @@ require (
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240826202546-f6391c0de4c7 // indirect
 )
+
+// The *Schema convenience methods could panic (an engine-cache GC race);
+// v1.8.x-v1.9.2 also let values bypass validation (Duration overflow,
+// unrepacked Any on resolve, "__proto__" keys in the TS engine).
+retract [v1.7.0, v1.9.2]

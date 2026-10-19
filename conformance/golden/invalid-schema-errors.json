@@ -1,0 +1,75 @@
+{
+  "errors": [
+    {
+      "path": "m",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "map field: min_entries must be <= max_entries"
+    },
+    {
+      "path": "m",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "map field: value_schema and value_field are mutually exclusive"
+    },
+    {
+      "path": "m",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "map field: key_field kind must be string, choice, int32, int64, uint32, uint64 or bool"
+    },
+    {
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "field name is required"
+    },
+    {
+      "path": "in",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "field name \"in\" is a CEL reserved word"
+    },
+    {
+      "path": "dup",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "duplicate field name"
+    },
+    {
+      "path": "nokind",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "field kind is required"
+    },
+    {
+      "path": "empty_list",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "list field: at least one item definition is required"
+    },
+    {
+      "path": "closed",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "choice field: a closed choice requires options or options_expr"
+    },
+    {
+      "path": "union",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "oneof field: discriminator is required"
+    },
+    {
+      "path": "union",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "oneof field: at least one variant is required"
+    },
+    {
+      "path": "ref",
+      "code": "ERROR_CODE_INVALID_SCHEMA",
+      "severity": "SEVERITY_ERROR",
+      "message": "ref \"missing\" is not defined in schema defs"
+    }
+  ]
+}

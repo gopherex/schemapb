@@ -96,3 +96,7 @@ Known deviations (tracked):
   full int64 and uint64 wire ranges) and there is no float32 token — the
   range-constrained refusals other implementations report cannot be
   expressed with these tokens.
+- no typed-message bridge (Go `protomsg`, TS `Validator`) and no generator:
+  `ValidationResult.schema` and `PathSegment.field_number` are never set
+  here, and ErrorCode specs come from the template table (checked against
+  `messages.json`) rather than from the `error_spec` options.

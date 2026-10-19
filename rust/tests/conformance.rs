@@ -469,3 +469,34 @@ fn nonempty_object_defaults() {
         );
     }
 }
+
+#[test]
+fn catalog_golden() {
+    use schemapb::gen::schemapb::ValidationError;
+    use schemapb::messages::{format_message, message_key, Catalog};
+
+    let doc: serde_json::Value = serde_json::from_str(&golden("catalog.json")).unwrap();
+    let catalog: Catalog = serde_json::from_value(doc["catalog"].clone()).unwrap();
+    for case in doc["cases"].as_array().unwrap() {
+        let err: ValidationError = serde_json::from_value(case["error"].clone()).unwrap();
+        assert_eq!(message_key(&err), case["key"].as_str().unwrap());
+        assert_eq!(
+            format_message(&err, &catalog, None),
+            case["message"].as_str().unwrap()
+        );
+    }
+}
+
+#[test]
+fn invalid_schema_golden() {
+    let schema: Schema = serde_json::from_str(&golden("invalid-schema.json")).unwrap();
+    let want: ValidationResult =
+        serde_json::from_str(&golden("invalid-schema-errors.json")).unwrap();
+    let got = schemapb::descriptor::check_descriptor(&schema);
+    let pairs = |errs: &[schemapb::gen::schemapb::ValidationError]| -> Vec<(String, String)> {
+        errs.iter()
+            .map(|e| (e.path.clone(), e.message.clone()))
+            .collect()
+    };
+    assert_eq!(pairs(&got), pairs(&want.errors));
+}

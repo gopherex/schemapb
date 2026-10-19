@@ -1,4 +1,6 @@
-import { create } from "@bufbuild/protobuf";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { create, fromJson, type JsonValue } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { ErrorCode, ValidationErrorSchema } from "../src/gen/schemapb/errors_pb.js";
 import { displayValue, formatMessage, messageKey } from "../src/messages.js";
@@ -35,5 +37,20 @@ describe("catalog", () => {
     expect(formatMessage(gte, ru, (v) => `<${displayValue(v)}>`)).toBe(
       "должно быть не меньше <1> (сейчас <0>)",
     );
+  });
+});
+
+describe("catalog golden", () => {
+  it("keys and renders every error of catalog.json like Go", () => {
+    const path = join(__dirname, "..", "..", "conformance", "golden", "catalog.json");
+    const doc = JSON.parse(readFileSync(path, "utf8")) as {
+      catalog: Record<string, string>;
+      cases: { error: JsonValue; key: string; message: string }[];
+    };
+    for (const c of doc.cases) {
+      const err = fromJson(ValidationErrorSchema, c.error);
+      expect(messageKey(err)).toBe(c.key);
+      expect(formatMessage(err, doc.catalog)).toBe(c.message);
+    }
   });
 });
