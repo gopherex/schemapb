@@ -1084,7 +1084,8 @@ function readMapKey(keyField: Schema_Field, key: string): Native | undefined {
     case "int64":
     case "uint32":
     case "uint64": {
-      if (!/^[+-]?[0-9]+$/.test(key)) {
+      // A 64-bit integer has at most 20 digits plus a sign.
+      if (key.length > 21 || !/^[+-]?[0-9]+$/.test(key)) {
         return undefined;
       }
       const n = BigInt(key);

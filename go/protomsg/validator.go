@@ -18,7 +18,7 @@ const SupportPackageIsVersion1 = true
 // concurrent use.
 type Validator struct {
 	compiled func() (*schemapb.Engine, error)
-	mapping  *mapping
+	mapping  mapping
 }
 
 // New returns a Validator for a binary-encoded Schema. Options configure
@@ -85,7 +85,7 @@ func (v *Validator) Resolve(msg proto.Message) (*schemapb.ValidationResult, erro
 		return res, err
 	}
 
-	if err := writeBack(msg, values); err != nil {
+	if err := v.mapping.writeBack(msg, values); err != nil {
 		return nil, err
 	}
 

@@ -34,6 +34,7 @@ import {
   type MessageShape,
   type Registry,
   ScalarType,
+  toBinary,
 } from "@bufbuild/protobuf";
 import { type ReflectMessage, reflect } from "@bufbuild/protobuf/reflect";
 import { base64Decode } from "@bufbuild/protobuf/wire";
@@ -311,6 +312,82 @@ class Mapping {
     setOwn(out, anyTypeKey, any.typeUrl);
     return out;
   }
+
+  setMessage(r: ReflectMessage, values: NativeStruct): void {
+    for (const field of r.fields) {
+      if (!Object.hasOwn(values, field.name)) {
+        continue;
+      }
+      const x = values[field.name] ?? null;
+      if (x === null) {
+        r.clear(field);
+        continue;
+      }
+      switch (field.fieldKind) {
+        case "list": {
+          if (!Array.isArray(x)) throw misfit(field, x);
+          const list = r.get(field);
+          const old = Array.from(list);
+          list.clear();
+          x.forEach((item, i) => {
+            if (isObjectMessage(field.message)) {
+              const el = (old[i] as ReflectMessage | undefined) ?? reflect(field.message);
+              this.#setObject(el, asStruct(field, item));
+              list.add(el);
+            } else {
+              list.add(toProto(field, item));
+            }
+          });
+          break;
+        }
+        case "map": {
+          const entries = asStruct(field, x);
+          const mp = r.get(field);
+          const old = new Map(mp);
+          mp.clear();
+          for (const [k, item] of Object.entries(entries)) {
+            const key = mapKey(field, k);
+            if (field.mapKind === "message" && isObjectMessage(field.message)) {
+              const el = (old.get(key) as ReflectMessage | undefined) ?? reflect(field.message);
+              this.#setObject(el, asStruct(field, item));
+              mp.set(key, el);
+            } else {
+              mp.set(key, toProto(field, item));
+            }
+          }
+          break;
+        }
+        case "message":
+          if (isObjectMessage(field.message)) {
+            const el = r.isSet(field) ? r.get(field) : reflect(field.message);
+            this.#setObject(el, asStruct(field, x));
+            r.set(field, el);
+          } else {
+            r.set(field, toProto(field, x));
+          }
+          break;
+        default:
+          r.set(field, toProto(field, x));
+      }
+    }
+  }
+
+  /** Writes obj into a plain message, or into the message a listed Any packs. */
+  #setObject(el: ReflectMessage, obj: NativeStruct): void {
+    if (el.desc.typeName !== anyName) {
+      this.setMessage(el, obj);
+      return;
+    }
+    const any = el.message as Any;
+    const name = any.typeUrl.startsWith(anyUrlPrefix) ? any.typeUrl.slice(anyUrlPrefix.length) : "";
+    const desc = name === "" ? undefined : this.#anyTypes.getMessage(name);
+    const inner = desc === undefined ? undefined : anyUnpack(any, desc);
+    if (desc === undefined || inner === undefined) {
+      return; // only "@type" was seen: nothing resolved
+    }
+    this.setMessage(reflect(desc, inner), obj);
+    any.value = toBinary(desc, inner);
+  }
 }
 
 // =============================================================================
@@ -320,79 +397,29 @@ class Mapping {
 /**
  * Stores the resolved values into msg, all or nothing: writes a clone and
  * copies it over msg only when every field converted. Keys absent from
- * values leave their field unchanged; Any fields are never rewritten.
+ * values leave their field unchanged. An Any of a listed type is unpacked,
+ * written and packed again, so what was validated is what is stored; an Any
+ * of any other type was seen only by its "@type" and is left as is.
  */
 function writeBack<Desc extends DescMessage>(
+  mapping: Mapping,
   desc: Desc,
   msg: MessageShape<Desc>,
   values: NativeStruct,
 ): void {
   const copy = clone(desc, msg);
-  setMessage(reflect(desc, copy), values);
+  mapping.setMessage(reflect(desc, copy), values);
   Object.assign(msg, copy);
 }
 
-function isObjectMessage(desc: DescMessage | undefined): desc is DescMessage {
-  return desc !== undefined && desc.file.proto.package !== "google.protobuf";
-}
+const anyName = "google.protobuf.Any";
 
-function setMessage(r: ReflectMessage, values: NativeStruct): void {
-  for (const field of r.fields) {
-    if (!Object.hasOwn(values, field.name) || field.message?.typeName === "google.protobuf.Any") {
-      continue;
-    }
-    const x = values[field.name] ?? null;
-    if (x === null) {
-      r.clear(field);
-      continue;
-    }
-    switch (field.fieldKind) {
-      case "list": {
-        if (!Array.isArray(x)) throw misfit(field, x);
-        const list = r.get(field);
-        const old = Array.from(list);
-        list.clear();
-        x.forEach((item, i) => {
-          if (isObjectMessage(field.message)) {
-            const el = (old[i] as ReflectMessage | undefined) ?? reflect(field.message);
-            setMessage(el, asStruct(field, item));
-            list.add(el);
-          } else {
-            list.add(toProto(field, item));
-          }
-        });
-        break;
-      }
-      case "map": {
-        const entries = asStruct(field, x);
-        const mp = r.get(field);
-        const old = new Map(mp);
-        mp.clear();
-        for (const [k, item] of Object.entries(entries)) {
-          const key = mapKey(field, k);
-          if (field.mapKind === "message" && isObjectMessage(field.message)) {
-            const el = (old.get(key) as ReflectMessage | undefined) ?? reflect(field.message);
-            setMessage(el, asStruct(field, item));
-            mp.set(key, el);
-          } else {
-            mp.set(key, toProto(field, item));
-          }
-        }
-        break;
-      }
-      case "message":
-        if (isObjectMessage(field.message)) {
-          const el = r.isSet(field) ? r.get(field) : reflect(field.message);
-          setMessage(el, asStruct(field, x));
-          r.set(field, el);
-        } else {
-          r.set(field, toProto(field, x));
-        }
-        break;
-      default:
-        r.set(field, toProto(field, x));
-    }
-  }
+/** Message kinds written field by field: plain messages, and Any (repacked). */
+function isObjectMessage(desc: DescMessage | undefined): desc is DescMessage {
+  return (
+    desc !== undefined &&
+    (desc.file.proto.package !== "google.protobuf" || desc.typeName === anyName)
+  );
 }
 
 function asStruct(field: DescField, x: Native): NativeStruct {
@@ -654,7 +681,7 @@ export class Validator<Desc extends DescMessage> {
   resolve(msg: MessageShape<Desc>): ValidationResult {
     const { res, values } = this.#check(msg);
     if (!resultBlocking(res)) {
-      writeBack(this.desc, msg, values);
+      writeBack(this.#mapping, this.desc, msg, values);
     }
     return res;
   }

@@ -890,6 +890,8 @@ def _check_map_value(
     return sub
 
 
+_MAX_INT_KEY_LEN = 21
+
 _KEY_INT_RANGES = {
     "int32": (-(1 << 31), (1 << 31) - 1),
     "int64": (-(1 << 63), (1 << 63) - 1),
@@ -910,7 +912,13 @@ def _read_map_key(key_field: SchemaField, key: str) -> tuple[bool, Native]:
     bounds = _KEY_INT_RANGES.get(kind)
     if bounds is None:
         return False, None
-    if not re.fullmatch(r"[+-]?[0-9]+", key) or (kind.startswith("uint") and key.startswith("-")):
+    # A 64-bit integer has at most 20 digits plus a sign: longer keys never
+    # fit, and int() on thousands of digits raises (CPython's digit limit).
+    if (
+        len(key) > _MAX_INT_KEY_LEN
+        or not re.fullmatch(r"[+-]?[0-9]+", key)
+        or (kind.startswith("uint") and key.startswith("-"))
+    ):
         return False, None
     n = int(key)
     return (bounds[0] <= n <= bounds[1]), n

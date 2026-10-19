@@ -44,10 +44,10 @@ type mapping struct {
 	anyTypes map[string]protoreflect.MessageType
 }
 
-func newMapping(opts []Option) *mapping {
-	m := &mapping{anyTypes: map[string]protoreflect.MessageType{}}
+func newMapping(opts []Option) mapping {
+	m := mapping{anyTypes: map[string]protoreflect.MessageType{}}
 	for _, o := range opts {
-		o(m)
+		o(&m)
 	}
 
 	return m
@@ -59,7 +59,7 @@ func Values(msg proto.Message, opts ...Option) (map[string]any, error) {
 	return newMapping(opts).messageValues(msg.ProtoReflect())
 }
 
-func (mp *mapping) messageValues(m protoreflect.Message) (map[string]any, error) {
+func (mp mapping) messageValues(m protoreflect.Message) (map[string]any, error) {
 	fields := m.Descriptor().Fields()
 	out := make(map[string]any, fields.Len())
 
@@ -80,7 +80,7 @@ func (mp *mapping) messageValues(m protoreflect.Message) (map[string]any, error)
 	return out, nil
 }
 
-func (mp *mapping) fieldValue(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, error) {
+func (mp mapping) fieldValue(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, error) {
 	switch {
 	case field.IsMap():
 		entries := v.Map()
@@ -117,7 +117,7 @@ func (mp *mapping) fieldValue(field protoreflect.FieldDescriptor, v protoreflect
 	}
 }
 
-func (mp *mapping) singular(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, error) {
+func (mp mapping) singular(field protoreflect.FieldDescriptor, v protoreflect.Value) (any, error) {
 	switch field.Kind() {
 	case protoreflect.BoolKind:
 		return v.Bool(), nil
@@ -146,7 +146,7 @@ func (mp *mapping) singular(field protoreflect.FieldDescriptor, v protoreflect.V
 	}
 }
 
-func (mp *mapping) messageValue(m protoreflect.Message) (any, error) {
+func (mp mapping) messageValue(m protoreflect.Message) (any, error) {
 	desc := m.Descriptor()
 
 	switch desc.FullName() {
@@ -185,7 +185,7 @@ func (mp *mapping) messageValue(m protoreflect.Message) (any, error) {
 
 // anyValue unpacks an Any of a listed type into its fields plus "@type";
 // any other Any presents only "@type".
-func (mp *mapping) anyValue(m protoreflect.Message) (any, error) {
+func (mp mapping) anyValue(m protoreflect.Message) (any, error) {
 	desc := m.Descriptor()
 	url := m.Get(desc.Fields().ByName("type_url")).String()
 

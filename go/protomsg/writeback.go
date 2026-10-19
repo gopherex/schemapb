@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	anyName       = "google.protobuf.Any"
 	structName    = "google.protobuf.Struct"
 	valueName     = "google.protobuf.Value"
 	listValueName = "google.protobuf.ListValue"
@@ -24,11 +25,13 @@ var ErrWriteBack = errors.New("protomsg: resolved value does not fit the field")
 
 // writeBack stores the resolved value tree into msg, all or nothing: it
 // writes into a clone and replaces msg only when every field converted.
-// Keys absent from values leave their field unchanged; google.protobuf.Any
-// fields are never rewritten.
-func writeBack(msg proto.Message, values map[string]any) error {
+// Keys absent from values leave their field unchanged. An Any of a listed
+// type is unpacked, written and packed again, so what was validated is what
+// is stored; an Any of any other type was seen only by its "@type" and is
+// left as is.
+func (mp mapping) writeBack(msg proto.Message, values map[string]any) error {
 	clone := proto.Clone(msg)
-	if err := setMessage(clone.ProtoReflect(), values); err != nil {
+	if err := mp.setMessage(clone.ProtoReflect(), values); err != nil {
 		return err
 	}
 
@@ -38,18 +41,18 @@ func writeBack(msg proto.Message, values map[string]any) error {
 	return nil
 }
 
-func setMessage(m protoreflect.Message, values map[string]any) error {
+func (mp mapping) setMessage(m protoreflect.Message, values map[string]any) error {
 	fields := m.Descriptor().Fields()
 
 	for i := range fields.Len() {
 		field := fields.Get(i)
 
 		x, ok := values[string(field.Name())]
-		if !ok || isAny(field) {
+		if !ok {
 			continue
 		}
 
-		if err := setField(m, field, x); err != nil {
+		if err := mp.setField(m, field, x); err != nil {
 			return err
 		}
 	}
@@ -57,27 +60,65 @@ func setMessage(m protoreflect.Message, values map[string]any) error {
 	return nil
 }
 
-func isAny(field protoreflect.FieldDescriptor) bool {
-	return field.Message() != nil && field.Message().FullName() == "google.protobuf.Any"
+// isObject reports message kinds written field by field: plain messages,
+// and Any (unpacked, written, packed again).
+func isObject(md protoreflect.MessageDescriptor) bool {
+	return md != nil && (!isWellKnown(md) || md.FullName() == anyName)
 }
 
-func setField(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) error {
+// setObject writes obj into a plain message, or into the message an Any
+// packs when its type is listed.
+func (mp mapping) setObject(m protoreflect.Message, obj map[string]any) error {
+	if m.Descriptor().FullName() != anyName {
+		return mp.setMessage(m, obj)
+	}
+
+	desc := m.Descriptor()
+	url := m.Get(desc.Fields().ByName("type_url")).String()
+
+	t, ok := mp.anyTypes[url]
+	if !ok {
+		return nil // only "@type" was seen: nothing resolved
+	}
+
+	inner := t.New()
+	raw := desc.Fields().ByName("value")
+
+	if err := proto.Unmarshal(m.Get(raw).Bytes(), inner.Interface()); err != nil {
+		return fmt.Errorf("%w: unpack Any %s: %w", ErrWriteBack, url, err)
+	}
+
+	if err := mp.setMessage(inner, obj); err != nil {
+		return err
+	}
+
+	packed, err := proto.MarshalOptions{Deterministic: true}.Marshal(inner.Interface())
+	if err != nil {
+		return fmt.Errorf("%w: pack Any %s: %w", ErrWriteBack, url, err)
+	}
+
+	m.Set(raw, protoreflect.ValueOfBytes(packed))
+
+	return nil
+}
+
+func (mp mapping) setField(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) error {
 	switch {
 	case x == nil:
 		m.Clear(field)
 
 		return nil
 	case field.IsMap():
-		return setMap(m, field, x)
+		return mp.setMap(m, field, x)
 	case field.IsList():
-		return setList(m, field, x)
-	case field.Message() != nil && !isWellKnown(field.Message()):
+		return mp.setList(m, field, x)
+	case isObject(field.Message()):
 		obj, ok := x.(map[string]any)
 		if !ok {
 			return misfit(field, x)
 		}
 
-		return setMessage(m.Mutable(field).Message(), obj)
+		return mp.setObject(m.Mutable(field).Message(), obj)
 	default:
 		v, err := toProto(field, m.NewField(field), x)
 		if err != nil {
@@ -90,14 +131,14 @@ func setField(m protoreflect.Message, field protoreflect.FieldDescriptor, x any)
 	}
 }
 
-func setList(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) error {
+func (mp mapping) setList(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) error {
 	items, ok := x.([]any)
 	if !ok {
 		return misfit(field, x)
 	}
 
 	list := m.Mutable(field).List()
-	objects := field.Message() != nil && !isWellKnown(field.Message())
+	objects := isObject(field.Message())
 
 	for i, item := range items {
 		if objects {
@@ -110,7 +151,7 @@ func setList(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) 
 				list.Append(list.NewElement())
 			}
 
-			if err := setMessage(list.Get(i).Message(), obj); err != nil {
+			if err := mp.setObject(list.Get(i).Message(), obj); err != nil {
 				return err
 			}
 
@@ -134,15 +175,15 @@ func setList(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) 
 	return nil
 }
 
-func setMap(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) error {
+func (mp mapping) setMap(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) error {
 	entries, ok := x.(map[string]any)
 	if !ok {
 		return misfit(field, x)
 	}
 
-	mp := m.Mutable(field).Map()
+	target := m.Mutable(field).Map()
 	value := field.MapValue()
-	objects := value.Message() != nil && !isWellKnown(value.Message())
+	objects := isObject(value.Message())
 	keep := map[string]bool{} // MapKey.String() of the keys to keep
 
 	for k, item := range entries {
@@ -159,24 +200,24 @@ func setMap(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) e
 				return misfit(field, item)
 			}
 
-			if err := setMessage(mp.Mutable(key).Message(), obj); err != nil {
+			if err := mp.setObject(target.Mutable(key).Message(), obj); err != nil {
 				return err
 			}
 
 			continue
 		}
 
-		v, err := toProto(value, mp.NewValue(), item)
+		v, err := toProto(value, target.NewValue(), item)
 		if err != nil {
 			return err
 		}
 
-		mp.Set(key, v)
+		target.Set(key, v)
 	}
 
-	mp.Range(func(k protoreflect.MapKey, _ protoreflect.Value) bool {
+	target.Range(func(k protoreflect.MapKey, _ protoreflect.Value) bool {
 		if !keep[k.String()] {
-			mp.Clear(k)
+			target.Clear(k)
 		}
 
 		return true

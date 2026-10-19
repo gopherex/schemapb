@@ -10,6 +10,7 @@ import {
 import { base64Encode } from "@bufbuild/protobuf/wire";
 import {
   anyPack,
+  anyUnpack,
   DurationSchema,
   FieldMaskSchema,
   FileDescriptorProtoSchema,
@@ -309,6 +310,26 @@ describe("protomsg", () => {
       WriteBackError,
     );
     expect(equals(orderDesc, misfit, untouched)).toBe(true);
+  });
+
+  it("resolve repacks a listed Any with the validated values", () => {
+    const { schema } = b
+      .newSchema(id("test.v1", "Order", Version.zero))
+      .fields(
+        b
+          .oneOf("any", "@type")
+          .variant(
+            "type.googleapis.com/test.v1.Item",
+            b.str("sku").pattern("^[A-Z]+$").normalize("this.upperAscii()"),
+          ),
+      )
+      .build();
+    const raw = base64Encode(toBinary(SchemaSchema, schema));
+    const order: Dyn = create(orderDesc, { any: anyPack(itemDesc, item("abc")) } as Dyn);
+    const res = new Validator(orderDesc, raw, [itemDesc]).resolve(order);
+    expect(res.errors).toEqual([]);
+    // The validated (normalized) value is the stored one.
+    expect((anyUnpack(order.any, itemDesc) as Dyn).sku).toBe("ABC");
   });
 
   it("passes a valid message", () => {

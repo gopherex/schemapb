@@ -389,3 +389,46 @@ func TestValidatorOK(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestResolveRepacksAny(t *testing.T) {
+	t.Parallel()
+
+	desc := orderDesc(t)
+	itemMD := desc.Fields().ByName("items").Message()
+	itemType := dynamicpb.NewMessageType(itemMD)
+
+	schema := schemapb.NewSchema(schemapb.ID("test.v1", "Order", schemapb.Version{})).
+		Fields(schemapb.OneOf("any", "@type").
+			Variant("type.googleapis.com/test.v1.Item", schemapb.Str("sku").Pattern("^[A-Z]+$").Normalize("this.upperAscii()"))).
+		MustBuild()
+
+	raw, err := proto.Marshal(schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	packed, err := proto.Marshal(item(itemMD, "abc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	order := dynamicpb.NewMessage(desc)
+	set(order, "any", msgV(&anypb.Any{TypeUrl: "type.googleapis.com/test.v1.Item", Value: packed}))
+
+	res, err := protomsg.New(string(raw), protomsg.WithAnyTypes(itemType)).Resolve(order)
+	if err != nil || res.Blocking() {
+		t.Fatalf("Resolve: %v %v", err, res.GetErrors())
+	}
+
+	anyMsg := order.Get(desc.Fields().ByName("any")).Message()
+	stored := itemType.New()
+
+	if err := proto.Unmarshal(anyMsg.Get(anyMsg.Descriptor().Fields().ByName("value")).Bytes(), stored.Interface()); err != nil {
+		t.Fatal(err)
+	}
+
+	// The validated (normalized) value is the stored one.
+	if sku := stored.Get(itemMD.Fields().ByName("sku")).String(); sku != "ABC" {
+		t.Fatalf("Any not repacked: stored sku %q", sku)
+	}
+}
