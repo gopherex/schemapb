@@ -152,12 +152,24 @@ func messageValue(m protoreflect.Message) (any, error) {
 func duration(seconds, nanos int64) (time.Duration, error) {
 	const maxSeconds = math.MaxInt64 / int64(time.Second)
 
+	outOfRange := fmt.Errorf("%w: %ds %dns", ErrOutOfRange, seconds, nanos)
+
+	// google.protobuf.Duration: |nanos| < 1e9 and the same sign as seconds.
 	if nanos <= -int64(time.Second) || nanos >= int64(time.Second) ||
+		(seconds > 0 && nanos < 0) || (seconds < 0 && nanos > 0) ||
 		seconds > maxSeconds || seconds < -maxSeconds {
-		return 0, fmt.Errorf("%w: %ds %dns", ErrOutOfRange, seconds, nanos)
+		return 0, outOfRange
 	}
 
-	return time.Duration(seconds)*time.Second + time.Duration(nanos), nil
+	whole := time.Duration(seconds) * time.Second
+	sum := whole + time.Duration(nanos)
+
+	// Same-sign addition overflowed iff the sign flipped.
+	if (nanos > 0 && sum < whole) || (nanos < 0 && sum > whole) {
+		return 0, outOfRange
+	}
+
+	return sum, nil
 }
 
 func intField(m protoreflect.Message, name protoreflect.Name) int64 {
