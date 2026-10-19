@@ -9,6 +9,7 @@ package schemapb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -21,10 +22,96 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Payload names what a ValidationError carries in `expected` or `actual`
+// for a given ErrorCode (see ErrorSpec).
+type Payload int32
+
+const (
+	// Not specified.
+	Payload_PAYLOAD_UNSPECIFIED Payload = 0
+	// The field is absent.
+	Payload_PAYLOAD_NONE Payload = 1
+	// Any Value variant (e.g. an offending value of unknown kind).
+	Payload_PAYLOAD_ANY Payload = 2
+	// The null_value variant.
+	Payload_PAYLOAD_NULL Payload = 3
+	// A scalar comparable with the field's value: integer kinds widen to
+	// int64_value / uint64_value, float kinds to double_value; string,
+	// bytes, bool, duration and timestamp keep their own variant.
+	Payload_PAYLOAD_SCALAR Payload = 4
+	// A list_value of PAYLOAD_SCALAR items.
+	Payload_PAYLOAD_SCALAR_LIST Payload = 5
+	// A string_value.
+	Payload_PAYLOAD_STRING Payload = 6
+	// A list_value of string_value items.
+	Payload_PAYLOAD_STRING_LIST Payload = 7
+	// A non-negative integer count: uint64_value, or int64_value.
+	Payload_PAYLOAD_COUNT Payload = 8
+	// A list_value of PAYLOAD_ANY items.
+	Payload_PAYLOAD_ANY_LIST Payload = 9
+)
+
+// Enum value maps for Payload.
+var (
+	Payload_name = map[int32]string{
+		0: "PAYLOAD_UNSPECIFIED",
+		1: "PAYLOAD_NONE",
+		2: "PAYLOAD_ANY",
+		3: "PAYLOAD_NULL",
+		4: "PAYLOAD_SCALAR",
+		5: "PAYLOAD_SCALAR_LIST",
+		6: "PAYLOAD_STRING",
+		7: "PAYLOAD_STRING_LIST",
+		8: "PAYLOAD_COUNT",
+		9: "PAYLOAD_ANY_LIST",
+	}
+	Payload_value = map[string]int32{
+		"PAYLOAD_UNSPECIFIED": 0,
+		"PAYLOAD_NONE":        1,
+		"PAYLOAD_ANY":         2,
+		"PAYLOAD_NULL":        3,
+		"PAYLOAD_SCALAR":      4,
+		"PAYLOAD_SCALAR_LIST": 5,
+		"PAYLOAD_STRING":      6,
+		"PAYLOAD_STRING_LIST": 7,
+		"PAYLOAD_COUNT":       8,
+		"PAYLOAD_ANY_LIST":    9,
+	}
+)
+
+func (x Payload) Enum() *Payload {
+	p := new(Payload)
+	*p = x
+	return p
+}
+
+func (x Payload) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Payload) Descriptor() protoreflect.EnumDescriptor {
+	return file_schemapb_errors_proto_enumTypes[0].Descriptor()
+}
+
+func (Payload) Type() protoreflect.EnumType {
+	return &file_schemapb_errors_proto_enumTypes[0]
+}
+
+func (x Payload) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Payload.Descriptor instead.
+func (Payload) EnumDescriptor() ([]byte, []int) {
+	return file_schemapb_errors_proto_rawDescGZIP(), []int{0}
+}
+
 // ErrorCode is the stable, machine-readable reason a validation failed. The
 // code (plus path and the typed fields on ValidationError) IS the
-// cross-implementation contract; human-readable text is rendered from a
-// shared, spec-owned template set and is not part of the contract.
+// cross-implementation contract. Each value carries its ErrorSpec as the
+// `error_spec` option: summary, message template, constraint names and the
+// shape of expected/actual. Human-readable text is rendered from those
+// templates and is not part of the contract.
 type ErrorCode int32
 
 const (
@@ -174,11 +261,11 @@ func (x ErrorCode) String() string {
 }
 
 func (ErrorCode) Descriptor() protoreflect.EnumDescriptor {
-	return file_schemapb_errors_proto_enumTypes[0].Descriptor()
+	return file_schemapb_errors_proto_enumTypes[1].Descriptor()
 }
 
 func (ErrorCode) Type() protoreflect.EnumType {
-	return &file_schemapb_errors_proto_enumTypes[0]
+	return &file_schemapb_errors_proto_enumTypes[1]
 }
 
 func (x ErrorCode) Number() protoreflect.EnumNumber {
@@ -187,7 +274,97 @@ func (x ErrorCode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ErrorCode.Descriptor instead.
 func (ErrorCode) EnumDescriptor() ([]byte, []int) {
+	return file_schemapb_errors_proto_rawDescGZIP(), []int{1}
+}
+
+// ErrorSpec is the machine-readable specification of one ErrorCode,
+// attached to every ErrorCode value as the `error_spec` option. A client
+// that has only these proto files can interpret any ValidationError: read
+// the option from the enum value descriptor.
+//
+// `actual` is always absent on fields marked secret, whatever the Payload.
+type ErrorSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One-sentence meaning of the code.
+	Summary string `protobuf:"bytes,1,opt,name=summary,proto3" json:"summary,omitempty"`
+	// Template of ValidationError.message. Placeholders {expected} and
+	// {actual} substitute the display form of the typed values; an absent
+	// value renders "…". Empty => message is free text (rule author's text,
+	// evaluator or compiler output).
+	Template string `protobuf:"bytes,2,opt,name=template,proto3" json:"template,omitempty"`
+	// Values ValidationError.constraint takes for this code; empty => "".
+	Constraints []string `protobuf:"bytes,3,rep,name=constraints,proto3" json:"constraints,omitempty"`
+	// What ValidationError.expected carries.
+	Expected Payload `protobuf:"varint,4,opt,name=expected,proto3,enum=schemapb.Payload" json:"expected,omitempty"`
+	// What ValidationError.actual carries.
+	Actual        Payload `protobuf:"varint,5,opt,name=actual,proto3,enum=schemapb.Payload" json:"actual,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ErrorSpec) Reset() {
+	*x = ErrorSpec{}
+	mi := &file_schemapb_errors_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ErrorSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ErrorSpec) ProtoMessage() {}
+
+func (x *ErrorSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_schemapb_errors_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ErrorSpec.ProtoReflect.Descriptor instead.
+func (*ErrorSpec) Descriptor() ([]byte, []int) {
 	return file_schemapb_errors_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ErrorSpec) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
+func (x *ErrorSpec) GetTemplate() string {
+	if x != nil {
+		return x.Template
+	}
+	return ""
+}
+
+func (x *ErrorSpec) GetConstraints() []string {
+	if x != nil {
+		return x.Constraints
+	}
+	return nil
+}
+
+func (x *ErrorSpec) GetExpected() Payload {
+	if x != nil {
+		return x.Expected
+	}
+	return Payload_PAYLOAD_UNSPECIFIED
+}
+
+func (x *ErrorSpec) GetActual() Payload {
+	if x != nil {
+		return x.Actual
+	}
+	return Payload_PAYLOAD_UNSPECIFIED
 }
 
 // ValidationError is a single validation failure. The contract fields are
@@ -218,7 +395,7 @@ type ValidationError struct {
 	RuleId *string `protobuf:"bytes,7,opt,name=rule_id,json=ruleId,proto3,oneof" json:"rule_id,omitempty"`
 	// Severity; defaults to ERROR. WARNING errors do not block submit.
 	Severity Schema_Field_Severity `protobuf:"varint,8,opt,name=severity,proto3,enum=schemapb.Schema_Field_Severity" json:"severity,omitempty"`
-	// Human-readable message rendered from the spec's shared template set.
+	// Human-readable message rendered from the code's ErrorSpec template.
 	// Informative only — NOT part of the conformance contract.
 	Message string `protobuf:"bytes,9,opt,name=message,proto3" json:"message,omitempty"`
 	// Structured counterpart of path; empty for the root.
@@ -229,7 +406,7 @@ type ValidationError struct {
 
 func (x *ValidationError) Reset() {
 	*x = ValidationError{}
-	mi := &file_schemapb_errors_proto_msgTypes[0]
+	mi := &file_schemapb_errors_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -241,7 +418,7 @@ func (x *ValidationError) String() string {
 func (*ValidationError) ProtoMessage() {}
 
 func (x *ValidationError) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_errors_proto_msgTypes[0]
+	mi := &file_schemapb_errors_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -254,7 +431,7 @@ func (x *ValidationError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationError.ProtoReflect.Descriptor instead.
 func (*ValidationError) Descriptor() ([]byte, []int) {
-	return file_schemapb_errors_proto_rawDescGZIP(), []int{0}
+	return file_schemapb_errors_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ValidationError) GetPath() string {
@@ -331,14 +508,18 @@ func (x *ValidationError) GetPathSegments() []*PathSegment {
 type ValidationResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// All failures, in the spec's deterministic order. Empty means valid.
-	Errors        []*ValidationError `protobuf:"bytes,1,rep,name=errors,proto3" json:"errors,omitempty"`
+	Errors []*ValidationError `protobuf:"bytes,1,rep,name=errors,proto3" json:"errors,omitempty"`
+	// Identity of the schema the value was validated against. Set by typed
+	// message validators (protoc-gen-schemapb); engine-level Validate on
+	// plain values leaves it unset.
+	Schema        *SchemaIdentity `protobuf:"bytes,2,opt,name=schema,proto3,oneof" json:"schema,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ValidationResult) Reset() {
 	*x = ValidationResult{}
-	mi := &file_schemapb_errors_proto_msgTypes[1]
+	mi := &file_schemapb_errors_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -350,7 +531,7 @@ func (x *ValidationResult) String() string {
 func (*ValidationResult) ProtoMessage() {}
 
 func (x *ValidationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_schemapb_errors_proto_msgTypes[1]
+	mi := &file_schemapb_errors_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -363,7 +544,7 @@ func (x *ValidationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationResult.ProtoReflect.Descriptor instead.
 func (*ValidationResult) Descriptor() ([]byte, []int) {
-	return file_schemapb_errors_proto_rawDescGZIP(), []int{1}
+	return file_schemapb_errors_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ValidationResult) GetErrors() []*ValidationError {
@@ -373,11 +554,42 @@ func (x *ValidationResult) GetErrors() []*ValidationError {
 	return nil
 }
 
+func (x *ValidationResult) GetSchema() *SchemaIdentity {
+	if x != nil {
+		return x.Schema
+	}
+	return nil
+}
+
+var file_schemapb_errors_proto_extTypes = []protoimpl.ExtensionInfo{
+	{
+		ExtendedType:  (*descriptorpb.EnumValueOptions)(nil),
+		ExtensionType: (*ErrorSpec)(nil),
+		Field:         50100,
+		Name:          "schemapb.error_spec",
+		Tag:           "bytes,50100,opt,name=error_spec",
+		Filename:      "schemapb/errors.proto",
+	},
+}
+
+// Extension fields to descriptorpb.EnumValueOptions.
+var (
+	// Specification of an ErrorCode value.
+	// optional schemapb.ErrorSpec error_spec = 50100;
+	E_ErrorSpec = &file_schemapb_errors_proto_extTypes[0]
+)
+
 var File_schemapb_errors_proto protoreflect.FileDescriptor
 
 const file_schemapb_errors_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/errors.proto\x12\bschemapb\x1a\x15schemapb/schema.proto\x1a\x14schemapb/value.proto\"\xb7\x03\n" +
+	"\x15schemapb/errors.proto\x12\bschemapb\x1a google/protobuf/descriptor.proto\x1a\x15schemapb/schema.proto\x1a\x14schemapb/value.proto\"\xbd\x01\n" +
+	"\tErrorSpec\x12\x18\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary\x12\x1a\n" +
+	"\btemplate\x18\x02 \x01(\tR\btemplate\x12 \n" +
+	"\vconstraints\x18\x03 \x03(\tR\vconstraints\x12-\n" +
+	"\bexpected\x18\x04 \x01(\x0e2\x11.schemapb.PayloadR\bexpected\x12)\n" +
+	"\x06actual\x18\x05 \x01(\x0e2\x11.schemapb.PayloadR\x06actual\"\xb7\x03\n" +
 	"\x0fValidationError\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12'\n" +
 	"\x04code\x18\x02 \x01(\x0e2\x13.schemapb.ErrorCodeR\x04code\x120\n" +
@@ -395,48 +607,100 @@ const file_schemapb_errors_proto_rawDesc = "" +
 	"\t_expectedB\t\n" +
 	"\a_actualB\n" +
 	"\n" +
-	"\b_rule_id\"E\n" +
+	"\b_rule_id\"\x87\x01\n" +
 	"\x10ValidationResult\x121\n" +
-	"\x06errors\x18\x01 \x03(\v2\x19.schemapb.ValidationErrorR\x06errors*\xbd\t\n" +
+	"\x06errors\x18\x01 \x03(\v2\x19.schemapb.ValidationErrorR\x06errors\x125\n" +
+	"\x06schema\x18\x02 \x01(\v2\x18.schemapb.SchemaIdentityH\x00R\x06schema\x88\x01\x01B\t\n" +
+	"\a_schema*\xda\x01\n" +
+	"\aPayload\x12\x17\n" +
+	"\x13PAYLOAD_UNSPECIFIED\x10\x00\x12\x10\n" +
+	"\fPAYLOAD_NONE\x10\x01\x12\x0f\n" +
+	"\vPAYLOAD_ANY\x10\x02\x12\x10\n" +
+	"\fPAYLOAD_NULL\x10\x03\x12\x12\n" +
+	"\x0ePAYLOAD_SCALAR\x10\x04\x12\x17\n" +
+	"\x13PAYLOAD_SCALAR_LIST\x10\x05\x12\x12\n" +
+	"\x0ePAYLOAD_STRING\x10\x06\x12\x17\n" +
+	"\x13PAYLOAD_STRING_LIST\x10\a\x12\x11\n" +
+	"\rPAYLOAD_COUNT\x10\b\x12\x14\n" +
+	"\x10PAYLOAD_ANY_LIST\x10\t*\xce'\n" +
 	"\tErrorCode\x12\x1a\n" +
-	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12\x1c\n" +
-	"\x18ERROR_CODE_TYPE_MISMATCH\x10\x01\x12\x1f\n" +
-	"\x1bERROR_CODE_REQUIRED_MISSING\x10\x02\x12\x1b\n" +
-	"\x17ERROR_CODE_NOT_NULLABLE\x10\x03\x12\x1c\n" +
-	"\x18ERROR_CODE_UNKNOWN_FIELD\x10\x04\x12!\n" +
-	"\x1dERROR_CODE_IMMUTABLE_MODIFIED\x10\x05\x12\x1d\n" +
+	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12\xab\x01\n" +
+	"\x18ERROR_CODE_TYPE_MISMATCH\x10\x01\x1a\x8c\x01\xa2\xbb\x18\x87\x01\n" +
+	"lThe value has the wrong type for the field kind. expected names the kind (\"int64\", \"string\", \"object\", ...).\x12\x13expected {expected} \x06(\x02\x12Z\n" +
+	"\x1bERROR_CODE_REQUIRED_MISSING\x10\x02\x1a9\xa2\xbb\x185\n" +
+	"\x1bA required field is absent.\x12\brequired\x1a\brequired \x01(\x01\x12\x7f\n" +
+	"\x17ERROR_CODE_NOT_NULLABLE\x10\x03\x1ab\xa2\xbb\x18^\n" +
+	"<An explicit null was given for a field that is not nullable.\x12\x10must not be null\x1a\bnullable \x01(\x03\x12r\n" +
+	"\x18ERROR_CODE_UNKNOWN_FIELD\x10\x04\x1aT\xa2\xbb\x18P\n" +
+	"3A strict schema received a key it does not declare.\x12\runknown field\x1a\x06strict \x01(\x02\x12\xa1\x01\n" +
+	"\x1dERROR_CODE_IMMUTABLE_MODIFIED\x10\x05\x1a~\xa2\xbb\x18z\n" +
+	"KAn immutable field was given a value different from its default (expected).\x12\x1cimmutable: cannot be changed\x1a\timmutable \x04(\x02\x12s\n" +
 	"\x19ERROR_CODE_CONST_MISMATCH\x10\n" +
-	"\x12\x1a\n" +
-	"\x16ERROR_CODE_GT_VIOLATED\x10\v\x12\x1b\n" +
-	"\x17ERROR_CODE_GTE_VIOLATED\x10\f\x12\x1a\n" +
-	"\x16ERROR_CODE_LT_VIOLATED\x10\r\x12\x1b\n" +
-	"\x17ERROR_CODE_LTE_VIOLATED\x10\x0e\x12!\n" +
-	"\x1dERROR_CODE_NOT_IN_ALLOWED_SET\x10\x0f\x12\x1f\n" +
-	"\x1bERROR_CODE_IN_FORBIDDEN_SET\x10\x10\x12#\n" +
-	"\x1fERROR_CODE_MULTIPLE_OF_VIOLATED\x10\x11\x12\x1b\n" +
-	"\x17ERROR_CODE_LEN_MISMATCH\x10\x14\x12\x1f\n" +
-	"\x1bERROR_CODE_MIN_LEN_VIOLATED\x10\x15\x12\x1f\n" +
-	"\x1bERROR_CODE_MAX_LEN_VIOLATED\x10\x16\x12\x1f\n" +
-	"\x1bERROR_CODE_PATTERN_MISMATCH\x10\x17\x12\x1e\n" +
-	"\x1aERROR_CODE_FORMAT_MISMATCH\x10\x18\x12\x1e\n" +
-	"\x1aERROR_CODE_PREFIX_MISMATCH\x10\x19\x12\x1e\n" +
-	"\x1aERROR_CODE_SUFFIX_MISMATCH\x10\x1a\x12!\n" +
-	"\x1dERROR_CODE_UNSUPPORTED_FORMAT\x10\x1b\x12!\n" +
-	"\x1dERROR_CODE_CHOICE_NOT_ALLOWED\x10\x1e\x12!\n" +
-	"\x1dERROR_CODE_MIN_ITEMS_VIOLATED\x10(\x12!\n" +
-	"\x1dERROR_CODE_MAX_ITEMS_VIOLATED\x10)\x12\x19\n" +
-	"\x15ERROR_CODE_NOT_UNIQUE\x10*\x12\"\n" +
-	"\x1eERROR_CODE_LIST_COUNT_MISMATCH\x10+\x12#\n" +
-	"\x1fERROR_CODE_MIN_ENTRIES_VIOLATED\x102\x12#\n" +
-	"\x1fERROR_CODE_MAX_ENTRIES_VIOLATED\x103\x12&\n" +
-	"\"ERROR_CODE_MIN_PROPERTIES_VIOLATED\x10<\x12&\n" +
-	"\"ERROR_CODE_MAX_PROPERTIES_VIOLATED\x10=\x12$\n" +
-	" ERROR_CODE_DISCRIMINATOR_MISSING\x10F\x12\x1e\n" +
-	"\x1aERROR_CODE_UNKNOWN_VARIANT\x10G\x12\x1a\n" +
-	"\x16ERROR_CODE_UNKNOWN_REF\x10H\x12\x1c\n" +
-	"\x18ERROR_CODE_RULE_VIOLATED\x10P\x12\x19\n" +
-	"\x15ERROR_CODE_EXPR_ERROR\x10Q\x12\x1d\n" +
-	"\x19ERROR_CODE_INVALID_SCHEMA\x10ZB*Z(github.com/gopherex/schemapb/go/schemapbb\x06proto3"
+	"\x1aT\xa2\xbb\x18P\n" +
+	",The value differs from the const constraint.\x12\x15must equal {expected}\x1a\x05const \x04(\x04\x12q\n" +
+	"\x16ERROR_CODE_GT_VIOLATED\x10\v\x1aU\xa2\xbb\x18Q\n" +
+	"1The value is not strictly greater than the bound.\x12\x14must be > {expected}\x1a\x02gt \x04(\x04\x12t\n" +
+	"\x17ERROR_CODE_GTE_VIOLATED\x10\f\x1aW\xa2\xbb\x18S\n" +
+	"1The value is less than the inclusive lower bound.\x12\x15must be >= {expected}\x1a\x03gte \x04(\x04\x12n\n" +
+	"\x16ERROR_CODE_LT_VIOLATED\x10\r\x1aR\xa2\xbb\x18N\n" +
+	".The value is not strictly less than the bound.\x12\x14must be < {expected}\x1a\x02lt \x04(\x04\x12w\n" +
+	"\x17ERROR_CODE_LTE_VIOLATED\x10\x0e\x1aZ\xa2\xbb\x18V\n" +
+	"4The value is greater than the inclusive upper bound.\x12\x15must be <= {expected}\x1a\x03lte \x04(\x04\x12p\n" +
+	"\x1dERROR_CODE_NOT_IN_ALLOWED_SET\x10\x0f\x1aM\xa2\xbb\x18I\n" +
+	"$The value is not in the allowed set.\x12\x19must be one of {expected}\x1a\x02in \x05(\x04\x12t\n" +
+	"\x1bERROR_CODE_IN_FORBIDDEN_SET\x10\x10\x1aS\xa2\xbb\x18O\n" +
+	"\"The value is in the forbidden set.\x12\x1dmust not be one of {expected}\x1a\x06not_in \x05(\x04\x12\x89\x01\n" +
+	"\x1fERROR_CODE_MULTIPLE_OF_VIOLATED\x10\x11\x1ad\xa2\xbb\x18`\n" +
+	"+The value is not a multiple of the divisor.\x12 must be a multiple of {expected}\x1a\vmultiple_of \x04(\x04\x12\x89\x01\n" +
+	"\x17ERROR_CODE_LEN_MISMATCH\x10\x14\x1al\xa2\xbb\x18h\n" +
+	":The string (code points) or bytes length differs from len.\x12!length must be exactly {expected}\x1a\x03len \b(\x04\x12\x92\x01\n" +
+	"\x1bERROR_CODE_MIN_LEN_VIOLATED\x10\x15\x1aq\xa2\xbb\x18m\n" +
+	":The string (code points) or bytes length is below min_len.\x12\"length must be at least {expected}\x1a\amin_len \b(\x04\x12\x91\x01\n" +
+	"\x1bERROR_CODE_MAX_LEN_VIOLATED\x10\x16\x1ap\xa2\xbb\x18l\n" +
+	":The string (code points) or bytes length is above max_len.\x12!length must be at most {expected}\x1a\amax_len \b(\x04\x12\x88\x01\n" +
+	"\x1bERROR_CODE_PATTERN_MISMATCH\x10\x17\x1ag\xa2\xbb\x18c\n" +
+	"5The string does not match the RE2 pattern (expected).\x12\x1dmust match pattern {expected}\x1a\apattern \x06(\x04\x12\x89\x01\n" +
+	"\x1aERROR_CODE_FORMAT_MISMATCH\x10\x18\x1ai\xa2\xbb\x18e\n" +
+	";The string does not conform to the named format (expected).\x12\x1amust be a valid {expected}\x1a\x06format \x06(\x04\x12}\n" +
+	"\x1aERROR_CODE_PREFIX_MISMATCH\x10\x19\x1a]\xa2\xbb\x18Y\n" +
+	"/The bytes value does not start with the prefix.\x12\x1amust start with {expected}\x1a\x06prefix \x04(\x04\x12y\n" +
+	"\x1aERROR_CODE_SUFFIX_MISMATCH\x10\x1a\x1aY\xa2\xbb\x18U\n" +
+	"-The bytes value does not end with the suffix.\x12\x18must end with {expected}\x1a\x06suffix \x04(\x04\x12\xb9\x01\n" +
+	"\x1dERROR_CODE_UNSUPPORTED_FORMAT\x10\x1b\x1a\x95\x01\xa2\xbb\x18\x90\x01\n" +
+	"GThe schema names a format (expected) this implementation does not know.\x129format {expected} is not supported by this implementation\x1a\x06format \x06(\x04\x12\xaa\x01\n" +
+	"\x1dERROR_CODE_CHOICE_NOT_ALLOWED\x10\x1e\x1a\x86\x01\xa2\xbb\x18\x81\x01\n" +
+	"IThe value is not one of the choice options (static or from options_expr).\x12\x19must be one of {expected}\x1a\aoptions\x1a\foptions_expr \t(\x02\x12\x85\x01\n" +
+	"\x1dERROR_CODE_MIN_ITEMS_VIOLATED\x10(\x1ab\xa2\xbb\x18^\n" +
+	"(The list has fewer items than min_items.\x12#must have at least {expected} items\x1a\tmin_items \b(\b\x12\x83\x01\n" +
+	"\x1dERROR_CODE_MAX_ITEMS_VIOLATED\x10)\x1a`\xa2\xbb\x18\\\n" +
+	"'The list has more items than max_items.\x12\"must have at most {expected} items\x1a\tmax_items \b(\b\x12\x82\x01\n" +
+	"\x15ERROR_CODE_NOT_UNIQUE\x10*\x1ag\xa2\xbb\x18c\n" +
+	"EA list item repeats an earlier one; the path names the repeated item.\x12\x0emust be unique\x1a\x06unique \x01(\x02\x12\xa8\x01\n" +
+	"\x1eERROR_CODE_LIST_COUNT_MISMATCH\x10+\x1a\x83\x01\xa2\xbb\x18\x7f\n" +
+	"BThe list length differs from the tuple shape or count_expr result.\x12\"must have exactly {expected} items\x1a\x05tuple\x1a\n" +
+	"count_expr \b(\b\x12\x8e\x01\n" +
+	"\x1fERROR_CODE_MIN_ENTRIES_VIOLATED\x102\x1ai\xa2\xbb\x18e\n" +
+	"+The map has fewer entries than min_entries.\x12%must have at least {expected} entries\x1a\vmin_entries \b(\b\x12\x8c\x01\n" +
+	"\x1fERROR_CODE_MAX_ENTRIES_VIOLATED\x103\x1ag\xa2\xbb\x18c\n" +
+	"*The map has more entries than max_entries.\x12$must have at most {expected} entries\x1a\vmax_entries \b(\b\x12\xa9\x01\n" +
+	"\"ERROR_CODE_MIN_PROPERTIES_VIOLATED\x10<\x1a\x80\x01\xa2\xbb\x18|\n" +
+	"<The object has fewer present properties than min_properties.\x12(must have at least {expected} properties\x1a\x0emin_properties \b(\b\x12\xa6\x01\n" +
+	"\"ERROR_CODE_MAX_PROPERTIES_VIOLATED\x10=\x1a~\xa2\xbb\x18z\n" +
+	";The object has more present properties than max_properties.\x12'must have at most {expected} properties\x1a\x0emax_properties \b(\b\x12\xc6\x01\n" +
+	" ERROR_CODE_DISCRIMINATOR_MISSING\x10F\x1a\x9f\x01\xa2\xbb\x18\x9a\x01\n" +
+	"PThe OneOf discriminator property (expected) is absent or not a non-empty string.\x123discriminator {expected} must be a non-empty string\x1a\rdiscriminator \x06(\x01\x12\x9d\x01\n" +
+	"\x1aERROR_CODE_UNKNOWN_VARIANT\x10G\x1a}\xa2\xbb\x18y\n" +
+	"OThe discriminator selects no declared variant; expected lists the variant keys.\x12\x18unknown variant {actual}\x1a\bvariants \a(\x06\x12y\n" +
+	"\x16ERROR_CODE_UNKNOWN_REF\x10H\x1a]\xa2\xbb\x18Y\n" +
+	"5A Ref names a def or identity that is not resolvable.\x12\x17unknown $ref {expected}\x1a\x03ref \x06(\x01\x12\x8d\x01\n" +
+	"\x18ERROR_CODE_RULE_VIOLATED\x10P\x1ao\xa2\xbb\x18k\n" +
+	"eA CEL rule evaluated to false. expr and rule_id identify the rule; message is the rule author's text. \x01(\x01\x12~\n" +
+	"\x15ERROR_CODE_EXPR_ERROR\x10Q\x1ac\xa2\xbb\x18_\n" +
+	"YA CEL expression failed to evaluate. expr is the source; message is the evaluator's text. \x01(\x01\x12q\n" +
+	"\x19ERROR_CODE_INVALID_SCHEMA\x10Z\x1aR\xa2\xbb\x18N\n" +
+	"HThe schema descriptor itself is malformed; message describes the defect. \x01(\x01:W\n" +
+	"\n" +
+	"error_spec\x12!.google.protobuf.EnumValueOptions\x18\xb4\x87\x03 \x01(\v2\x13.schemapb.ErrorSpecR\terrorSpecB*Z(github.com/gopherex/schemapb/go/schemapbb\x06proto3"
 
 var (
 	file_schemapb_errors_proto_rawDescOnce sync.Once
@@ -450,28 +714,37 @@ func file_schemapb_errors_proto_rawDescGZIP() []byte {
 	return file_schemapb_errors_proto_rawDescData
 }
 
-var file_schemapb_errors_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_schemapb_errors_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_schemapb_errors_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_schemapb_errors_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_schemapb_errors_proto_goTypes = []any{
-	(ErrorCode)(0),             // 0: schemapb.ErrorCode
-	(*ValidationError)(nil),    // 1: schemapb.ValidationError
-	(*ValidationResult)(nil),   // 2: schemapb.ValidationResult
-	(*Value)(nil),              // 3: schemapb.Value
-	(Schema_Field_Severity)(0), // 4: schemapb.Schema.Field.Severity
-	(*PathSegment)(nil),        // 5: schemapb.PathSegment
+	(Payload)(0),                          // 0: schemapb.Payload
+	(ErrorCode)(0),                        // 1: schemapb.ErrorCode
+	(*ErrorSpec)(nil),                     // 2: schemapb.ErrorSpec
+	(*ValidationError)(nil),               // 3: schemapb.ValidationError
+	(*ValidationResult)(nil),              // 4: schemapb.ValidationResult
+	(*Value)(nil),                         // 5: schemapb.Value
+	(Schema_Field_Severity)(0),            // 6: schemapb.Schema.Field.Severity
+	(*PathSegment)(nil),                   // 7: schemapb.PathSegment
+	(*SchemaIdentity)(nil),                // 8: schemapb.SchemaIdentity
+	(*descriptorpb.EnumValueOptions)(nil), // 9: google.protobuf.EnumValueOptions
 }
 var file_schemapb_errors_proto_depIdxs = []int32{
-	0, // 0: schemapb.ValidationError.code:type_name -> schemapb.ErrorCode
-	3, // 1: schemapb.ValidationError.expected:type_name -> schemapb.Value
-	3, // 2: schemapb.ValidationError.actual:type_name -> schemapb.Value
-	4, // 3: schemapb.ValidationError.severity:type_name -> schemapb.Schema.Field.Severity
-	5, // 4: schemapb.ValidationError.path_segments:type_name -> schemapb.PathSegment
-	1, // 5: schemapb.ValidationResult.errors:type_name -> schemapb.ValidationError
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	0,  // 0: schemapb.ErrorSpec.expected:type_name -> schemapb.Payload
+	0,  // 1: schemapb.ErrorSpec.actual:type_name -> schemapb.Payload
+	1,  // 2: schemapb.ValidationError.code:type_name -> schemapb.ErrorCode
+	5,  // 3: schemapb.ValidationError.expected:type_name -> schemapb.Value
+	5,  // 4: schemapb.ValidationError.actual:type_name -> schemapb.Value
+	6,  // 5: schemapb.ValidationError.severity:type_name -> schemapb.Schema.Field.Severity
+	7,  // 6: schemapb.ValidationError.path_segments:type_name -> schemapb.PathSegment
+	3,  // 7: schemapb.ValidationResult.errors:type_name -> schemapb.ValidationError
+	8,  // 8: schemapb.ValidationResult.schema:type_name -> schemapb.SchemaIdentity
+	9,  // 9: schemapb.error_spec:extendee -> google.protobuf.EnumValueOptions
+	2,  // 10: schemapb.error_spec:type_name -> schemapb.ErrorSpec
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	10, // [10:11] is the sub-list for extension type_name
+	9,  // [9:10] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_schemapb_errors_proto_init() }
@@ -481,21 +754,23 @@ func file_schemapb_errors_proto_init() {
 	}
 	file_schemapb_schema_proto_init()
 	file_schemapb_value_proto_init()
-	file_schemapb_errors_proto_msgTypes[0].OneofWrappers = []any{}
+	file_schemapb_errors_proto_msgTypes[1].OneofWrappers = []any{}
+	file_schemapb_errors_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schemapb_errors_proto_rawDesc), len(file_schemapb_errors_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   2,
-			NumExtensions: 0,
+			NumEnums:      2,
+			NumMessages:   3,
+			NumExtensions: 1,
 			NumServices:   0,
 		},
 		GoTypes:           file_schemapb_errors_proto_goTypes,
 		DependencyIndexes: file_schemapb_errors_proto_depIdxs,
 		EnumInfos:         file_schemapb_errors_proto_enumTypes,
 		MessageInfos:      file_schemapb_errors_proto_msgTypes,
+		ExtensionInfos:    file_schemapb_errors_proto_extTypes,
 	}.Build()
 	File_schemapb_errors_proto = out.File
 	file_schemapb_errors_proto_goTypes = nil

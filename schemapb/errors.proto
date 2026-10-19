@@ -2,80 +2,356 @@ syntax = "proto3";
 
 package schemapb;
 
+import "google/protobuf/descriptor.proto";
 import "schemapb/schema.proto";
 import "schemapb/value.proto";
 
 option go_package = "github.com/gopherex/schemapb/go/schemapb";
 
 /*
+ * Payload names what a ValidationError carries in `expected` or `actual`
+ * for a given ErrorCode (see ErrorSpec).
+ */
+enum Payload {
+  /* Not specified. */
+  PAYLOAD_UNSPECIFIED = 0;
+  /* The field is absent. */
+  PAYLOAD_NONE = 1;
+  /* Any Value variant (e.g. an offending value of unknown kind). */
+  PAYLOAD_ANY = 2;
+  /* The null_value variant. */
+  PAYLOAD_NULL = 3;
+  /*
+   * A scalar comparable with the field's value: integer kinds widen to
+   * int64_value / uint64_value, float kinds to double_value; string,
+   * bytes, bool, duration and timestamp keep their own variant.
+   */
+  PAYLOAD_SCALAR = 4;
+  /* A list_value of PAYLOAD_SCALAR items. */
+  PAYLOAD_SCALAR_LIST = 5;
+  /* A string_value. */
+  PAYLOAD_STRING = 6;
+  /* A list_value of string_value items. */
+  PAYLOAD_STRING_LIST = 7;
+  /* A non-negative integer count: uint64_value, or int64_value. */
+  PAYLOAD_COUNT = 8;
+  /* A list_value of PAYLOAD_ANY items. */
+  PAYLOAD_ANY_LIST = 9;
+}
+
+/*
+ * ErrorSpec is the machine-readable specification of one ErrorCode,
+ * attached to every ErrorCode value as the `error_spec` option. A client
+ * that has only these proto files can interpret any ValidationError: read
+ * the option from the enum value descriptor.
+ *
+ * `actual` is always absent on fields marked secret, whatever the Payload.
+ */
+message ErrorSpec {
+  /* One-sentence meaning of the code. */
+  string summary = 1;
+  /*
+   * Template of ValidationError.message. Placeholders {expected} and
+   * {actual} substitute the display form of the typed values; an absent
+   * value renders "…". Empty => message is free text (rule author's text,
+   * evaluator or compiler output).
+   */
+  string template = 2;
+  /* Values ValidationError.constraint takes for this code; empty => "". */
+  repeated string constraints = 3;
+  /* What ValidationError.expected carries. */
+  Payload expected = 4;
+  /* What ValidationError.actual carries. */
+  Payload actual = 5;
+}
+
+extend google.protobuf.EnumValueOptions {
+  /* Specification of an ErrorCode value. */
+  ErrorSpec error_spec = 50100;
+}
+
+/*
  * ErrorCode is the stable, machine-readable reason a validation failed. The
  * code (plus path and the typed fields on ValidationError) IS the
- * cross-implementation contract; human-readable text is rendered from a
- * shared, spec-owned template set and is not part of the contract.
+ * cross-implementation contract. Each value carries its ErrorSpec as the
+ * `error_spec` option: summary, message template, constraint names and the
+ * shape of expected/actual. Human-readable text is rendered from those
+ * templates and is not part of the contract.
  */
 enum ErrorCode {
   ERROR_CODE_UNSPECIFIED = 0;
 
   /* Value/type shape. */
-  ERROR_CODE_TYPE_MISMATCH = 1;
-  ERROR_CODE_REQUIRED_MISSING = 2;
-  ERROR_CODE_NOT_NULLABLE = 3;
-  ERROR_CODE_UNKNOWN_FIELD = 4;
-  ERROR_CODE_IMMUTABLE_MODIFIED = 5;
+  ERROR_CODE_TYPE_MISMATCH = 1 [(error_spec) = {
+    summary: "The value has the wrong type for the field kind. expected names the kind (\"int64\", \"string\", \"object\", ...)."
+    template: "expected {expected}"
+    expected: PAYLOAD_STRING
+    actual: PAYLOAD_ANY
+  }];
+  ERROR_CODE_REQUIRED_MISSING = 2 [(error_spec) = {
+    summary: "A required field is absent."
+    template: "required"
+    constraints: "required"
+    expected: PAYLOAD_NONE
+    actual: PAYLOAD_NONE
+  }];
+  ERROR_CODE_NOT_NULLABLE = 3 [(error_spec) = {
+    summary: "An explicit null was given for a field that is not nullable."
+    template: "must not be null"
+    constraints: "nullable"
+    expected: PAYLOAD_NONE
+    actual: PAYLOAD_NULL
+  }];
+  ERROR_CODE_UNKNOWN_FIELD = 4 [(error_spec) = {
+    summary: "A strict schema received a key it does not declare."
+    template: "unknown field"
+    constraints: "strict"
+    expected: PAYLOAD_NONE
+    actual: PAYLOAD_ANY
+  }];
+  ERROR_CODE_IMMUTABLE_MODIFIED = 5 [(error_spec) = {
+    summary: "An immutable field was given a value different from its default (expected)."
+    template: "immutable: cannot be changed"
+    constraints: "immutable"
+    expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_ANY
+  }];
 
   /* Scalar constraints. */
-  ERROR_CODE_CONST_MISMATCH = 10;
-  ERROR_CODE_GT_VIOLATED = 11;
-  ERROR_CODE_GTE_VIOLATED = 12;
-  ERROR_CODE_LT_VIOLATED = 13;
-  ERROR_CODE_LTE_VIOLATED = 14;
-  ERROR_CODE_NOT_IN_ALLOWED_SET = 15;
-  ERROR_CODE_IN_FORBIDDEN_SET = 16;
-  ERROR_CODE_MULTIPLE_OF_VIOLATED = 17;
+  ERROR_CODE_CONST_MISMATCH = 10 [(error_spec) = {
+    summary: "The value differs from the const constraint."
+    template: "must equal {expected}"
+    constraints: "const"
+    expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_GT_VIOLATED = 11 [(error_spec) = {
+    summary: "The value is not strictly greater than the bound."
+    template: "must be > {expected}"
+    constraints: "gt"
+    expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_GTE_VIOLATED = 12 [(error_spec) = {
+    summary: "The value is less than the inclusive lower bound."
+    template: "must be >= {expected}"
+    constraints: "gte"
+    expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_LT_VIOLATED = 13 [(error_spec) = {
+    summary: "The value is not strictly less than the bound."
+    template: "must be < {expected}"
+    constraints: "lt"
+    expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_LTE_VIOLATED = 14 [(error_spec) = {
+    summary: "The value is greater than the inclusive upper bound."
+    template: "must be <= {expected}"
+    constraints: "lte"
+    expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_NOT_IN_ALLOWED_SET = 15 [(error_spec) = {
+    summary: "The value is not in the allowed set."
+    template: "must be one of {expected}"
+    constraints: "in"
+    expected: PAYLOAD_SCALAR_LIST
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_IN_FORBIDDEN_SET = 16 [(error_spec) = {
+    summary: "The value is in the forbidden set."
+    template: "must not be one of {expected}"
+    constraints: "not_in"
+    expected: PAYLOAD_SCALAR_LIST
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_MULTIPLE_OF_VIOLATED = 17 [(error_spec) = {
+    summary: "The value is not a multiple of the divisor."
+    template: "must be a multiple of {expected}"
+    constraints: "multiple_of"
+    expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_SCALAR
+  }];
 
   /* String constraints. */
-  ERROR_CODE_LEN_MISMATCH = 20;
-  ERROR_CODE_MIN_LEN_VIOLATED = 21;
-  ERROR_CODE_MAX_LEN_VIOLATED = 22;
-  ERROR_CODE_PATTERN_MISMATCH = 23;
-  ERROR_CODE_FORMAT_MISMATCH = 24;
+  ERROR_CODE_LEN_MISMATCH = 20 [(error_spec) = {
+    summary: "The string (code points) or bytes length differs from len."
+    template: "length must be exactly {expected}"
+    constraints: "len"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_MIN_LEN_VIOLATED = 21 [(error_spec) = {
+    summary: "The string (code points) or bytes length is below min_len."
+    template: "length must be at least {expected}"
+    constraints: "min_len"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_MAX_LEN_VIOLATED = 22 [(error_spec) = {
+    summary: "The string (code points) or bytes length is above max_len."
+    template: "length must be at most {expected}"
+    constraints: "max_len"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_PATTERN_MISMATCH = 23 [(error_spec) = {
+    summary: "The string does not match the RE2 pattern (expected)."
+    template: "must match pattern {expected}"
+    constraints: "pattern"
+    expected: PAYLOAD_STRING
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_FORMAT_MISMATCH = 24 [(error_spec) = {
+    summary: "The string does not conform to the named format (expected)."
+    template: "must be a valid {expected}"
+    constraints: "format"
+    expected: PAYLOAD_STRING
+    actual: PAYLOAD_SCALAR
+  }];
 
   /* String/bytes affix constraints. */
-  ERROR_CODE_PREFIX_MISMATCH = 25;
-  ERROR_CODE_SUFFIX_MISMATCH = 26;
+  ERROR_CODE_PREFIX_MISMATCH = 25 [(error_spec) = {
+    summary: "The bytes value does not start with the prefix."
+    template: "must start with {expected}"
+    constraints: "prefix"
+    expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_SUFFIX_MISMATCH = 26 [(error_spec) = {
+    summary: "The bytes value does not end with the suffix."
+    template: "must end with {expected}"
+    constraints: "suffix"
+    expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_SCALAR
+  }];
   /* The schema names a format this implementation does not support. Failing
    * loudly is mandatory: a format may never be silently skipped. */
-  ERROR_CODE_UNSUPPORTED_FORMAT = 27;
+  ERROR_CODE_UNSUPPORTED_FORMAT = 27 [(error_spec) = {
+    summary: "The schema names a format (expected) this implementation does not know."
+    template: "format {expected} is not supported by this implementation"
+    constraints: "format"
+    expected: PAYLOAD_STRING
+    actual: PAYLOAD_SCALAR
+  }];
 
   /* Choice constraints. */
-  ERROR_CODE_CHOICE_NOT_ALLOWED = 30;
+  ERROR_CODE_CHOICE_NOT_ALLOWED = 30 [(error_spec) = {
+    summary: "The value is not one of the choice options (static or from options_expr)."
+    template: "must be one of {expected}"
+    constraints: "options"
+    constraints: "options_expr"
+    expected: PAYLOAD_ANY_LIST
+    actual: PAYLOAD_ANY
+  }];
 
   /* List constraints. */
-  ERROR_CODE_MIN_ITEMS_VIOLATED = 40;
-  ERROR_CODE_MAX_ITEMS_VIOLATED = 41;
-  ERROR_CODE_NOT_UNIQUE = 42;
-  ERROR_CODE_LIST_COUNT_MISMATCH = 43;
+  ERROR_CODE_MIN_ITEMS_VIOLATED = 40 [(error_spec) = {
+    summary: "The list has fewer items than min_items."
+    template: "must have at least {expected} items"
+    constraints: "min_items"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_COUNT
+  }];
+  ERROR_CODE_MAX_ITEMS_VIOLATED = 41 [(error_spec) = {
+    summary: "The list has more items than max_items."
+    template: "must have at most {expected} items"
+    constraints: "max_items"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_COUNT
+  }];
+  ERROR_CODE_NOT_UNIQUE = 42 [(error_spec) = {
+    summary: "A list item repeats an earlier one; the path names the repeated item."
+    template: "must be unique"
+    constraints: "unique"
+    expected: PAYLOAD_NONE
+    actual: PAYLOAD_ANY
+  }];
+  ERROR_CODE_LIST_COUNT_MISMATCH = 43 [(error_spec) = {
+    summary: "The list length differs from the tuple shape or count_expr result."
+    template: "must have exactly {expected} items"
+    constraints: "tuple"
+    constraints: "count_expr"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_COUNT
+  }];
 
   /* Map constraints. */
-  ERROR_CODE_MIN_ENTRIES_VIOLATED = 50;
-  ERROR_CODE_MAX_ENTRIES_VIOLATED = 51;
+  ERROR_CODE_MIN_ENTRIES_VIOLATED = 50 [(error_spec) = {
+    summary: "The map has fewer entries than min_entries."
+    template: "must have at least {expected} entries"
+    constraints: "min_entries"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_COUNT
+  }];
+  ERROR_CODE_MAX_ENTRIES_VIOLATED = 51 [(error_spec) = {
+    summary: "The map has more entries than max_entries."
+    template: "must have at most {expected} entries"
+    constraints: "max_entries"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_COUNT
+  }];
 
   /* Form-level constraints. */
-  ERROR_CODE_MIN_PROPERTIES_VIOLATED = 60;
-  ERROR_CODE_MAX_PROPERTIES_VIOLATED = 61;
+  ERROR_CODE_MIN_PROPERTIES_VIOLATED = 60 [(error_spec) = {
+    summary: "The object has fewer present properties than min_properties."
+    template: "must have at least {expected} properties"
+    constraints: "min_properties"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_COUNT
+  }];
+  ERROR_CODE_MAX_PROPERTIES_VIOLATED = 61 [(error_spec) = {
+    summary: "The object has more present properties than max_properties."
+    template: "must have at most {expected} properties"
+    constraints: "max_properties"
+    expected: PAYLOAD_COUNT
+    actual: PAYLOAD_COUNT
+  }];
 
   /* Composition. */
-  ERROR_CODE_DISCRIMINATOR_MISSING = 70;
-  ERROR_CODE_UNKNOWN_VARIANT = 71;
-  ERROR_CODE_UNKNOWN_REF = 72;
+  ERROR_CODE_DISCRIMINATOR_MISSING = 70 [(error_spec) = {
+    summary: "The OneOf discriminator property (expected) is absent or not a non-empty string."
+    template: "discriminator {expected} must be a non-empty string"
+    constraints: "discriminator"
+    expected: PAYLOAD_STRING
+    actual: PAYLOAD_NONE
+  }];
+  ERROR_CODE_UNKNOWN_VARIANT = 71 [(error_spec) = {
+    summary: "The discriminator selects no declared variant; expected lists the variant keys."
+    template: "unknown variant {actual}"
+    constraints: "variants"
+    expected: PAYLOAD_STRING_LIST
+    actual: PAYLOAD_STRING
+  }];
+  ERROR_CODE_UNKNOWN_REF = 72 [(error_spec) = {
+    summary: "A Ref names a def or identity that is not resolvable."
+    template: "unknown $ref {expected}"
+    constraints: "ref"
+    expected: PAYLOAD_STRING
+    actual: PAYLOAD_NONE
+  }];
 
   /* CEL layer. */
-  ERROR_CODE_RULE_VIOLATED = 80;
-  ERROR_CODE_EXPR_ERROR = 81;
+  ERROR_CODE_RULE_VIOLATED = 80 [(error_spec) = {
+    summary: "A CEL rule evaluated to false. expr and rule_id identify the rule; message is the rule author's text."
+    expected: PAYLOAD_NONE
+    actual: PAYLOAD_NONE
+  }];
+  ERROR_CODE_EXPR_ERROR = 81 [(error_spec) = {
+    summary: "A CEL expression failed to evaluate. expr is the source; message is the evaluator's text."
+    expected: PAYLOAD_NONE
+    actual: PAYLOAD_NONE
+  }];
 
   /* Schema descriptor itself is malformed (bad identity, no kind chosen,
    * computed-field cycle, invalid CEL/Mustache/pattern source, ...). */
-  ERROR_CODE_INVALID_SCHEMA = 90;
+  ERROR_CODE_INVALID_SCHEMA = 90 [(error_spec) = {
+    summary: "The schema descriptor itself is malformed; message describes the defect."
+    expected: PAYLOAD_NONE
+    actual: PAYLOAD_NONE
+  }];
 }
 
 /*
@@ -107,7 +383,7 @@ message ValidationError {
   optional string rule_id = 7;
   /* Severity; defaults to ERROR. WARNING errors do not block submit. */
   Schema.Field.Severity severity = 8;
-  /* Human-readable message rendered from the spec's shared template set.
+  /* Human-readable message rendered from the code's ErrorSpec template.
    * Informative only — NOT part of the conformance contract. */
   string message = 9;
   /* Structured counterpart of path; empty for the root.
@@ -121,4 +397,10 @@ message ValidationError {
 message ValidationResult {
   /* All failures, in the spec's deterministic order. Empty means valid. */
   repeated ValidationError errors = 1;
+  /*
+   * Identity of the schema the value was validated against. Set by typed
+   * message validators (protoc-gen-schemapb); engine-level Validate on
+   * plain values leaves it unset.
+   */
+  optional SchemaIdentity schema = 2;
 }

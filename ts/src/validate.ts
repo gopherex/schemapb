@@ -90,7 +90,7 @@ export function validate(
   errs.push(...resolve(e, values, report));
   validateFields(e, e.schema, values, values, "", errs);
   for (const r of e.schema.rules) {
-    evalRule(e, r, r.id ?? "", null, values, undefined, errs);
+    evalRule(e, r, r.id ?? "", values, values, undefined, errs);
   }
   for (const err of errs) err.pathSegments = pathSegments(err.path);
   return create(ValidationResultSchema, { errors: errs });

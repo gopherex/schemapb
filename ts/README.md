@@ -81,6 +81,21 @@ To avoid the duplicate copy entirely, replace the generated
 export * from "@gopherex/schemapb";
 ```
 
+## Typed protobuf-es messages
+
+`Validator` validates protobuf-es v2 messages against an embedded schema;
+it is the runtime of `protoc-gen-ts-schemapb`. The value mapping is the Go
+`protomsg` one (proto field names, proto presence, enums by name).
+
+```ts
+const v = new Validator(UserSchema, rawSchemaBase64); // generated code does this
+v.check(user);     // ValidationResult, warnings included
+v.validate(user);  // throws ValidationFailure when something blocks
+```
+
+Translate messages with `formatMessage(err, catalog, display?)`; keys are
+`messageKey(err)`. See [docs/ERRORS.md](../docs/ERRORS.md).
+
 ## Development
 
 From the repository root: `make configure` once, then `make lint-ts` /

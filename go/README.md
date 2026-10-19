@@ -184,6 +184,24 @@ values. An application exposing a plain JSON map should format durations at
 its DTO boundary; `encoding/json` encodes a native `time.Duration` as a
 number of nanoseconds.
 
+## Typed proto messages
+
+`github.com/gopherex/schemapb/go/protomsg` validates generated protobuf
+messages; it is the runtime of `protoc-gen-go-schemapb`. A message is
+presented to the engine by proto field names, with proto presence (implicit
+fields always present, explicit ones only when set), enums by value name and
+well-known types as their natural values; see the package documentation.
+
+```go
+v := protomsg.New(rawSchema)     // generated code embeds the schema
+res, err := v.Check(msg)         // every failure; err is programmatic only
+err = v.Validate(msg)            // nil, or the *schemapb.ValidationResult
+st, ok := protomsg.Status(err)   // google.rpc.Status for gRPC/Connect
+```
+
+Error paths carry proto field numbers and the result carries the schema
+identity. Translation and the error contract: [docs/ERRORS.md](../docs/ERRORS.md).
+
 ## Development
 
 From the repository root: `make configure` once, then `make lint-go` /

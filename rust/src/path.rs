@@ -31,6 +31,7 @@ pub fn segments(mut path: &str) -> Vec<PathSegment> {
                 };
                 out.push(PathSegment {
                     segment: Some(Segment::Key(key)),
+                    field_number: None,
                 });
                 path = &path[end + 2..];
             } else {
@@ -42,6 +43,7 @@ pub fn segments(mut path: &str) -> Vec<PathSegment> {
                 };
                 out.push(PathSegment {
                     segment: Some(Segment::Index(index)),
+                    field_number: None,
                 });
                 path = &path[end + 1..];
             }
@@ -49,6 +51,7 @@ pub fn segments(mut path: &str) -> Vec<PathSegment> {
             let end = path.find(['.', '[']).unwrap_or(path.len());
             out.push(PathSegment {
                 segment: Some(Segment::Key(path[..end].into())),
+                field_number: None,
             });
             path = &path[end..];
         }

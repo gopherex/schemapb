@@ -86,7 +86,10 @@ pub(crate) fn compile(schema: Schema, formats: FormatRegistry) -> Result<Engine,
         Ok(engine)
     } else {
         Err(SchemaError {
-            result: crate::gen::schemapb::ValidationResult { errors: errs },
+            result: crate::gen::schemapb::ValidationResult {
+                errors: errs,
+                schema: None,
+            },
         })
     }
 }

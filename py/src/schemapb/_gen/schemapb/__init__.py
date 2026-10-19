@@ -6,10 +6,12 @@
 __all__ = (
     "Baked",
     "ErrorCode",
+    "ErrorSpec",
     "Filled",
     "ListValue",
     "NullValue",
     "PathSegment",
+    "Payload",
     "ResolveEvent",
     "ResolveOperation",
     "ResolveReport",
@@ -63,8 +65,10 @@ class ErrorCode(betterproto2.Enum):
 
     ErrorCode is the stable, machine-readable reason a validation failed. The
     code (plus path and the typed fields on ValidationError) IS the
-    cross-implementation contract; human-readable text is rendered from a
-    shared, spec-owned template set and is not part of the contract.
+    cross-implementation contract. Each value carries its ErrorSpec as the
+    `error_spec` option: summary, message template, constraint names and the
+    shape of expected/actual. Human-readable text is rendered from those
+    templates and is not part of the contract.
     """
 
     UNSPECIFIED = 0
@@ -272,6 +276,97 @@ class NullValue(betterproto2.Enum):
     NULL_VALUE = 0
 
 
+class Payload(betterproto2.Enum):
+    """
+
+    Payload names what a ValidationError carries in `expected` or `actual`
+    for a given ErrorCode (see ErrorSpec).
+    """
+
+    UNSPECIFIED = 0
+    """
+    Not specified. 
+    """
+
+    NONE = 1
+    """
+    The field is absent. 
+    """
+
+    ANY = 2
+    """
+    Any Value variant (e.g. an offending value of unknown kind). 
+    """
+
+    NULL = 3
+    """
+    The null_value variant. 
+    """
+
+    SCALAR = 4
+    """
+    
+    A scalar comparable with the field's value: integer kinds widen to
+    int64_value / uint64_value, float kinds to double_value; string,
+    bytes, bool, duration and timestamp keep their own variant.
+    """
+
+    SCALAR_LIST = 5
+    """
+    A list_value of PAYLOAD_SCALAR items. 
+    """
+
+    STRING = 6
+    """
+    A string_value. 
+    """
+
+    STRING_LIST = 7
+    """
+    A list_value of string_value items. 
+    """
+
+    COUNT = 8
+    """
+    A non-negative integer count: uint64_value, or int64_value. 
+    """
+
+    ANY_LIST = 9
+    """
+    A list_value of PAYLOAD_ANY items. 
+    """
+
+    @classmethod
+    def betterproto_value_to_renamed_proto_names(cls) -> dict[int, str]:
+        return {
+            0: "PAYLOAD_UNSPECIFIED",
+            1: "PAYLOAD_NONE",
+            2: "PAYLOAD_ANY",
+            3: "PAYLOAD_NULL",
+            4: "PAYLOAD_SCALAR",
+            5: "PAYLOAD_SCALAR_LIST",
+            6: "PAYLOAD_STRING",
+            7: "PAYLOAD_STRING_LIST",
+            8: "PAYLOAD_COUNT",
+            9: "PAYLOAD_ANY_LIST",
+        }
+
+    @classmethod
+    def betterproto_renamed_proto_names_to_value(cls) -> dict[str, int]:
+        return {
+            "PAYLOAD_UNSPECIFIED": 0,
+            "PAYLOAD_NONE": 1,
+            "PAYLOAD_ANY": 2,
+            "PAYLOAD_NULL": 3,
+            "PAYLOAD_SCALAR": 4,
+            "PAYLOAD_SCALAR_LIST": 5,
+            "PAYLOAD_STRING": 6,
+            "PAYLOAD_STRING_LIST": 7,
+            "PAYLOAD_COUNT": 8,
+            "PAYLOAD_ANY_LIST": 9,
+        }
+
+
 class ResolveOperation(betterproto2.Enum):
     """
     Operations performed while resolving a form. No values or expressions.
@@ -443,6 +538,57 @@ default_message_pool.register_message("schemapb", "Baked", Baked)
 
 
 @dataclass(eq=False, repr=False)
+class ErrorSpec(betterproto2.Message):
+    """
+
+    ErrorSpec is the machine-readable specification of one ErrorCode,
+    attached to every ErrorCode value as the `error_spec` option. A client
+    that has only these proto files can interpret any ValidationError: read
+    the option from the enum value descriptor.
+
+    `actual` is always absent on fields marked secret, whatever the Payload.
+    """
+
+    summary: "str" = betterproto2.field(1, betterproto2.TYPE_STRING)
+    """
+    One-sentence meaning of the code. 
+    """
+
+    template: "str" = betterproto2.field(2, betterproto2.TYPE_STRING)
+    """
+    
+    Template of ValidationError.message. Placeholders {expected} and
+    {actual} substitute the display form of the typed values; an absent
+    value renders "…". Empty => message is free text (rule author's text,
+    evaluator or compiler output).
+    """
+
+    constraints: "list[str]" = betterproto2.field(
+        3, betterproto2.TYPE_STRING, repeated=True
+    )
+    """
+    Values ValidationError.constraint takes for this code; empty => "". 
+    """
+
+    expected: "Payload" = betterproto2.field(
+        4, betterproto2.TYPE_ENUM, default_factory=lambda: Payload(0)
+    )
+    """
+    What ValidationError.expected carries. 
+    """
+
+    actual: "Payload" = betterproto2.field(
+        5, betterproto2.TYPE_ENUM, default_factory=lambda: Payload(0)
+    )
+    """
+    What ValidationError.actual carries. 
+    """
+
+
+default_message_pool.register_message("schemapb", "ErrorSpec", ErrorSpec)
+
+
+@dataclass(eq=False, repr=False)
 class Filled(betterproto2.Message):
     """
 
@@ -499,6 +645,16 @@ class PathSegment(betterproto2.Message):
     index: "int | None" = betterproto2.field(
         2, betterproto2.TYPE_UINT64, optional=True, group="segment"
     )
+
+    field_number: "int | None" = betterproto2.field(
+        3, betterproto2.TYPE_UINT32, optional=True
+    )
+    """
+    
+    Wire field number of the proto field this key names, when the value was
+    validated as a typed proto message (protoc-gen-schemapb). Stable under
+    field renames. Absent for plain values, list indexes and map keys.
+    """
 
 
 default_message_pool.register_message("schemapb", "PathSegment", PathSegment)
@@ -2151,7 +2307,7 @@ class ValidationError(betterproto2.Message):
 
     message: "str" = betterproto2.field(9, betterproto2.TYPE_STRING)
     """
-    Human-readable message rendered from the spec's shared template set.
+    Human-readable message rendered from the code's ErrorSpec template.
     Informative only — NOT part of the conformance contract. 
     """
 
@@ -2178,6 +2334,16 @@ class ValidationResult(betterproto2.Message):
     )
     """
     All failures, in the spec's deterministic order. Empty means valid. 
+    """
+
+    schema: "SchemaIdentity | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    
+    Identity of the schema the value was validated against. Set by typed
+    message validators (protoc-gen-schemapb); engine-level Validate on
+    plain values leaves it unset.
     """
 
 

@@ -534,6 +534,11 @@
       "severity": "SEVERITY_ERROR"
     },
     {
+      "expr": "this == root",
+      "message": "form rules bind this to the form",
+      "id": "this-form"
+    },
+    {
       "expr": "!(root.mode == \"slow\") || (\"annotations\" in root)",
       "message": "annotations is required when: root.mode == \"slow\"",
       "id": "annotations"

@@ -13,6 +13,7 @@ export * from "./lookup.js";
 export * from "./masked.js";
 export * from "./messages.js";
 export * from "./new.js";
+export * from "./protomsg.js";
 export * from "./registry.js";
 export * from "./render.js";
 export * from "./typed.js";

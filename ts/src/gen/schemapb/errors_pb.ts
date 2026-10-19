@@ -2,9 +2,11 @@
 // @generated from file schemapb/errors.proto (package schemapb, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Schema_Field_Severity, Schema_Field_SeverityJson } from "./schema_pb.js";
+import type { GenEnum, GenExtension, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, extDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { EnumValueOptions } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_descriptor } from "@bufbuild/protobuf/wkt";
+import type { Schema_Field_Severity, Schema_Field_SeverityJson, SchemaIdentity, SchemaIdentityJson } from "./schema_pb.js";
 import { file_schemapb_schema } from "./schema_pb.js";
 import type { PathSegment, PathSegmentJson, Value, ValueJson } from "./value_pb.js";
 import { file_schemapb_value } from "./value_pb.js";
@@ -14,7 +16,118 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file schemapb/errors.proto.
  */
 export const file_schemapb_errors: GenFile = /*@__PURE__*/
-  fileDesc("ChVzY2hlbWFwYi9lcnJvcnMucHJvdG8SCHNjaGVtYXBiIt4CCg9WYWxpZGF0aW9uRXJyb3ISDAoEcGF0aBgBIAEoCRIhCgRjb2RlGAIgASgOMhMuc2NoZW1hcGIuRXJyb3JDb2RlEiYKCGV4cGVjdGVkGAMgASgLMg8uc2NoZW1hcGIuVmFsdWVIAIgBARIkCgZhY3R1YWwYBCABKAsyDy5zY2hlbWFwYi5WYWx1ZUgBiAEBEhIKCmNvbnN0cmFpbnQYBSABKAkSDAoEZXhwchgGIAEoCRIUCgdydWxlX2lkGAcgASgJSAKIAQESMQoIc2V2ZXJpdHkYCCABKA4yHy5zY2hlbWFwYi5TY2hlbWEuRmllbGQuU2V2ZXJpdHkSDwoHbWVzc2FnZRgJIAEoCRIsCg1wYXRoX3NlZ21lbnRzGAogAygLMhUuc2NoZW1hcGIuUGF0aFNlZ21lbnRCCwoJX2V4cGVjdGVkQgkKB19hY3R1YWxCCgoIX3J1bGVfaWQiPQoQVmFsaWRhdGlvblJlc3VsdBIpCgZlcnJvcnMYASADKAsyGS5zY2hlbWFwYi5WYWxpZGF0aW9uRXJyb3IqvQkKCUVycm9yQ29kZRIaChZFUlJPUl9DT0RFX1VOU1BFQ0lGSUVEEAASHAoYRVJST1JfQ09ERV9UWVBFX01JU01BVENIEAESHwobRVJST1JfQ09ERV9SRVFVSVJFRF9NSVNTSU5HEAISGwoXRVJST1JfQ09ERV9OT1RfTlVMTEFCTEUQAxIcChhFUlJPUl9DT0RFX1VOS05PV05fRklFTEQQBBIhCh1FUlJPUl9DT0RFX0lNTVVUQUJMRV9NT0RJRklFRBAFEh0KGUVSUk9SX0NPREVfQ09OU1RfTUlTTUFUQ0gQChIaChZFUlJPUl9DT0RFX0dUX1ZJT0xBVEVEEAsSGwoXRVJST1JfQ09ERV9HVEVfVklPTEFURUQQDBIaChZFUlJPUl9DT0RFX0xUX1ZJT0xBVEVEEA0SGwoXRVJST1JfQ09ERV9MVEVfVklPTEFURUQQDhIhCh1FUlJPUl9DT0RFX05PVF9JTl9BTExPV0VEX1NFVBAPEh8KG0VSUk9SX0NPREVfSU5fRk9SQklEREVOX1NFVBAQEiMKH0VSUk9SX0NPREVfTVVMVElQTEVfT0ZfVklPTEFURUQQERIbChdFUlJPUl9DT0RFX0xFTl9NSVNNQVRDSBAUEh8KG0VSUk9SX0NPREVfTUlOX0xFTl9WSU9MQVRFRBAVEh8KG0VSUk9SX0NPREVfTUFYX0xFTl9WSU9MQVRFRBAWEh8KG0VSUk9SX0NPREVfUEFUVEVSTl9NSVNNQVRDSBAXEh4KGkVSUk9SX0NPREVfRk9STUFUX01JU01BVENIEBgSHgoaRVJST1JfQ09ERV9QUkVGSVhfTUlTTUFUQ0gQGRIeChpFUlJPUl9DT0RFX1NVRkZJWF9NSVNNQVRDSBAaEiEKHUVSUk9SX0NPREVfVU5TVVBQT1JURURfRk9STUFUEBsSIQodRVJST1JfQ09ERV9DSE9JQ0VfTk9UX0FMTE9XRUQQHhIhCh1FUlJPUl9DT0RFX01JTl9JVEVNU19WSU9MQVRFRBAoEiEKHUVSUk9SX0NPREVfTUFYX0lURU1TX1ZJT0xBVEVEECkSGQoVRVJST1JfQ09ERV9OT1RfVU5JUVVFECoSIgoeRVJST1JfQ09ERV9MSVNUX0NPVU5UX01JU01BVENIECsSIwofRVJST1JfQ09ERV9NSU5fRU5UUklFU19WSU9MQVRFRBAyEiMKH0VSUk9SX0NPREVfTUFYX0VOVFJJRVNfVklPTEFURUQQMxImCiJFUlJPUl9DT0RFX01JTl9QUk9QRVJUSUVTX1ZJT0xBVEVEEDwSJgoiRVJST1JfQ09ERV9NQVhfUFJPUEVSVElFU19WSU9MQVRFRBA9EiQKIEVSUk9SX0NPREVfRElTQ1JJTUlOQVRPUl9NSVNTSU5HEEYSHgoaRVJST1JfQ09ERV9VTktOT1dOX1ZBUklBTlQQRxIaChZFUlJPUl9DT0RFX1VOS05PV05fUkVGEEgSHAoYRVJST1JfQ09ERV9SVUxFX1ZJT0xBVEVEEFASGQoVRVJST1JfQ09ERV9FWFBSX0VSUk9SEFESHQoZRVJST1JfQ09ERV9JTlZBTElEX1NDSEVNQRBaQipaKGdpdGh1Yi5jb20vZ29waGVyZXgvc2NoZW1hcGIvZ28vc2NoZW1hcGJiBnByb3RvMw", [file_schemapb_schema, file_schemapb_value]);
+  fileDesc("ChVzY2hlbWFwYi9lcnJvcnMucHJvdG8SCHNjaGVtYXBiIosBCglFcnJvclNwZWMSDwoHc3VtbWFyeRgBIAEoCRIQCgh0ZW1wbGF0ZRgCIAEoCRITCgtjb25zdHJhaW50cxgDIAMoCRIjCghleHBlY3RlZBgEIAEoDjIRLnNjaGVtYXBiLlBheWxvYWQSIQoGYWN0dWFsGAUgASgOMhEuc2NoZW1hcGIuUGF5bG9hZCLeAgoPVmFsaWRhdGlvbkVycm9yEgwKBHBhdGgYASABKAkSIQoEY29kZRgCIAEoDjITLnNjaGVtYXBiLkVycm9yQ29kZRImCghleHBlY3RlZBgDIAEoCzIPLnNjaGVtYXBiLlZhbHVlSACIAQESJAoGYWN0dWFsGAQgASgLMg8uc2NoZW1hcGIuVmFsdWVIAYgBARISCgpjb25zdHJhaW50GAUgASgJEgwKBGV4cHIYBiABKAkSFAoHcnVsZV9pZBgHIAEoCUgCiAEBEjEKCHNldmVyaXR5GAggASgOMh8uc2NoZW1hcGIuU2NoZW1hLkZpZWxkLlNldmVyaXR5Eg8KB21lc3NhZ2UYCSABKAkSLAoNcGF0aF9zZWdtZW50cxgKIAMoCzIVLnNjaGVtYXBiLlBhdGhTZWdtZW50QgsKCV9leHBlY3RlZEIJCgdfYWN0dWFsQgoKCF9ydWxlX2lkIncKEFZhbGlkYXRpb25SZXN1bHQSKQoGZXJyb3JzGAEgAygLMhkuc2NoZW1hcGIuVmFsaWRhdGlvbkVycm9yEi0KBnNjaGVtYRgCIAEoCzIYLnNjaGVtYXBiLlNjaGVtYUlkZW50aXR5SACIAQFCCQoHX3NjaGVtYSraAQoHUGF5bG9hZBIXChNQQVlMT0FEX1VOU1BFQ0lGSUVEEAASEAoMUEFZTE9BRF9OT05FEAESDwoLUEFZTE9BRF9BTlkQAhIQCgxQQVlMT0FEX05VTEwQAxISCg5QQVlMT0FEX1NDQUxBUhAEEhcKE1BBWUxPQURfU0NBTEFSX0xJU1QQBRISCg5QQVlMT0FEX1NUUklORxAGEhcKE1BBWUxPQURfU1RSSU5HX0xJU1QQBxIRCg1QQVlMT0FEX0NPVU5UEAgSFAoQUEFZTE9BRF9BTllfTElTVBAJKs4nCglFcnJvckNvZGUSGgoWRVJST1JfQ09ERV9VTlNQRUNJRklFRBAAEqsBChhFUlJPUl9DT0RFX1RZUEVfTUlTTUFUQ0gQARqMAaK7GIcBCmxUaGUgdmFsdWUgaGFzIHRoZSB3cm9uZyB0eXBlIGZvciB0aGUgZmllbGQga2luZC4gZXhwZWN0ZWQgbmFtZXMgdGhlIGtpbmQgKCJpbnQ2NCIsICJzdHJpbmciLCAib2JqZWN0IiwgLi4uKS4SE2V4cGVjdGVkIHtleHBlY3RlZH0gBigCEloKG0VSUk9SX0NPREVfUkVRVUlSRURfTUlTU0lORxACGjmiuxg1EghyZXF1aXJlZBoIcmVxdWlyZWQgASgBChtBIHJlcXVpcmVkIGZpZWxkIGlzIGFic2VudC4SfwoXRVJST1JfQ09ERV9OT1RfTlVMTEFCTEUQAxpiorsYXigDCjxBbiBleHBsaWNpdCBudWxsIHdhcyBnaXZlbiBmb3IgYSBmaWVsZCB0aGF0IGlzIG5vdCBudWxsYWJsZS4SEG11c3Qgbm90IGJlIG51bGwaCG51bGxhYmxlIAEScgoYRVJST1JfQ09ERV9VTktOT1dOX0ZJRUxEEAQaVKK7GFASDXVua25vd24gZmllbGQaBnN0cmljdCABKAIKM0Egc3RyaWN0IHNjaGVtYSByZWNlaXZlZCBhIGtleSBpdCBkb2VzIG5vdCBkZWNsYXJlLhKhAQodRVJST1JfQ09ERV9JTU1VVEFCTEVfTU9ESUZJRUQQBRp+orsYehoJaW1tdXRhYmxlIAQoAgpLQW4gaW1tdXRhYmxlIGZpZWxkIHdhcyBnaXZlbiBhIHZhbHVlIGRpZmZlcmVudCBmcm9tIGl0cyBkZWZhdWx0IChleHBlY3RlZCkuEhxpbW11dGFibGU6IGNhbm5vdCBiZSBjaGFuZ2VkEnMKGUVSUk9SX0NPREVfQ09OU1RfTUlTTUFUQ0gQChpUorsYUCgECixUaGUgdmFsdWUgZGlmZmVycyBmcm9tIHRoZSBjb25zdCBjb25zdHJhaW50LhIVbXVzdCBlcXVhbCB7ZXhwZWN0ZWR9GgVjb25zdCAEEnEKFkVSUk9SX0NPREVfR1RfVklPTEFURUQQCxpVorsYUSAEKAQKMVRoZSB2YWx1ZSBpcyBub3Qgc3RyaWN0bHkgZ3JlYXRlciB0aGFuIHRoZSBib3VuZC4SFG11c3QgYmUgPiB7ZXhwZWN0ZWR9GgJndBJ0ChdFUlJPUl9DT0RFX0dURV9WSU9MQVRFRBAMGleiuxhTCjFUaGUgdmFsdWUgaXMgbGVzcyB0aGFuIHRoZSBpbmNsdXNpdmUgbG93ZXIgYm91bmQuEhVtdXN0IGJlID49IHtleHBlY3RlZH0aA2d0ZSAEKAQSbgoWRVJST1JfQ09ERV9MVF9WSU9MQVRFRBANGlKiuxhOCi5UaGUgdmFsdWUgaXMgbm90IHN0cmljdGx5IGxlc3MgdGhhbiB0aGUgYm91bmQuEhRtdXN0IGJlIDwge2V4cGVjdGVkfRoCbHQgBCgEEncKF0VSUk9SX0NPREVfTFRFX1ZJT0xBVEVEEA4aWqK7GFYoBAo0VGhlIHZhbHVlIGlzIGdyZWF0ZXIgdGhhbiB0aGUgaW5jbHVzaXZlIHVwcGVyIGJvdW5kLhIVbXVzdCBiZSA8PSB7ZXhwZWN0ZWR9GgNsdGUgBBJwCh1FUlJPUl9DT0RFX05PVF9JTl9BTExPV0VEX1NFVBAPGk2iuxhJCiRUaGUgdmFsdWUgaXMgbm90IGluIHRoZSBhbGxvd2VkIHNldC4SGW11c3QgYmUgb25lIG9mIHtleHBlY3RlZH0aAmluIAUoBBJ0ChtFUlJPUl9DT0RFX0lOX0ZPUkJJRERFTl9TRVQQEBpTorsYTwoiVGhlIHZhbHVlIGlzIGluIHRoZSBmb3JiaWRkZW4gc2V0LhIdbXVzdCBub3QgYmUgb25lIG9mIHtleHBlY3RlZH0aBm5vdF9pbiAFKAQSiQEKH0VSUk9SX0NPREVfTVVMVElQTEVfT0ZfVklPTEFURUQQERpkorsYYAorVGhlIHZhbHVlIGlzIG5vdCBhIG11bHRpcGxlIG9mIHRoZSBkaXZpc29yLhIgbXVzdCBiZSBhIG11bHRpcGxlIG9mIHtleHBlY3RlZH0aC211bHRpcGxlX29mIAQoBBKJAQoXRVJST1JfQ09ERV9MRU5fTUlTTUFUQ0gQFBpsorsYaAo6VGhlIHN0cmluZyAoY29kZSBwb2ludHMpIG9yIGJ5dGVzIGxlbmd0aCBkaWZmZXJzIGZyb20gbGVuLhIhbGVuZ3RoIG11c3QgYmUgZXhhY3RseSB7ZXhwZWN0ZWR9GgNsZW4gCCgEEpIBChtFUlJPUl9DT0RFX01JTl9MRU5fVklPTEFURUQQFRpxorsYbRoHbWluX2xlbiAIKAQKOlRoZSBzdHJpbmcgKGNvZGUgcG9pbnRzKSBvciBieXRlcyBsZW5ndGggaXMgYmVsb3cgbWluX2xlbi4SImxlbmd0aCBtdXN0IGJlIGF0IGxlYXN0IHtleHBlY3RlZH0SkQEKG0VSUk9SX0NPREVfTUFYX0xFTl9WSU9MQVRFRBAWGnCiuxhsCjpUaGUgc3RyaW5nIChjb2RlIHBvaW50cykgb3IgYnl0ZXMgbGVuZ3RoIGlzIGFib3ZlIG1heF9sZW4uEiFsZW5ndGggbXVzdCBiZSBhdCBtb3N0IHtleHBlY3RlZH0aB21heF9sZW4gCCgEEogBChtFUlJPUl9DT0RFX1BBVFRFUk5fTUlTTUFUQ0gQFxpnorsYYygECjVUaGUgc3RyaW5nIGRvZXMgbm90IG1hdGNoIHRoZSBSRTIgcGF0dGVybiAoZXhwZWN0ZWQpLhIdbXVzdCBtYXRjaCBwYXR0ZXJuIHtleHBlY3RlZH0aB3BhdHRlcm4gBhKJAQoaRVJST1JfQ09ERV9GT1JNQVRfTUlTTUFUQ0gQGBpporsYZQo7VGhlIHN0cmluZyBkb2VzIG5vdCBjb25mb3JtIHRvIHRoZSBuYW1lZCBmb3JtYXQgKGV4cGVjdGVkKS4SGm11c3QgYmUgYSB2YWxpZCB7ZXhwZWN0ZWR9GgZmb3JtYXQgBigEEn0KGkVSUk9SX0NPREVfUFJFRklYX01JU01BVENIEBkaXaK7GFkKL1RoZSBieXRlcyB2YWx1ZSBkb2VzIG5vdCBzdGFydCB3aXRoIHRoZSBwcmVmaXguEhptdXN0IHN0YXJ0IHdpdGgge2V4cGVjdGVkfRoGcHJlZml4IAQoBBJ5ChpFUlJPUl9DT0RFX1NVRkZJWF9NSVNNQVRDSBAaGlmiuxhVEhhtdXN0IGVuZCB3aXRoIHtleHBlY3RlZH0aBnN1ZmZpeCAEKAQKLVRoZSBieXRlcyB2YWx1ZSBkb2VzIG5vdCBlbmQgd2l0aCB0aGUgc3VmZml4LhK5AQodRVJST1JfQ09ERV9VTlNVUFBPUlRFRF9GT1JNQVQQGxqVAaK7GJABCkdUaGUgc2NoZW1hIG5hbWVzIGEgZm9ybWF0IChleHBlY3RlZCkgdGhpcyBpbXBsZW1lbnRhdGlvbiBkb2VzIG5vdCBrbm93LhI5Zm9ybWF0IHtleHBlY3RlZH0gaXMgbm90IHN1cHBvcnRlZCBieSB0aGlzIGltcGxlbWVudGF0aW9uGgZmb3JtYXQgBigEEqoBCh1FUlJPUl9DT0RFX0NIT0lDRV9OT1RfQUxMT1dFRBAeGoYBorsYgQEoAgpJVGhlIHZhbHVlIGlzIG5vdCBvbmUgb2YgdGhlIGNob2ljZSBvcHRpb25zIChzdGF0aWMgb3IgZnJvbSBvcHRpb25zX2V4cHIpLhIZbXVzdCBiZSBvbmUgb2Yge2V4cGVjdGVkfRoHb3B0aW9ucxoMb3B0aW9uc19leHByIAkShQEKHUVSUk9SX0NPREVfTUlOX0lURU1TX1ZJT0xBVEVEECgaYqK7GF4gCCgICihUaGUgbGlzdCBoYXMgZmV3ZXIgaXRlbXMgdGhhbiBtaW5faXRlbXMuEiNtdXN0IGhhdmUgYXQgbGVhc3Qge2V4cGVjdGVkfSBpdGVtcxoJbWluX2l0ZW1zEoMBCh1FUlJPUl9DT0RFX01BWF9JVEVNU19WSU9MQVRFRBApGmCiuxhcKAgKJ1RoZSBsaXN0IGhhcyBtb3JlIGl0ZW1zIHRoYW4gbWF4X2l0ZW1zLhIibXVzdCBoYXZlIGF0IG1vc3Qge2V4cGVjdGVkfSBpdGVtcxoJbWF4X2l0ZW1zIAgSggEKFUVSUk9SX0NPREVfTk9UX1VOSVFVRRAqGmeiuxhjCkVBIGxpc3QgaXRlbSByZXBlYXRzIGFuIGVhcmxpZXIgb25lOyB0aGUgcGF0aCBuYW1lcyB0aGUgcmVwZWF0ZWQgaXRlbS4SDm11c3QgYmUgdW5pcXVlGgZ1bmlxdWUgASgCEqgBCh5FUlJPUl9DT0RFX0xJU1RfQ09VTlRfTUlTTUFUQ0gQKxqDAaK7GH8gCCgICkJUaGUgbGlzdCBsZW5ndGggZGlmZmVycyBmcm9tIHRoZSB0dXBsZSBzaGFwZSBvciBjb3VudF9leHByIHJlc3VsdC4SIm11c3QgaGF2ZSBleGFjdGx5IHtleHBlY3RlZH0gaXRlbXMaBXR1cGxlGgpjb3VudF9leHByEo4BCh9FUlJPUl9DT0RFX01JTl9FTlRSSUVTX1ZJT0xBVEVEEDIaaaK7GGUSJW11c3QgaGF2ZSBhdCBsZWFzdCB7ZXhwZWN0ZWR9IGVudHJpZXMaC21pbl9lbnRyaWVzIAgoCAorVGhlIG1hcCBoYXMgZmV3ZXIgZW50cmllcyB0aGFuIG1pbl9lbnRyaWVzLhKMAQofRVJST1JfQ09ERV9NQVhfRU5UUklFU19WSU9MQVRFRBAzGmeiuxhjKAgKKlRoZSBtYXAgaGFzIG1vcmUgZW50cmllcyB0aGFuIG1heF9lbnRyaWVzLhIkbXVzdCBoYXZlIGF0IG1vc3Qge2V4cGVjdGVkfSBlbnRyaWVzGgttYXhfZW50cmllcyAIEqkBCiJFUlJPUl9DT0RFX01JTl9QUk9QRVJUSUVTX1ZJT0xBVEVEEDwagAGiuxh8EihtdXN0IGhhdmUgYXQgbGVhc3Qge2V4cGVjdGVkfSBwcm9wZXJ0aWVzGg5taW5fcHJvcGVydGllcyAIKAgKPFRoZSBvYmplY3QgaGFzIGZld2VyIHByZXNlbnQgcHJvcGVydGllcyB0aGFuIG1pbl9wcm9wZXJ0aWVzLhKmAQoiRVJST1JfQ09ERV9NQVhfUFJPUEVSVElFU19WSU9MQVRFRBA9Gn6iuxh6Gg5tYXhfcHJvcGVydGllcyAIKAgKO1RoZSBvYmplY3QgaGFzIG1vcmUgcHJlc2VudCBwcm9wZXJ0aWVzIHRoYW4gbWF4X3Byb3BlcnRpZXMuEidtdXN0IGhhdmUgYXQgbW9zdCB7ZXhwZWN0ZWR9IHByb3BlcnRpZXMSxgEKIEVSUk9SX0NPREVfRElTQ1JJTUlOQVRPUl9NSVNTSU5HEEYanwGiuxiaARIzZGlzY3JpbWluYXRvciB7ZXhwZWN0ZWR9IG11c3QgYmUgYSBub24tZW1wdHkgc3RyaW5nGg1kaXNjcmltaW5hdG9yIAYoAQpQVGhlIE9uZU9mIGRpc2NyaW1pbmF0b3IgcHJvcGVydHkgKGV4cGVjdGVkKSBpcyBhYnNlbnQgb3Igbm90IGEgbm9uLWVtcHR5IHN0cmluZy4SnQEKGkVSUk9SX0NPREVfVU5LTk9XTl9WQVJJQU5UEEcafaK7GHkaCHZhcmlhbnRzIAcoBgpPVGhlIGRpc2NyaW1pbmF0b3Igc2VsZWN0cyBubyBkZWNsYXJlZCB2YXJpYW50OyBleHBlY3RlZCBsaXN0cyB0aGUgdmFyaWFudCBrZXlzLhIYdW5rbm93biB2YXJpYW50IHthY3R1YWx9EnkKFkVSUk9SX0NPREVfVU5LTk9XTl9SRUYQSBpdorsYWQo1QSBSZWYgbmFtZXMgYSBkZWYgb3IgaWRlbnRpdHkgdGhhdCBpcyBub3QgcmVzb2x2YWJsZS4SF3Vua25vd24gJHJlZiB7ZXhwZWN0ZWR9GgNyZWYgBigBEo0BChhFUlJPUl9DT0RFX1JVTEVfVklPTEFURUQQUBpvorsYawplQSBDRUwgcnVsZSBldmFsdWF0ZWQgdG8gZmFsc2UuIGV4cHIgYW5kIHJ1bGVfaWQgaWRlbnRpZnkgdGhlIHJ1bGU7IG1lc3NhZ2UgaXMgdGhlIHJ1bGUgYXV0aG9yJ3MgdGV4dC4gASgBEn4KFUVSUk9SX0NPREVfRVhQUl9FUlJPUhBRGmOiuxhfCllBIENFTCBleHByZXNzaW9uIGZhaWxlZCB0byBldmFsdWF0ZS4gZXhwciBpcyB0aGUgc291cmNlOyBtZXNzYWdlIGlzIHRoZSBldmFsdWF0b3IncyB0ZXh0LiABKAEScQoZRVJST1JfQ09ERV9JTlZBTElEX1NDSEVNQRBaGlKiuxhOKAEKSFRoZSBzY2hlbWEgZGVzY3JpcHRvciBpdHNlbGYgaXMgbWFsZm9ybWVkOyBtZXNzYWdlIGRlc2NyaWJlcyB0aGUgZGVmZWN0LiABOlcKCmVycm9yX3NwZWMSIS5nb29nbGUucHJvdG9idWYuRW51bVZhbHVlT3B0aW9ucxi0hwMgASgLMhMuc2NoZW1hcGIuRXJyb3JTcGVjUgllcnJvclNwZWNCKlooZ2l0aHViLmNvbS9nb3BoZXJleC9zY2hlbWFwYi9nby9zY2hlbWFwYmIGcHJvdG8z", [file_google_protobuf_descriptor, file_schemapb_schema, file_schemapb_value]);
+
+/**
+ *
+ * ErrorSpec is the machine-readable specification of one ErrorCode,
+ * attached to every ErrorCode value as the `error_spec` option. A client
+ * that has only these proto files can interpret any ValidationError: read
+ * the option from the enum value descriptor.
+ *
+ * `actual` is always absent on fields marked secret, whatever the Payload.
+ *
+ * @generated from message schemapb.ErrorSpec
+ */
+export type ErrorSpec = Message<"schemapb.ErrorSpec"> & {
+  /**
+   * One-sentence meaning of the code. 
+   *
+   * @generated from field: string summary = 1;
+   */
+  summary: string;
+
+  /**
+   *
+   * Template of ValidationError.message. Placeholders {expected} and
+   * {actual} substitute the display form of the typed values; an absent
+   * value renders "…". Empty => message is free text (rule author's text,
+   * evaluator or compiler output).
+   *
+   * @generated from field: string template = 2;
+   */
+  template: string;
+
+  /**
+   * Values ValidationError.constraint takes for this code; empty => "". 
+   *
+   * @generated from field: repeated string constraints = 3;
+   */
+  constraints: string[];
+
+  /**
+   * What ValidationError.expected carries. 
+   *
+   * @generated from field: schemapb.Payload expected = 4;
+   */
+  expected: Payload;
+
+  /**
+   * What ValidationError.actual carries. 
+   *
+   * @generated from field: schemapb.Payload actual = 5;
+   */
+  actual: Payload;
+};
+
+/**
+ *
+ * ErrorSpec is the machine-readable specification of one ErrorCode,
+ * attached to every ErrorCode value as the `error_spec` option. A client
+ * that has only these proto files can interpret any ValidationError: read
+ * the option from the enum value descriptor.
+ *
+ * `actual` is always absent on fields marked secret, whatever the Payload.
+ *
+ * @generated from message schemapb.ErrorSpec
+ */
+export type ErrorSpecJson = {
+  /**
+   * One-sentence meaning of the code. 
+   *
+   * @generated from field: string summary = 1;
+   */
+  summary?: string;
+
+  /**
+   *
+   * Template of ValidationError.message. Placeholders {expected} and
+   * {actual} substitute the display form of the typed values; an absent
+   * value renders "…". Empty => message is free text (rule author's text,
+   * evaluator or compiler output).
+   *
+   * @generated from field: string template = 2;
+   */
+  template?: string;
+
+  /**
+   * Values ValidationError.constraint takes for this code; empty => "". 
+   *
+   * @generated from field: repeated string constraints = 3;
+   */
+  constraints?: string[];
+
+  /**
+   * What ValidationError.expected carries. 
+   *
+   * @generated from field: schemapb.Payload expected = 4;
+   */
+  expected?: PayloadJson;
+
+  /**
+   * What ValidationError.actual carries. 
+   *
+   * @generated from field: schemapb.Payload actual = 5;
+   */
+  actual?: PayloadJson;
+};
+
+/**
+ * Describes the message schemapb.ErrorSpec.
+ * Use `create(ErrorSpecSchema)` to create a new message.
+ */
+export const ErrorSpecSchema: GenMessage<ErrorSpec, {jsonType: ErrorSpecJson}> = /*@__PURE__*/
+  messageDesc(file_schemapb_errors, 0);
 
 /**
  *
@@ -89,7 +202,7 @@ export type ValidationError = Message<"schemapb.ValidationError"> & {
   severity: Schema_Field_Severity;
 
   /**
-   * Human-readable message rendered from the spec's shared template set.
+   * Human-readable message rendered from the code's ErrorSpec template.
    * Informative only — NOT part of the conformance contract. 
    *
    * @generated from field: string message = 9;
@@ -177,7 +290,7 @@ export type ValidationErrorJson = {
   severity?: Schema_Field_SeverityJson;
 
   /**
-   * Human-readable message rendered from the spec's shared template set.
+   * Human-readable message rendered from the code's ErrorSpec template.
    * Informative only — NOT part of the conformance contract. 
    *
    * @generated from field: string message = 9;
@@ -197,7 +310,7 @@ export type ValidationErrorJson = {
  * Use `create(ValidationErrorSchema)` to create a new message.
  */
 export const ValidationErrorSchema: GenMessage<ValidationError, {jsonType: ValidationErrorJson}> = /*@__PURE__*/
-  messageDesc(file_schemapb_errors, 0);
+  messageDesc(file_schemapb_errors, 1);
 
 /**
  *
@@ -212,6 +325,16 @@ export type ValidationResult = Message<"schemapb.ValidationResult"> & {
    * @generated from field: repeated schemapb.ValidationError errors = 1;
    */
   errors: ValidationError[];
+
+  /**
+   *
+   * Identity of the schema the value was validated against. Set by typed
+   * message validators (protoc-gen-schemapb); engine-level Validate on
+   * plain values leaves it unset.
+   *
+   * @generated from field: optional schemapb.SchemaIdentity schema = 2;
+   */
+  schema?: SchemaIdentity;
 };
 
 /**
@@ -227,6 +350,16 @@ export type ValidationResultJson = {
    * @generated from field: repeated schemapb.ValidationError errors = 1;
    */
   errors?: ValidationErrorJson[];
+
+  /**
+   *
+   * Identity of the schema the value was validated against. Set by typed
+   * message validators (protoc-gen-schemapb); engine-level Validate on
+   * plain values leaves it unset.
+   *
+   * @generated from field: optional schemapb.SchemaIdentity schema = 2;
+   */
+  schema?: SchemaIdentityJson;
 };
 
 /**
@@ -234,14 +367,113 @@ export type ValidationResultJson = {
  * Use `create(ValidationResultSchema)` to create a new message.
  */
 export const ValidationResultSchema: GenMessage<ValidationResult, {jsonType: ValidationResultJson}> = /*@__PURE__*/
-  messageDesc(file_schemapb_errors, 1);
+  messageDesc(file_schemapb_errors, 2);
+
+/**
+ *
+ * Payload names what a ValidationError carries in `expected` or `actual`
+ * for a given ErrorCode (see ErrorSpec).
+ *
+ * @generated from enum schemapb.Payload
+ */
+export enum Payload {
+  /**
+   * Not specified. 
+   *
+   * @generated from enum value: PAYLOAD_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * The field is absent. 
+   *
+   * @generated from enum value: PAYLOAD_NONE = 1;
+   */
+  NONE = 1,
+
+  /**
+   * Any Value variant (e.g. an offending value of unknown kind). 
+   *
+   * @generated from enum value: PAYLOAD_ANY = 2;
+   */
+  ANY = 2,
+
+  /**
+   * The null_value variant. 
+   *
+   * @generated from enum value: PAYLOAD_NULL = 3;
+   */
+  NULL = 3,
+
+  /**
+   *
+   * A scalar comparable with the field's value: integer kinds widen to
+   * int64_value / uint64_value, float kinds to double_value; string,
+   * bytes, bool, duration and timestamp keep their own variant.
+   *
+   * @generated from enum value: PAYLOAD_SCALAR = 4;
+   */
+  SCALAR = 4,
+
+  /**
+   * A list_value of PAYLOAD_SCALAR items. 
+   *
+   * @generated from enum value: PAYLOAD_SCALAR_LIST = 5;
+   */
+  SCALAR_LIST = 5,
+
+  /**
+   * A string_value. 
+   *
+   * @generated from enum value: PAYLOAD_STRING = 6;
+   */
+  STRING = 6,
+
+  /**
+   * A list_value of string_value items. 
+   *
+   * @generated from enum value: PAYLOAD_STRING_LIST = 7;
+   */
+  STRING_LIST = 7,
+
+  /**
+   * A non-negative integer count: uint64_value, or int64_value. 
+   *
+   * @generated from enum value: PAYLOAD_COUNT = 8;
+   */
+  COUNT = 8,
+
+  /**
+   * A list_value of PAYLOAD_ANY items. 
+   *
+   * @generated from enum value: PAYLOAD_ANY_LIST = 9;
+   */
+  ANY_LIST = 9,
+}
+
+/**
+ *
+ * Payload names what a ValidationError carries in `expected` or `actual`
+ * for a given ErrorCode (see ErrorSpec).
+ *
+ * @generated from enum schemapb.Payload
+ */
+export type PayloadJson = "PAYLOAD_UNSPECIFIED" | "PAYLOAD_NONE" | "PAYLOAD_ANY" | "PAYLOAD_NULL" | "PAYLOAD_SCALAR" | "PAYLOAD_SCALAR_LIST" | "PAYLOAD_STRING" | "PAYLOAD_STRING_LIST" | "PAYLOAD_COUNT" | "PAYLOAD_ANY_LIST";
+
+/**
+ * Describes the enum schemapb.Payload.
+ */
+export const PayloadSchema: GenEnum<Payload, PayloadJson> = /*@__PURE__*/
+  enumDesc(file_schemapb_errors, 0);
 
 /**
  *
  * ErrorCode is the stable, machine-readable reason a validation failed. The
  * code (plus path and the typed fields on ValidationError) IS the
- * cross-implementation contract; human-readable text is rendered from a
- * shared, spec-owned template set and is not part of the contract.
+ * cross-implementation contract. Each value carries its ErrorSpec as the
+ * `error_spec` option: summary, message template, constraint names and the
+ * shape of expected/actual. Human-readable text is rendered from those
+ * templates and is not part of the contract.
  *
  * @generated from enum schemapb.ErrorCode
  */
@@ -462,8 +694,10 @@ export enum ErrorCode {
  *
  * ErrorCode is the stable, machine-readable reason a validation failed. The
  * code (plus path and the typed fields on ValidationError) IS the
- * cross-implementation contract; human-readable text is rendered from a
- * shared, spec-owned template set and is not part of the contract.
+ * cross-implementation contract. Each value carries its ErrorSpec as the
+ * `error_spec` option: summary, message template, constraint names and the
+ * shape of expected/actual. Human-readable text is rendered from those
+ * templates and is not part of the contract.
  *
  * @generated from enum schemapb.ErrorCode
  */
@@ -473,5 +707,13 @@ export type ErrorCodeJson = "ERROR_CODE_UNSPECIFIED" | "ERROR_CODE_TYPE_MISMATCH
  * Describes the enum schemapb.ErrorCode.
  */
 export const ErrorCodeSchema: GenEnum<ErrorCode, ErrorCodeJson> = /*@__PURE__*/
-  enumDesc(file_schemapb_errors, 0);
+  enumDesc(file_schemapb_errors, 1);
+
+/**
+ * Specification of an ErrorCode value. 
+ *
+ * @generated from extension: schemapb.ErrorSpec error_spec = 50100;
+ */
+export const error_spec: GenExtension<EnumValueOptions, ErrorSpec> = /*@__PURE__*/
+  extDesc(file_schemapb_errors, 0);
 

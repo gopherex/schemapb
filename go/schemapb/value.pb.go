@@ -458,7 +458,11 @@ type PathSegment struct {
 	//
 	//	*PathSegment_Key
 	//	*PathSegment_Index
-	Segment       isPathSegment_Segment `protobuf_oneof:"segment"`
+	Segment isPathSegment_Segment `protobuf_oneof:"segment"`
+	// Wire field number of the proto field this key names, when the value was
+	// validated as a typed proto message (protoc-gen-schemapb). Stable under
+	// field renames. Absent for plain values, list indexes and map keys.
+	FieldNumber   *uint32 `protobuf:"varint,3,opt,name=field_number,json=fieldNumber,proto3,oneof" json:"field_number,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -518,6 +522,13 @@ func (x *PathSegment) GetIndex() uint64 {
 	return 0
 }
 
+func (x *PathSegment) GetFieldNumber() uint32 {
+	if x != nil && x.FieldNumber != nil {
+		return *x.FieldNumber
+	}
+	return 0
+}
+
 type isPathSegment_Segment interface {
 	isPathSegment_Segment()
 }
@@ -569,11 +580,13 @@ const file_schemapb_value_proto_rawDesc = "" +
 	"\x06fields\x18\x01 \x03(\v2!.schemapb.StructValue.FieldsEntryR\x06fields\x1aJ\n" +
 	"\vFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12%\n" +
-	"\x05value\x18\x02 \x01(\v2\x0f.schemapb.ValueR\x05value:\x028\x01\"D\n" +
+	"\x05value\x18\x02 \x01(\v2\x0f.schemapb.ValueR\x05value:\x028\x01\"}\n" +
 	"\vPathSegment\x12\x12\n" +
 	"\x03key\x18\x01 \x01(\tH\x00R\x03key\x12\x16\n" +
-	"\x05index\x18\x02 \x01(\x04H\x00R\x05indexB\t\n" +
-	"\asegment*\x1b\n" +
+	"\x05index\x18\x02 \x01(\x04H\x00R\x05index\x12&\n" +
+	"\ffield_number\x18\x03 \x01(\rH\x01R\vfieldNumber\x88\x01\x01B\t\n" +
+	"\asegmentB\x0f\n" +
+	"\r_field_number*\x1b\n" +
 	"\tNullValue\x12\x0e\n" +
 	"\n" +
 	"NULL_VALUE\x10\x00B*Z(github.com/gopherex/schemapb/go/schemapbb\x06proto3"

@@ -81,7 +81,7 @@ def validate(
     errs.extend(resolve(e, values, report))
     _validate_fields(e, e.schema, values, values, "", errs)
     for r in e.schema.rules:
-        _eval_rule(e, r, r.id or "", None, values, None, errs)
+        _eval_rule(e, r, r.id or "", values, values, None, errs)
     for err in errs:
         err.path_segments = path_segments(err.path)
     return ValidationResult(errors=errs)

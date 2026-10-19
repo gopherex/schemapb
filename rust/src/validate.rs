@@ -45,12 +45,13 @@ pub(crate) fn validate_detailed(
     errs.extend(crate::resolve::resolve(e, values, report));
     let root = values.clone();
     validate_fields(e, &e.schema.clone(), values, &root, "", &mut errs);
+    let this = Native::Struct(root.clone());
     for r in &e.schema.rules {
         eval_rule(
             e,
             r,
             r.id.as_deref().unwrap_or(""),
-            &Native::Null,
+            &this,
             &root,
             None,
             &mut errs,
@@ -59,7 +60,10 @@ pub(crate) fn validate_detailed(
     for err in &mut errs {
         err.path_segments = crate::path::segments(&err.path);
     }
-    ValidationResult { errors: errs }
+    ValidationResult {
+        errors: errs,
+        schema: None,
+    }
 }
 
 #[must_use]

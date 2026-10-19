@@ -8,6 +8,7 @@ import (
 	"math"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -47,7 +48,7 @@ func (e *Engine) validateDetailed(values map[string]any, report *ResolveReport) 
 	e.validateFields(e.sch(), values, values, "", res)
 
 	for _, r := range e.sch().GetRules() {
-		e.evalRule(r, ruleErrPath(r), nil, values, nil, res)
+		e.evalRule(r, ruleErrPath(r), values, values, nil, res)
 	}
 
 	completeErrorPaths(res)
@@ -108,7 +109,7 @@ func mask(errs []*ValidationError, secret bool) []*ValidationError {
 
 	for _, e := range errs {
 		e.Actual = nil
-		if _, templated := messageTemplates[e.GetCode()]; templated {
+		if _, templated := messageTemplate(e.GetCode()); templated {
 			e.Message = renderMessage(e.GetCode(), e.GetExpected(), nil)
 		}
 	}
@@ -1053,4 +1054,25 @@ func nativeEqual(a, b any) bool {
 	}
 
 	return reflect.DeepEqual(a, b)
+}
+
+// Error implements error, so a result with failures can travel as a Go
+// error and be recovered with errors.As while staying a proto message.
+func (r *ValidationResult) Error() string {
+	var b strings.Builder
+
+	b.WriteString("schemapb: validation failed")
+
+	for _, err := range r.GetErrors() {
+		b.WriteString("; ")
+
+		if p := err.GetPath(); p != "" {
+			b.WriteString(p)
+			b.WriteString(": ")
+		}
+
+		b.WriteString(err.GetMessage())
+	}
+
+	return b.String()
 }

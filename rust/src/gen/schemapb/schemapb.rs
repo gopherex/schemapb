@@ -75,6 +75,12 @@ pub struct StructValue {
 /// Unambiguous location in a value tree. Keys may contain any characters.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct PathSegment {
+    ///
+    /// Wire field number of the proto field this key names, when the value was
+    /// validated as a typed proto message (protoc-gen-schemapb). Stable under
+    /// field renames. Absent for plain values, list indexes and map keys.
+    #[prost(uint32, optional, tag="3")]
+    pub field_number: ::core::option::Option<u32>,
     #[prost(oneof="path_segment::Segment", tags="1, 2")]
     pub segment: ::core::option::Option<path_segment::Segment>,
 }
@@ -983,6 +989,35 @@ pub struct SchemaIdentity {
     pub version: ::prost::alloc::string::String,
 }
 ///
+/// ErrorSpec is the machine-readable specification of one ErrorCode,
+/// attached to every ErrorCode value as the `error_spec` option. A client
+/// that has only these proto files can interpret any ValidationError: read
+/// the option from the enum value descriptor.
+///
+/// `actual` is always absent on fields marked secret, whatever the Payload.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ErrorSpec {
+    /// One-sentence meaning of the code. 
+    #[prost(string, tag="1")]
+    pub summary: ::prost::alloc::string::String,
+    ///
+    /// Template of ValidationError.message. Placeholders {expected} and
+    /// {actual} substitute the display form of the typed values; an absent
+    /// value renders "…". Empty => message is free text (rule author's text,
+    /// evaluator or compiler output).
+    #[prost(string, tag="2")]
+    pub template: ::prost::alloc::string::String,
+    /// Values ValidationError.constraint takes for this code; empty => "". 
+    #[prost(string, repeated, tag="3")]
+    pub constraints: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What ValidationError.expected carries. 
+    #[prost(enumeration="Payload", tag="4")]
+    pub expected: i32,
+    /// What ValidationError.actual carries. 
+    #[prost(enumeration="Payload", tag="5")]
+    pub actual: i32,
+}
+///
 /// ValidationError is a single validation failure. The contract fields are
 /// path, code and the typed expected/actual values; ordering of errors in a
 /// ValidationResult is deterministic (schema field order, then constraint
@@ -1019,7 +1054,7 @@ pub struct ValidationError {
     /// Severity; defaults to ERROR. WARNING errors do not block submit. 
     #[prost(enumeration="schema::field::Severity", tag="8")]
     pub severity: i32,
-    /// Human-readable message rendered from the spec's shared template set.
+    /// Human-readable message rendered from the code's ErrorSpec template.
     /// Informative only — NOT part of the conformance contract. 
     #[prost(string, tag="9")]
     pub message: ::prost::alloc::string::String,
@@ -1034,12 +1069,86 @@ pub struct ValidationResult {
     /// All failures, in the spec's deterministic order. Empty means valid. 
     #[prost(message, repeated, tag="1")]
     pub errors: ::prost::alloc::vec::Vec<ValidationError>,
+    ///
+    /// Identity of the schema the value was validated against. Set by typed
+    /// message validators (protoc-gen-schemapb); engine-level Validate on
+    /// plain values leaves it unset.
+    #[prost(message, optional, tag="2")]
+    pub schema: ::core::option::Option<SchemaIdentity>,
+}
+///
+/// Payload names what a ValidationError carries in `expected` or `actual`
+/// for a given ErrorCode (see ErrorSpec).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Payload {
+    /// Not specified. 
+    Unspecified = 0,
+    /// The field is absent. 
+    None = 1,
+    /// Any Value variant (e.g. an offending value of unknown kind). 
+    Any = 2,
+    /// The null_value variant. 
+    Null = 3,
+    ///
+    /// A scalar comparable with the field's value: integer kinds widen to
+    /// int64_value / uint64_value, float kinds to double_value; string,
+    /// bytes, bool, duration and timestamp keep their own variant.
+    Scalar = 4,
+    /// A list_value of PAYLOAD_SCALAR items. 
+    ScalarList = 5,
+    /// A string_value. 
+    String = 6,
+    /// A list_value of string_value items. 
+    StringList = 7,
+    /// A non-negative integer count: uint64_value, or int64_value. 
+    Count = 8,
+    /// A list_value of PAYLOAD_ANY items. 
+    AnyList = 9,
+}
+impl Payload {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PAYLOAD_UNSPECIFIED",
+            Self::None => "PAYLOAD_NONE",
+            Self::Any => "PAYLOAD_ANY",
+            Self::Null => "PAYLOAD_NULL",
+            Self::Scalar => "PAYLOAD_SCALAR",
+            Self::ScalarList => "PAYLOAD_SCALAR_LIST",
+            Self::String => "PAYLOAD_STRING",
+            Self::StringList => "PAYLOAD_STRING_LIST",
+            Self::Count => "PAYLOAD_COUNT",
+            Self::AnyList => "PAYLOAD_ANY_LIST",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PAYLOAD_UNSPECIFIED" => Some(Self::Unspecified),
+            "PAYLOAD_NONE" => Some(Self::None),
+            "PAYLOAD_ANY" => Some(Self::Any),
+            "PAYLOAD_NULL" => Some(Self::Null),
+            "PAYLOAD_SCALAR" => Some(Self::Scalar),
+            "PAYLOAD_SCALAR_LIST" => Some(Self::ScalarList),
+            "PAYLOAD_STRING" => Some(Self::String),
+            "PAYLOAD_STRING_LIST" => Some(Self::StringList),
+            "PAYLOAD_COUNT" => Some(Self::Count),
+            "PAYLOAD_ANY_LIST" => Some(Self::AnyList),
+            _ => None,
+        }
+    }
 }
 ///
 /// ErrorCode is the stable, machine-readable reason a validation failed. The
 /// code (plus path and the typed fields on ValidationError) IS the
-/// cross-implementation contract; human-readable text is rendered from a
-/// shared, spec-owned template set and is not part of the contract.
+/// cross-implementation contract. Each value carries its ErrorSpec as the
+/// `error_spec` option: summary, message template, constraint names and the
+/// shape of expected/actual. Human-readable text is rendered from those
+/// templates and is not part of the contract.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ErrorCode {

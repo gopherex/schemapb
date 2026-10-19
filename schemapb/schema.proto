@@ -25,7 +25,8 @@ option go_package = "github.com/gopherex/schemapb/go/schemapb";
  * Expression language: full CEL spec plus the `strings` extension. Expressions
  * must be pure and deterministic (no now()/rand, no implicit timezones) so all
  * implementations agree. Variables bound by the engine:
- *   `this` — the current field's value (field-level rules/normalize only)
+ *   `this` — the current field's value (field-level rules/normalize), or
+ *            the schema's own object for Schema.rules
  *   `root` — the whole form as a map (inputs + already-computed values)
  *
  * Render templates are Mustache (https://mustache.github.io); see
@@ -599,7 +600,9 @@ message Schema {
   optional string description = 2;
   /* The fields that make up the form. */
   repeated Field fields = 3;
-  /* Form-wide invariant rules (`root` only, no `this`). */
+  /* Form-wide invariant rules. `this` is bound to this schema's object:
+   * the whole form at the root (same as `root`), the nested object when
+   * the schema is reached through Object/Ref/OneOf/Map. */
   repeated Field.Rule rules = 4;
   /*
    * If true, any key in the values map that is not a declared field name is

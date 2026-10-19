@@ -168,6 +168,7 @@ func goldenSchema(t *testing.T) *schemapb.Schema {
 			schemapb.Rule("int(root.i64) >= int(root.i32)", "i64 must cover i32").ID("cross"),
 			schemapb.Rule("int(root.replica_count) < 8", "many replicas").Warn(),
 			schemapb.Rule("true", "explicit severity").Severity(schemapb.SeverityError),
+			schemapb.Rule("this == root", "form rules bind this to the form").ID("this-form"),
 		).
 		RequiredWhen("annotations", `root.mode == "slow"`).
 		RequiredUnless("mail", "false").

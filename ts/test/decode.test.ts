@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { equals, fromBinary, fromJson, toBinary, toJson } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
-import { ValidationResultSchema } from "../src/gen/schemapb/errors_pb.js";
+import { ErrorSpecSchema, ValidationResultSchema } from "../src/gen/schemapb/errors_pb.js";
 import { BakedSchema, FilledSchema, ResolveReportSchema } from "../src/gen/schemapb/runtime_pb.js";
 import { SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
 import { ListValueSchema, StructValueSchema } from "../src/gen/schemapb/value_pb.js";
@@ -43,6 +43,7 @@ describe("golden decoding", () => {
       filledById: FilledSchema,
       baked: BakedSchema,
       validationResult: ValidationResultSchema,
+      errorSpec: ErrorSpecSchema,
     } as const;
     for (const [key, desc] of Object.entries(schemas)) {
       const msg = fromJson(desc, doc[key]);

@@ -3,13 +3,17 @@ package schemapb
 import (
 	"maps"
 	"strings"
+	"sync"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // The spec's shared message-template set: every implementation renders the
 // SAME human text from these templates, so messages agree across languages
 // even though they are not part of the conformance contract (codes and typed
-// expected/actual are). The Go reference is the source of truth; the set is
-// exported to conformance/golden/messages.json for the other ports.
+// expected/actual are). The source of truth is the `error_spec` option on
+// each ErrorCode value in errors.proto; the set is exported to
+// conformance/golden/messages.json for the ports that cannot read options.
 //
 // Placeholders: {expected} and {actual} substitute the display form (see
 // displayString) of the error's typed values; a missing value renders "…".
@@ -17,64 +21,71 @@ import (
 // INVALID_SCHEMA carry runtime/compiler text — none of the three is
 // templated.
 //
-//nolint:gochecknoglobals // the spec-owned message-template table
-var messageTemplates = map[ErrorCode]string{
-	ErrorCode_ERROR_CODE_TYPE_MISMATCH:      "expected {expected}",
-	ErrorCode_ERROR_CODE_REQUIRED_MISSING:   "required",
-	ErrorCode_ERROR_CODE_NOT_NULLABLE:       "must not be null",
-	ErrorCode_ERROR_CODE_UNKNOWN_FIELD:      "unknown field",
-	ErrorCode_ERROR_CODE_IMMUTABLE_MODIFIED: "immutable: cannot be changed",
+// Loaded lazily: the generated descriptor registers in an init func, which
+// runs after package-level variables are initialized.
+//
+//nolint:gochecknoglobals // derived once from the errors.proto descriptor
+var errorSpecTables = sync.OnceValues(loadErrorSpecs)
 
-	ErrorCode_ERROR_CODE_CONST_MISMATCH:       "must equal {expected}",
-	ErrorCode_ERROR_CODE_GT_VIOLATED:          "must be > {expected}",
-	ErrorCode_ERROR_CODE_GTE_VIOLATED:         "must be >= {expected}",
-	ErrorCode_ERROR_CODE_LT_VIOLATED:          "must be < {expected}",
-	ErrorCode_ERROR_CODE_LTE_VIOLATED:         "must be <= {expected}",
-	ErrorCode_ERROR_CODE_NOT_IN_ALLOWED_SET:   "must be one of {expected}",
-	ErrorCode_ERROR_CODE_IN_FORBIDDEN_SET:     "must not be one of {expected}",
-	ErrorCode_ERROR_CODE_MULTIPLE_OF_VIOLATED: "must be a multiple of {expected}",
+func loadErrorSpecs() (map[ErrorCode]*ErrorSpec, map[ErrorCode]string) {
+	specs := map[ErrorCode]*ErrorSpec{}
+	templates := map[ErrorCode]string{}
+	values := ErrorCode(0).Descriptor().Values()
 
-	ErrorCode_ERROR_CODE_LEN_MISMATCH:       "length must be exactly {expected}",
-	ErrorCode_ERROR_CODE_MIN_LEN_VIOLATED:   "length must be at least {expected}",
-	ErrorCode_ERROR_CODE_MAX_LEN_VIOLATED:   "length must be at most {expected}",
-	ErrorCode_ERROR_CODE_PATTERN_MISMATCH:   "must match pattern {expected}",
-	ErrorCode_ERROR_CODE_FORMAT_MISMATCH:    "must be a valid {expected}",
-	ErrorCode_ERROR_CODE_PREFIX_MISMATCH:    "must start with {expected}",
-	ErrorCode_ERROR_CODE_SUFFIX_MISMATCH:    "must end with {expected}",
-	ErrorCode_ERROR_CODE_UNSUPPORTED_FORMAT: "format {expected} is not supported by this implementation",
+	for i := range values.Len() {
+		value := values.Get(i)
 
-	ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED: "must be one of {expected}",
+		spec, ok := proto.GetExtension(value.Options(), E_ErrorSpec).(*ErrorSpec)
+		if !ok || spec == nil {
+			continue
+		}
 
-	ErrorCode_ERROR_CODE_MIN_ITEMS_VIOLATED:  "must have at least {expected} items",
-	ErrorCode_ERROR_CODE_MAX_ITEMS_VIOLATED:  "must have at most {expected} items",
-	ErrorCode_ERROR_CODE_NOT_UNIQUE:          "must be unique",
-	ErrorCode_ERROR_CODE_LIST_COUNT_MISMATCH: "must have exactly {expected} items",
+		code := ErrorCode(value.Number())
+		specs[code] = spec
 
-	ErrorCode_ERROR_CODE_MIN_ENTRIES_VIOLATED: "must have at least {expected} entries",
-	ErrorCode_ERROR_CODE_MAX_ENTRIES_VIOLATED: "must have at most {expected} entries",
+		if spec.GetTemplate() != "" {
+			templates[code] = spec.GetTemplate()
+		}
+	}
 
-	ErrorCode_ERROR_CODE_MIN_PROPERTIES_VIOLATED: "must have at least {expected} properties",
-	ErrorCode_ERROR_CODE_MAX_PROPERTIES_VIOLATED: "must have at most {expected} properties",
+	return specs, templates
+}
 
-	ErrorCode_ERROR_CODE_DISCRIMINATOR_MISSING: "discriminator {expected} must be a non-empty string",
-	ErrorCode_ERROR_CODE_UNKNOWN_VARIANT:       "unknown variant {actual}",
-	ErrorCode_ERROR_CODE_UNKNOWN_REF:           "unknown $ref {expected}",
+// SpecOf returns the ErrorSpec declared for code in errors.proto, or nil for
+// ERROR_CODE_UNSPECIFIED and unknown codes. The result must not be mutated.
+func SpecOf(code ErrorCode) *ErrorSpec {
+	specs, _ := errorSpecTables()
+
+	return specs[code]
+}
+
+func messageTemplate(code ErrorCode) (string, bool) {
+	_, templates := errorSpecTables()
+	t, ok := templates[code]
+
+	return t, ok
 }
 
 // MessageTemplates returns a copy of the spec's message-template set (for
 // tooling and the conformance export).
 func MessageTemplates() map[ErrorCode]string {
-	return maps.Clone(messageTemplates)
+	_, templates := errorSpecTables()
+
+	return maps.Clone(templates)
 }
 
 // renderMessage substitutes the typed values into a code's template. A nil
 // value renders as "…" (this is also how masked secrets re-render).
 func renderMessage(code ErrorCode, expected, actual *Value) string {
-	t, ok := messageTemplates[code]
+	t, ok := messageTemplate(code)
 	if !ok {
 		return ""
 	}
 
+	return fillTemplate(t, expected, actual, DisplayValue)
+}
+
+func fillTemplate(t string, expected, actual *Value, display func(*Value) string) string {
 	sub := func(s, ph string, v *Value) string {
 		if !strings.Contains(s, ph) {
 			return s
@@ -82,7 +93,7 @@ func renderMessage(code ErrorCode, expected, actual *Value) string {
 
 		disp := "…"
 		if v != nil {
-			disp = displayString(v.ToGo())
+			disp = display(v)
 		}
 
 		return strings.ReplaceAll(s, ph, disp)
@@ -91,4 +102,43 @@ func renderMessage(code ErrorCode, expected, actual *Value) string {
 	t = sub(t, "{actual}", actual)
 
 	return t
+}
+
+// DisplayValue is the spec's display form of a value, the one the default
+// messages use for {expected} and {actual}.
+func DisplayValue(v *Value) string { return displayString(v.ToGo()) }
+
+// Catalog is a message catalog for one locale, the unit of translation.
+// Keys are MessageKey values: an ErrorCode name ("ERROR_CODE_GTE_VIOLATED")
+// for templated codes, the rule id for RULE_VIOLATED. Templates use the
+// {expected} and {actual} placeholders of ErrorSpec.template. The English
+// catalog is MessageTemplates keyed by code name, exported as
+// conformance/golden/messages.json.
+type Catalog map[string]string
+
+// MessageKey is the catalog key that translates err: the rule id for a
+// violated rule that declares one, the ErrorCode name otherwise.
+func MessageKey(err *ValidationError) string {
+	if err.GetCode() == ErrorCode_ERROR_CODE_RULE_VIOLATED && err.GetRuleId() != "" {
+		return err.GetRuleId()
+	}
+
+	return err.GetCode().String()
+}
+
+// Message renders err from the catalog, substituting the typed values with
+// display (nil => DisplayValue; pass a locale-aware one for numbers and
+// times). A key absent from the catalog falls back to err.Message, so a
+// partial translation degrades to the default text, never to nothing.
+func (c Catalog) Message(err *ValidationError, display func(*Value) string) string {
+	t, ok := c[MessageKey(err)]
+	if !ok {
+		return err.GetMessage()
+	}
+
+	if display == nil {
+		display = DisplayValue
+	}
+
+	return fillTemplate(t, err.GetExpected(), err.GetActual(), display)
 }

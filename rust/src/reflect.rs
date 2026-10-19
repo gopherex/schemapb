@@ -74,7 +74,10 @@ pub fn reflect_schema<T: ReflectField>(id: SchemaIdentity) -> Result<Schema, Sch
         Ok(schema)
     } else {
         Err(SchemaError {
-            result: crate::gen::schemapb::ValidationResult { errors: errs },
+            result: crate::gen::schemapb::ValidationResult {
+                errors: errs,
+                schema: None,
+            },
         })
     }
 }

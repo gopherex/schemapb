@@ -1222,6 +1222,15 @@
       }
     ]
   },
+  "errorSpec": {
+    "summary": "The value is less than the inclusive lower bound.",
+    "template": "must be >= {expected}",
+    "constraints": [
+      "gte"
+    ],
+    "expected": "PAYLOAD_SCALAR",
+    "actual": "PAYLOAD_SCALAR"
+  },
   "validationResult": {
     "errors": [
       {
@@ -1240,10 +1249,16 @@
         "message": "must be >= 4",
         "pathSegments": [
           {
-            "key": "float_all"
+            "key": "float_all",
+            "fieldNumber": 7
           }
         ]
       }
-    ]
+    ],
+    "schema": {
+      "namespace": "conformance",
+      "name": "field_coverage",
+      "version": "v9.9.9-rc.1"
+    }
   }
 }

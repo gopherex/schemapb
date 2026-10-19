@@ -71,4 +71,10 @@ message PathSegment {
     string key = 1;
     uint64 index = 2;
   }
+  /*
+   * Wire field number of the proto field this key names, when the value was
+   * validated as a typed proto message (protoc-gen-schemapb). Stable under
+   * field renames. Absent for plain values, list indexes and map keys.
+   */
+  optional uint32 field_number = 3;
 }
