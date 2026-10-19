@@ -3,14 +3,21 @@ package protomsg
 import (
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// ErrUnsupported reports a message field the value mapping cannot express.
-var ErrUnsupported = errors.New("protomsg: unsupported field type")
+var (
+	// ErrUnsupported reports a message field the value mapping cannot express.
+	ErrUnsupported = errors.New("protomsg: unsupported field type")
+	// ErrOutOfRange reports a Duration outside the range the engine
+	// represents (time.Duration, about ±292 years). It is rejected rather
+	// than wrapped, so a bound can never be bypassed by overflow.
+	ErrOutOfRange = errors.New("protomsg: duration out of range")
+)
 
 // Values presents msg as the value tree the schemapb engine validates (see
 // the package documentation for the mapping).
@@ -112,7 +119,7 @@ func messageValue(m protoreflect.Message) (any, error) {
 	case "google.protobuf.Timestamp":
 		return time.Unix(intField(m, "seconds"), intField(m, "nanos")).UTC(), nil
 	case "google.protobuf.Duration":
-		return time.Duration(intField(m, "seconds"))*time.Second + time.Duration(intField(m, "nanos")), nil
+		return duration(intField(m, "seconds"), intField(m, "nanos"))
 	case "google.protobuf.DoubleValue", "google.protobuf.FloatValue",
 		"google.protobuf.Int64Value", "google.protobuf.UInt64Value",
 		"google.protobuf.Int32Value", "google.protobuf.UInt32Value",
@@ -140,6 +147,17 @@ func messageValue(m protoreflect.Message) (any, error) {
 	default:
 		return messageValues(m)
 	}
+}
+
+func duration(seconds, nanos int64) (time.Duration, error) {
+	const maxSeconds = math.MaxInt64 / int64(time.Second)
+
+	if nanos <= -int64(time.Second) || nanos >= int64(time.Second) ||
+		seconds > maxSeconds || seconds < -maxSeconds {
+		return 0, fmt.Errorf("%w: %ds %dns", ErrOutOfRange, seconds, nanos)
+	}
+
+	return time.Duration(seconds)*time.Second + time.Duration(nanos), nil
 }
 
 func intField(m protoreflect.Message, name protoreflect.Name) int64 {

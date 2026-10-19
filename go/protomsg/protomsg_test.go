@@ -133,6 +133,13 @@ func TestValuesMapping(t *testing.T) {
 		t.Fatalf("Values:\n got %#v\nwant %#v", got, want)
 	}
 
+	set(order, "ttl", msgV(&durationpb.Duration{Seconds: 1 << 62}))
+
+	if _, err := protomsg.Values(order); !errors.Is(err, protomsg.ErrOutOfRange) {
+		t.Fatalf("huge Duration: want ErrOutOfRange, got %v", err)
+	}
+
+	set(order, "ttl", msgV(durationpb.New(time.Second)))
 	set(order, "tier", protoreflect.ValueOfEnum(9))
 	set(order, "any", msgV(&anypb.Any{}))
 

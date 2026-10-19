@@ -61,6 +61,15 @@ export class ValidationFailure extends Error {
   }
 }
 
+/**
+ * Sets an own enumerable property. Plain assignment would treat a map key
+ * or Struct key "__proto__" as the prototype setter: the entry would vanish
+ * from the value tree and escape validation.
+ */
+function setOwn(out: NativeStruct, key: string, value: Native): void {
+  Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
+}
+
 /** Presents a message as the value tree the schemapb engine validates. */
 export function messageValues<Desc extends DescMessage>(
   desc: Desc,
@@ -79,7 +88,7 @@ function reflectedValues(r: ReflectMessage): NativeStruct {
     if (!always && !r.isSet(field)) {
       continue;
     }
-    out[field.name] = fieldValue(field, r);
+    setOwn(out, field.name, fieldValue(field, r));
   }
   return out;
 }
@@ -93,7 +102,7 @@ function fieldValue(field: DescField, r: ReflectMessage): Native {
     case "map": {
       const out: NativeStruct = {};
       for (const [k, v] of r.get(field)) {
-        out[String(k)] = elementValue(field, v);
+        setOwn(out, String(k), elementValue(field, v));
       }
       return out;
     }
@@ -207,7 +216,7 @@ function structValue(r: ReflectMessage): NativeStruct {
   const out: NativeStruct = {};
   if (field.fieldKind === "map") {
     for (const [k, v] of r.get(field)) {
-      out[String(k)] = jsonValue(v as ReflectMessage);
+      setOwn(out, String(k), jsonValue(v as ReflectMessage));
     }
   }
   return out;

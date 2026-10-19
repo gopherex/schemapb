@@ -250,6 +250,18 @@ describe("protomsg", () => {
     });
   });
 
+  it("validates a __proto__ map key like any other key", () => {
+    const order: Dyn = create(orderDesc, { id: 1, items: [item("aa"), item("bb")] } as Dyn);
+    order.bySku = Object.fromEntries([["__proto__", item("x")]]);
+    expect(Object.keys(order.bySku)).toEqual(["__proto__"]);
+
+    const values = messageValues(orderDesc, order) as Record<string, Record<string, unknown>>;
+    expect(Object.keys(values["by_sku"] ?? {})).toEqual(["__proto__"]);
+
+    const res = new Validator(orderDesc, orderSchema()).check(order);
+    expect(res.errors.map((e) => e.path)).toContain("by_sku.__proto__.sku");
+  });
+
   it("passes a valid message", () => {
     const order: Dyn = create(orderDesc, { id: 1, items: [item("aa"), item("bb")] } as Dyn);
     const res = new Validator(orderDesc, orderSchema()).validate(order);
