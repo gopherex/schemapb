@@ -96,6 +96,12 @@ v.resolve(user);   // validate, then write defaults/normalize/computed back
 
 The third constructor argument lists the message types an Any may hold.
 
+A map or object key `"__proto__"` is an ordinary key to the engine: it is
+validated, passed to CEL and kept in baked snapshots like any other.
+protobuf-es itself drops such a map key when decoding (`fromBinary`,
+`fromJson`), so a message that arrives over the wire reaches the validator
+without that entry; the Go, Python and Rust runtimes keep it.
+
 Translate messages with `formatMessage(err, catalog, display?)`; keys are
 `messageKey(err)`. See [docs/ERRORS.md](../docs/ERRORS.md).
 

@@ -25,6 +25,7 @@ import type {
 } from "./gen/schemapb/schema_pb.js";
 import { Schema_Field_ResultType, Schema_Field_Severity } from "./gen/schemapb/schema_pb.js";
 import { ValueSchema } from "./gen/schemapb/value_pb.js";
+import { setOwn } from "./own.js";
 import { pathSegments, sortedKeys } from "./path.js";
 import { base64Decode, nativeEquals } from "./render.js";
 import {
@@ -296,7 +297,7 @@ class Resolver {
             value,
             true,
             (v) => {
-              cur[key] = v;
+              setOwn(cur, key, v);
             },
             childPath,
             coerce,

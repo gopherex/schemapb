@@ -14,6 +14,7 @@ import type { Schema, Schema_Field } from "./gen/schemapb/schema_pb.js";
 import { SchemaSchema } from "./gen/schemapb/schema_pb.js";
 import type { StructValue, Value } from "./gen/schemapb/value_pb.js";
 import { StructValueSchema } from "./gen/schemapb/value_pb.js";
+import { setOwn } from "./own.js";
 import { displayString, type RenderContext, type RenderField, renderField } from "./render.js";
 import type { TemplateName } from "./typed.js";
 import { resultBlocking, validate } from "./validate.js";
@@ -24,6 +25,7 @@ import {
   type Native,
   type NativeStruct,
   structToNative,
+  structValueOf,
 } from "./value.js";
 
 export interface BakeOutcome {
@@ -53,9 +55,9 @@ function canonicalEngineStruct(e: Engine, values: NativeStruct): StructValue {
   const fields: Record<string, Value> = {};
   for (const [name, val] of Object.entries(values)) {
     const f = e.schema.fields.find((x) => x.name === name);
-    fields[name] = canonicalTop(e, f, val, values);
+    setOwn(fields, name, canonicalTop(e, f, val, values));
   }
-  return create(StructValueSchema, { fields });
+  return structValueOf(fields);
 }
 
 function canonicalTop(
@@ -98,15 +100,15 @@ function mergeStructs(dst: NativeStruct, src: NativeStruct, replaceLists: boolea
     const dv = out[k];
     if (dv !== undefined) {
       if (isNativeStruct(dv) && isNativeStruct(sv)) {
-        out[k] = mergeStructs(dv, sv, replaceLists);
+        setOwn(out, k, mergeStructs(dv, sv, replaceLists));
         continue;
       }
       if (!replaceLists && Array.isArray(dv) && Array.isArray(sv)) {
-        out[k] = [...dv, ...sv];
+        setOwn(out, k, [...dv, ...sv]);
         continue;
       }
     }
-    out[k] = sv;
+    setOwn(out, k, sv);
   }
   return out;
 }
@@ -170,7 +172,7 @@ export function buildRenderContext(e: Engine, values: NativeStruct): RenderConte
 
   const display: Record<string, string> = {};
   for (const [name, val] of Object.entries(values)) {
-    display[name] = val === null ? "" : displayString(val);
+    setOwn(display, name, val === null ? "" : displayString(val));
   }
   return { fields, groups, values: display };
 }

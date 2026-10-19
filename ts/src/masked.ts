@@ -8,6 +8,7 @@ import {
   type Value,
   ValueSchema,
 } from "./gen/schemapb/value_pb.js";
+import { setOwn } from "./own.js";
 
 /** Independent display values; no resolution/CEL. Present secrets become "***". */
 export function masked(baked: Baked): StructValue {
@@ -30,13 +31,13 @@ function maskStruct(
   defs: Record<string, Schema>,
 ): void {
   if (!schema) {
-    for (const key of Object.keys(values.fields)) values.fields[key] = hidden();
+    for (const key of Object.keys(values.fields)) setOwn(values.fields, key, hidden());
     return;
   }
   for (const field of schema.fields) {
     const value = values.fields[field.name];
     if (Object.hasOwn(values.fields, field.name) && value)
-      values.fields[field.name] = maskValue(field, value, defs);
+      setOwn(values.fields, field.name, maskValue(field, value, defs));
   }
 }
 
@@ -75,9 +76,9 @@ function maskValue(field: Schema_Field, value: Value, defs: Record<string, Schem
       if (value.kind.case !== "structValue") return hidden();
       for (const [key, item] of Object.entries(value.kind.value.fields)) {
         if (k.value.valueField)
-          value.kind.value.fields[key] = maskValue(k.value.valueField, item, defs);
+          setOwn(value.kind.value.fields, key, maskValue(k.value.valueField, item, defs));
         else if (k.value.valueSchema && item.kind.case !== "nullValue")
-          value.kind.value.fields[key] = maskObject(k.value.valueSchema, item, defs);
+          setOwn(value.kind.value.fields, key, maskObject(k.value.valueSchema, item, defs));
       }
       break;
   }

@@ -31,6 +31,7 @@ import {
   StructValueSchema,
   ValueSchema,
 } from "./gen/schemapb/value_pb.js";
+import { setOwn } from "./own.js";
 
 export type Native =
   | null
@@ -112,8 +113,18 @@ export function listV(...items: Value[]): Value {
 
 export function structV(fields: Record<string, Value>): Value {
   return create(ValueSchema, {
-    kind: { case: "structValue", value: create(StructValueSchema, { fields }) },
+    kind: { case: "structValue", value: structValueOf(fields) },
   });
+}
+
+/**
+ * A StructValue over fields as given. create(..., { fields }) would copy
+ * the map by assignment and drop a "__proto__" key (see own.ts).
+ */
+export function structValueOf(fields: Record<string, Value>): StructValue {
+  const s = create(StructValueSchema);
+  s.fields = fields;
+  return s;
 }
 
 // =============================================================================
@@ -163,7 +174,7 @@ export function toNative(v: Value | undefined): Native {
 export function structToNative(s: StructValue | undefined): NativeStruct {
   const out: NativeStruct = {};
   for (const [name, v] of Object.entries(s?.fields ?? {})) {
-    out[name] = toNative(v);
+    setOwn(out, name, toNative(v));
   }
   return out;
 }
@@ -207,7 +218,7 @@ export function fromNative(x: Native): Value {
   }
   const fields: Record<string, Value> = {};
   for (const [name, v] of Object.entries(x)) {
-    fields[name] = fromNative(v);
+    setOwn(fields, name, fromNative(v));
   }
   return structV(fields);
 }
@@ -216,9 +227,9 @@ export function fromNative(x: Native): Value {
 export function structFromNative(m: NativeStruct): StructValue {
   const fields: Record<string, Value> = {};
   for (const [name, v] of Object.entries(m)) {
-    fields[name] = fromNative(v);
+    setOwn(fields, name, fromNative(v));
   }
-  return create(StructValueSchema, { fields });
+  return structValueOf(fields);
 }
 
 // =============================================================================
@@ -356,11 +367,11 @@ export function canonicalValue(
       const fields: Record<string, Value> = {};
       for (const [key, el] of Object.entries(x)) {
         if (vf !== undefined) {
-          fields[key] = canonicalValue(vf, el, defs, active);
+          setOwn(fields, key, canonicalValue(vf, el, defs, active));
         } else if (vs !== undefined && isNativeStruct(el)) {
-          fields[key] = canonicalStruct(vs, el, defs, active);
+          setOwn(fields, key, canonicalStruct(vs, el, defs, active));
         } else {
-          fields[key] = fromNative(el);
+          setOwn(fields, key, fromNative(el));
         }
       }
       return structV(fields);
@@ -384,7 +395,7 @@ export function canonicalStruct(
   const fields: Record<string, Value> = {};
   for (const [key, el] of Object.entries(m)) {
     const fld = s.fields.find((f) => f.name === key);
-    fields[key] = fld === undefined ? fromNative(el) : canonicalValue(fld, el, defs, active);
+    setOwn(fields, key, fld === undefined ? fromNative(el) : canonicalValue(fld, el, defs, active));
   }
   return structV(fields);
 }

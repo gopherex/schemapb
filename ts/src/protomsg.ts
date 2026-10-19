@@ -52,6 +52,7 @@ import { Engine } from "./engine.js";
 import type { ValidationResult } from "./gen/schemapb/errors_pb.js";
 import { type Schema, SchemaSchema } from "./gen/schemapb/schema_pb.js";
 import type { PathSegment } from "./gen/schemapb/value_pb.js";
+import { setOwn } from "./own.js";
 import { resultBlocking } from "./validate.js";
 import type { Native, NativeStruct } from "./value.js";
 
@@ -89,15 +90,6 @@ export class ValidationFailure extends Error {
     this.name = "ValidationFailure";
     this.result = result;
   }
-}
-
-/**
- * Sets an own enumerable property. Plain assignment would treat a map key
- * or Struct key "__proto__" as the prototype setter: the entry would vanish
- * from the value tree and escape validation.
- */
-function setOwn(out: NativeStruct, key: string, value: Native): void {
-  Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
 }
 
 /**

@@ -50,6 +50,7 @@ import type { ValidationError, ValidationResult } from "./gen/schemapb/errors_pb
 import type { Baked } from "./gen/schemapb/runtime_pb.js";
 import type { Schema, Schema_Field } from "./gen/schemapb/schema_pb.js";
 import type { StructValue } from "./gen/schemapb/value_pb.js";
+import { setOwn } from "./own.js";
 import type { RenderContext } from "./render.js";
 import type { Format, TemplateName } from "./typed.js";
 import { validate as validateFn } from "./validate.js";
@@ -475,7 +476,7 @@ function nativeToCel(x: Native): CelInput {
   }
   const out: Record<string, CelInput> = {};
   for (const [k, v] of Object.entries(x)) {
-    out[k] = nativeToCel(v);
+    setOwn(out, k, nativeToCel(v));
   }
   return out;
 }
@@ -497,7 +498,7 @@ function celToNative(v: CelValue): Native {
     const out: NativeStruct = {};
     for (const [k, el] of v) {
       const key = isCelUint(k) ? k.value.toString(10) : String(k);
-      out[key] = celToNative(el);
+      setOwn(out, key, celToNative(el));
     }
     return out;
   }

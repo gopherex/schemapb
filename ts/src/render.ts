@@ -9,6 +9,7 @@ import { isMessage } from "@bufbuild/protobuf";
 import { DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
 import { formatGoDuration, formatRfc3339 } from "./duration.js";
 import type { Schema_Field } from "./gen/schemapb/schema_pb.js";
+import { setOwn } from "./own.js";
 import { asBigInt, isNativeStruct, type Native, type NativeStruct, toNative } from "./value.js";
 
 /**
@@ -70,7 +71,7 @@ function displayJson(v: Native): unknown {
   for (const key of Object.keys(v).sort()) {
     const el = v[key];
     if (el !== undefined) {
-      out[key] = displayJson(el);
+      setOwn(out, key, displayJson(el));
     }
   }
   return out;
