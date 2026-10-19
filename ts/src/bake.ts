@@ -13,7 +13,6 @@ import { BakedSchema, type ResolveReport, ResolveReportSchema } from "./gen/sche
 import type { Schema, Schema_Field } from "./gen/schemapb/schema_pb.js";
 import { SchemaSchema } from "./gen/schemapb/schema_pb.js";
 import type { StructValue, Value } from "./gen/schemapb/value_pb.js";
-import { StructValueSchema } from "./gen/schemapb/value_pb.js";
 import { setOwn } from "./own.js";
 import { displayString, type RenderContext, type RenderField, renderField } from "./render.js";
 import type { TemplateName } from "./typed.js";

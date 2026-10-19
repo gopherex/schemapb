@@ -35,7 +35,9 @@ describe('"__proto__" keys', () => {
       .build();
     const out = bake(plain, values());
     const m = out.baked?.values?.fields["m"]?.kind;
-    expect(m?.case).toBe("structValue");
-    expect(Object.keys((m?.value as { fields: object }).fields)).toEqual(["__proto__", "ok"]);
+    if (m?.case !== "structValue") {
+      throw new Error(`baked m is ${m?.case}`);
+    }
+    expect(Object.keys(m.value.fields)).toEqual(["__proto__", "ok"]);
   });
 });
