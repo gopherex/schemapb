@@ -331,8 +331,26 @@ export function canonicalValue(
       return typeof x === "string" ? strV(x) : fail(`field ${f.name}: not string`);
     case "bytes":
       return x instanceof Uint8Array ? bytesV(x) : fail(`field ${f.name}: not bytes`);
-    case "choice":
+    case "choice": {
+      if (!kind.value.optionsExpr) {
+        const n = asBigInt(x);
+        for (const option of kind.value.options) {
+          const value = option.value;
+          if (
+            value &&
+            (value.kind.case === "int32Value" ||
+              value.kind.case === "int64Value" ||
+              value.kind.case === "uint32Value" ||
+              value.kind.case === "uint64Value") &&
+            n !== undefined &&
+            n === toNative(value)
+          ) {
+            return create(ValueSchema, { kind: { ...value.kind } });
+          }
+        }
+      }
       return fromNative(x);
+    }
     case "duration":
       return isMessage(x, DurationSchema) ? durationV(x) : fail(`field ${f.name}: not a duration`);
     case "timestamp":

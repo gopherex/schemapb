@@ -62,6 +62,12 @@ annotation tags, hook ordering, pointer/null semantics, collection wrappers,
 exact numeric decoding and atomic failure. Test wrappers are local fixtures;
 no config/runtime framework is a dependency.
 
+The recursive resolve fixture also covers integer Choice coercion, exact string
+precedence, signed/unsigned bounds, lists/maps, coercion disabled, rejected labels
+and fractions, dynamic/open choices, and canonical option wire kinds. Go enum
+reflection tests cover protobuf descriptor labels, aliases, collection elements,
+numeric defaults, explicit overrides, typed decoding and JSON-number input.
+
 ## Regenerating
 
 Only after an intentional behaviour change, from `go/`:

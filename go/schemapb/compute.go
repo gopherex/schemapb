@@ -293,6 +293,8 @@ func coerceInput(f *Schema_Field, val any) (any, bool) {
 	}
 
 	switch {
+	case f.GetChoice() != nil:
+		return coerceChoice(f.GetChoice(), s)
 	case f.GetInt32() != nil, f.GetInt64() != nil:
 		if n, err := strconv.ParseInt(s, 10, 64); err == nil {
 			return n, true
@@ -328,6 +330,39 @@ func coerceInput(f *Schema_Field, val any) (any, bool) {
 	}
 
 	return val, false
+}
+
+// Only declared integer options provide a target type. Exact string options
+// win, and dynamic option sets are left to validation (no speculative CEL).
+func coerceChoice(choice *Schema_Field_Choice, s string) (any, bool) {
+	if choice.GetOptionsExpr() != "" {
+		return s, false
+	}
+
+	for _, option := range choice.GetOptions() {
+		if value, ok := option.GetValue().ToGo().(string); ok && value == s {
+			return s, false
+		}
+	}
+
+	return integerChoiceInput(choice, s)
+}
+
+func integerChoiceInput(choice *Schema_Field_Choice, s string) (any, bool) {
+	for _, option := range choice.GetOptions() {
+		switch value := option.GetValue().ToGo().(type) {
+		case int64:
+			if n, err := strconv.ParseInt(s, 10, 64); err == nil && n == value {
+				return value, true
+			}
+		case uint64:
+			if n, err := strconv.ParseUint(s, 10, 64); err == nil && n == value {
+				return value, true
+			}
+		}
+	}
+
+	return s, false
 }
 
 // defaultValue returns a field's default in the native value model and

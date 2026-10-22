@@ -224,6 +224,31 @@ pub(crate) fn coerce_input(f: &SchemaField, val: &Native) -> Option<Native> {
         return None;
     };
     match f.kind.as_ref()? {
+        K::Choice(choice) => {
+            if choice
+                .options_expr
+                .as_deref()
+                .is_some_and(|expr| !expr.is_empty())
+                || choice
+                    .options
+                    .iter()
+                    .any(|o| to_native(o.value.as_ref()) == *val)
+            {
+                return None;
+            }
+            choice.options.iter().find_map(|option| {
+                let value = to_native(option.value.as_ref());
+                match &value {
+                    Native::Int(n) if s.parse::<i64>().ok() == Some(*n) => Some(value),
+                    Native::Uint(n)
+                        if !s.starts_with(['+', '-']) && s.parse::<u64>().ok() == Some(*n) =>
+                    {
+                        Some(value)
+                    }
+                    _ => None,
+                }
+            })
+        }
         K::Int32(_) | K::Int64(_) => s.parse::<i64>().ok().map(Native::Int),
         K::Uint32(_) | K::Uint64(_) => s.parse::<u64>().ok().map(Native::Uint),
         K::Float(_) | K::Double(_) => s.parse::<f64>().ok().map(Native::Double),

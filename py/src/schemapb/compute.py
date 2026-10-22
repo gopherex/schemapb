@@ -352,6 +352,26 @@ def shape_result(rt: SchemaFieldResultType | None, x: Native) -> Native:
 def coerce_input(f: SchemaField, val: Native) -> Native | None:
     if not isinstance(val, str):
         return None
+    if f.choice is not None:
+        if f.choice.options_expr or any(to_native(o.value) == val for o in f.choice.options):
+            return None
+        digits = val[1:] if val.startswith(("+", "-")) else val
+        if not digits or any(c < "0" or c > "9" for c in digits):
+            return None
+        # Compare parsed integers only to declared integer variants, never
+        # bool/float options or display labels. Avoid Python's int digit limit.
+        if len(digits.lstrip("0")) > 20:
+            return None
+        n = int(("-" if val.startswith("-") else "") + (digits.lstrip("0") or "0"))
+        for option in f.choice.options:
+            value = option.value
+            if value is None:
+                continue
+            signed = value.int32_value is not None or value.int64_value is not None
+            unsigned = value.uint32_value is not None or value.uint64_value is not None
+            if (signed or (unsigned and val[0] not in "+-")) and to_native(value) == n:
+                return n
+        return None
     if f.int32 is not None or f.int64 is not None:
         try:
             return int(val, 10)

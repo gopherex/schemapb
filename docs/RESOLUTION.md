@@ -13,6 +13,20 @@ may replace its value: the replacement's children receive defaults/coercion
 before their own normalization, and computed results target the replacement.
 A normalizer is not repeated to produce diagnostics.
 
+With coercion enabled, a string such as `"2"` can select a declared integer
+Choice option. Matching is exact in the option's signed/unsigned range, without
+float conversion. Decimal digits (and an optional sign for signed options) are
+accepted; whitespace, fractions and exponent notation are not. An explicitly
+declared string option takes priority over an integer with the same spelling.
+Labels are display metadata, never accepted as value aliases.
+
+This conversion uses static options only; `options_expr` choices do not infer
+types from their static fallback options. An unmatched string stays unchanged,
+so closed choices reject it and open choices retain it. Lists and map values
+inherit coercion. Static integer choices bake to the first matching integer
+option's exact wire kind, including int32 and uint64. Defaults and numeric inputs
+use the same canonicalization. Other choices keep the generic value encoding.
+
 Gates are evaluated against the current root before seeding and before
 normalizing each node. If normalization of an earlier field activates a
 previously skipped node, that node is seeded before its normalization. Gates
@@ -121,6 +135,10 @@ Integers are parsed exactly: the mathematical value must be integral and fit
 the declared signed/unsigned range. `1.5e1` and `1000.0` are valid integers;
 `15e-1` is not. No intermediate float is used. Very large exponents are
 checked without allocating their expanded decimal representation.
+
+Static integer Choice options accept integral JSON numbers too, independently
+of string coercion, including in lists and maps. Numeric JSON input does not
+select a string option even if their printed values coincide.
 
 Float32/float64 use round-to-nearest, ties-to-even at the target precision;
 float32 is parsed directly at 32-bit precision. Overflow to infinity and

@@ -42,6 +42,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // ReflectOption configures Reflect.
@@ -260,6 +261,11 @@ func (r *reflector) fieldOf(
 		field = Duration(fname).Done()
 	case t == rawJSONType:
 		field = JSON(fname).Done()
+	case t.Kind() == reflect.Int32 && t.Implements(reflect.TypeFor[protoreflect.Enum]()):
+		field, err = reflectedEnum(fname, t, c)
+		if err != nil {
+			return nil, err
+		}
 	case t.Kind() != reflect.Interface && (t.Implements(marshalerT) || reflect.PointerTo(t).Implements(marshalerT)):
 		// A custom marshaler's wire shape is unknowable by reflection.
 		field = JSON(fname).Done()

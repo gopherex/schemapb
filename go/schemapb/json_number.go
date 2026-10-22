@@ -67,6 +67,12 @@ func jsonNumberInput(f *Schema_Field, value any) (any, bool) {
 	}
 
 	switch {
+	case f.GetChoice() != nil && f.GetChoice().GetOptionsExpr() == "":
+		if raw, integral := jsonInteger(number); integral {
+			return integerChoiceInput(f.GetChoice(), raw)
+		}
+
+		return value, false
 	case f.GetInt32() != nil || f.GetInt64() != nil:
 		raw, integral := jsonInteger(number)
 		if !integral {

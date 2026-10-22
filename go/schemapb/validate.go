@@ -747,7 +747,7 @@ func (e *Engine) checkChoice(path string, val any, k *Schema_Field_Choice, root 
 	expected := make([]*Value, 0, len(k.GetOptions()))
 
 	for _, o := range k.GetOptions() {
-		if nativeEqual(val, o.GetValue().ToGo()) {
+		if choiceOptionEqual(val, o.GetValue()) {
 			return nil
 		}
 
@@ -756,6 +756,26 @@ func (e *Engine) checkChoice(path string, val any, k *Schema_Field_Choice, root 
 
 	return []*ValidationError{verr(path, ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED, "options",
 		ListV(expected...), actual)}
+}
+
+// Integer options compare without a float64 round trip.
+func choiceOptionEqual(value any, option *Value) bool {
+	switch kind := option.GetKind().(type) {
+	case *Value_Int32Value:
+		n, ok := asInt64(value)
+		return ok && n == int64(kind.Int32Value)
+	case *Value_Int64Value:
+		n, ok := asInt64(value)
+		return ok && n == kind.Int64Value
+	case *Value_Uint32Value:
+		n, ok := asUint64(value)
+		return ok && n == uint64(kind.Uint32Value)
+	case *Value_Uint64Value:
+		n, ok := asUint64(value)
+		return ok && n == kind.Uint64Value
+	default:
+		return nativeEqual(value, option.ToGo())
+	}
 }
 
 // asDuration accepts the native representation or a parseable string.

@@ -36,6 +36,7 @@ func TestGoldenRecursiveResolve(t *testing.T) {
 		events    []string
 		errorPath string
 		errorCode sp.ErrorCode
+		noCoerce  bool
 	}
 
 	port := func() sp.FieldDef { return sp.Int64("port").Default(5432) }
@@ -55,6 +56,25 @@ func TestGoldenRecursiveResolve(t *testing.T) {
 		{name: "inactive-list-item", fields: []sp.FieldDef{sp.List("ports", sp.Int64("").When("false"))}, input: map[string]any{"ports": []any{"ignored", nil}}, want: map[string]*sp.Value{"ports": sp.ListV(sp.StrV("ignored"), sp.NullV())}, events: []string{"INACTIVE ports[0]", "INACTIVE ports[1]"}},
 		{name: "computed-map-key-dependency", fields: []sp.FieldDef{sp.Computed("answer", `root.values["a.b"] + 1`).Result(sp.ResultInt64), sp.MapOf("values", sp.Computed("value", "40 + 1").Result(sp.ResultInt64))}, input: map[string]any{"values": map[string]any{"a.b": int64(0)}}, want: map[string]*sp.Value{"values": sp.StructV(map[string]*sp.Value{"a.b": sp.Int64V(41)}), "answer": sp.Int64V(42)}, events: []string{`COMPUTED values["a.b"]`, "COMPUTED answer"}},
 		{name: "escaped-map-keys", fields: []sp.FieldDef{sp.MapOf("values", sp.Int64("value"))}, input: map[string]any{"values": map[string]any{"": "1", `a"b`: "2", `a[b]`: "3", `a\b`: "4"}}, want: map[string]*sp.Value{"values": sp.StructV(map[string]*sp.Value{"": sp.Int64V(1), `a"b`: sp.Int64V(2), `a[b]`: sp.Int64V(3), `a\b`: sp.Int64V(4)})}, events: []string{`COERCED values[""]`, `COERCED values["a\"b"]`, `COERCED values["a[b]"]`, `COERCED values["a\\b"]`}},
+
+		{name: "choice-int-string", fields: []sp.FieldDef{sp.Choice("mode").Opt(sp.Int32V(2), "FAST")}, input: map[string]any{"mode": "2"}, want: map[string]*sp.Value{"mode": sp.Int32V(2)}, events: []string{"COERCED mode"}},
+		{name: "choice-list-map", fields: []sp.FieldDef{sp.List("modes", sp.Choice("").IntOpts(-1, 2)), sp.MapOf("modesByName", sp.Choice("value").Opt(sp.UInt32V(2), "two"))}, input: map[string]any{"modes": []any{"-1", "+2", "02"}, "modesByName": map[string]any{"a": "2"}}, want: map[string]*sp.Value{"modes": sp.ListV(sp.Int64V(-1), sp.Int64V(2), sp.Int64V(2)), "modesByName": sp.StructV(map[string]*sp.Value{"a": sp.UInt32V(2)})}, events: []string{"COERCED modes[0]", "COERCED modes[1]", "COERCED modes[2]", "COERCED modesByName.a"}},
+		{name: "choice-string-wins", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(2).StrOpts("2")}, input: map[string]any{"mode": "2"}, want: map[string]*sp.Value{"mode": sp.StrV("2")}},
+		{name: "choice-uint64", fields: []sp.FieldDef{sp.Choice("mode").Opt(sp.UInt64V(18446744073709551615), "max")}, input: map[string]any{"mode": "18446744073709551615"}, want: map[string]*sp.Value{"mode": sp.UInt64V(18446744073709551615)}, events: []string{"COERCED mode"}},
+		{name: "choice-exact-large-int", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(9007199254740992, 9007199254740993)}, input: map[string]any{"mode": "9007199254740993"}, want: map[string]*sp.Value{"mode": sp.Int64V(9007199254740993)}, events: []string{"COERCED mode"}},
+		{name: "choice-int64-min", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(-9223372036854775808)}, input: map[string]any{"mode": "-9223372036854775808"}, want: map[string]*sp.Value{"mode": sp.Int64V(-9223372036854775808)}, events: []string{"COERCED mode"}},
+		{name: "choice-no-coerce", noCoerce: true, fields: []sp.FieldDef{sp.Choice("mode").IntOpts(2)}, input: map[string]any{"mode": "2"}, errorPath: "mode", errorCode: sp.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED},
+		{name: "choice-unknown", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(2)}, input: map[string]any{"mode": "3"}, errorPath: "mode", errorCode: sp.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED},
+		{name: "choice-integer-overflow", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(2)}, input: map[string]any{"mode": "18446744073709551616"}, errorPath: "mode", errorCode: sp.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED},
+		{name: "choice-fraction-rejected", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(2)}, input: map[string]any{"mode": "2.0"}, errorPath: "mode", errorCode: sp.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED},
+		{name: "choice-whitespace-rejected", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(2)}, input: map[string]any{"mode": " 2"}, errorPath: "mode", errorCode: sp.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED},
+		{name: "choice-unsigned-sign-rejected", fields: []sp.FieldDef{sp.Choice("mode").Opt(sp.UInt32V(2), "two")}, input: map[string]any{"mode": "+2"}, errorPath: "mode", errorCode: sp.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED},
+		{name: "choice-label-not-input", fields: []sp.FieldDef{sp.Choice("mode").Opt(sp.Int32V(2), "FAST")}, input: map[string]any{"mode": "FAST"}, errorPath: "mode", errorCode: sp.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED},
+		{name: "choice-bool-not-integer", fields: []sp.FieldDef{sp.Choice("mode").Opt(sp.BoolV(true), "yes")}, input: map[string]any{"mode": "1"}, errorPath: "mode", errorCode: sp.ErrorCode_ERROR_CODE_CHOICE_NOT_ALLOWED},
+		{name: "choice-dynamic-no-static-coercion", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(2).Options("['2']")}, input: map[string]any{"mode": "2"}, want: map[string]*sp.Value{"mode": sp.StrV("2")}},
+		{name: "choice-open-unknown-preserved", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(2).Open()}, input: map[string]any{"mode": "3"}, want: map[string]*sp.Value{"mode": sp.StrV("3")}},
+		{name: "choice-null-preserved", fields: []sp.FieldDef{sp.Choice("mode").IntOpts(2).Nullable()}, input: map[string]any{"mode": nil}, want: map[string]*sp.Value{"mode": sp.NullV()}},
+		{name: "choice-numeric-wire", noCoerce: true, fields: []sp.FieldDef{sp.Choice("mode").Opt(sp.Int32V(2), "FAST")}, input: map[string]any{"mode": int64(2)}, want: map[string]*sp.Value{"mode": sp.Int32V(2)}},
 
 		{name: "scalar-list", fields: []sp.FieldDef{sp.List("ports", sp.Int64(""))}, input: map[string]any{"ports": []any{"8080", "9007199254740993"}}, want: map[string]*sp.Value{"ports": sp.ListV(sp.Int64V(8080), sp.Int64V(9007199254740993))}, events: []string{"COERCED ports[0]", "COERCED ports[1]"}},
 		{name: "duration-list", fields: []sp.FieldDef{sp.List("timeouts", sp.Duration(""))}, input: map[string]any{"timeouts": []any{"1s", "1m30s"}}, want: map[string]*sp.Value{"timeouts": sp.ListV(sp.DurationV(time.Second), sp.DurationV(90*time.Second))}, events: []string{"COERCED timeouts[0]", "COERCED timeouts[1]"}},
@@ -91,6 +111,7 @@ func TestGoldenRecursiveResolve(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := sp.NewSchema(sp.ID("conformance", "recursive_resolve", sp.Ver(1, 0, 0))).Coerce().Def("db", port()).Def("fixed", sp.Int64("port").Default(7).Immutable()).Def("bad", sp.Int64("timeout").Normalize("this.missing")).Fields(tc.fields...).MustBuild()
+			s.Coerce = !tc.noCoerce
 			input := sp.MustStructFromGo(tc.input)
 
 			b, r, report, err := s.BakeDetailed(input.ToGo())

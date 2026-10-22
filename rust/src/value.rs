@@ -377,7 +377,26 @@ pub(crate) fn canonical_resolved(
                 _ => Ok(from_native(x)),
             }
         }
-        K::Choice(_) | K::Json(_) | K::Computed(_) => Ok(from_native(x)),
+        K::Choice(choice) => {
+            if choice.options_expr.as_deref().is_none_or(str::is_empty) {
+                for option in &choice.options {
+                    if let Some(value) = &option.value {
+                        let matches = match value.kind.as_ref() {
+                            Some(Kind::Int32Value(n)) => as_int(x) == Some(i64::from(*n)),
+                            Some(Kind::Int64Value(n)) => as_int(x) == Some(*n),
+                            Some(Kind::Uint32Value(n)) => as_uint(x) == Some(u64::from(*n)),
+                            Some(Kind::Uint64Value(n)) => as_uint(x) == Some(*n),
+                            _ => false,
+                        };
+                        if matches {
+                            return Ok(value.clone());
+                        }
+                    }
+                }
+            }
+            Ok(from_native(x))
+        }
+        K::Json(_) | K::Computed(_) => Ok(from_native(x)),
     }
 }
 

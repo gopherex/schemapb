@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -436,8 +437,21 @@ func canonicalValue(
 
 		return BytesV(b), nil
 	case *Schema_Field_Choice_:
-		// Choice values are typed by their options; canonical form is the
-		// best-fit variant of the native value.
+		// Static integer options carry the wire type, including uint64 values
+		// that cannot be represented by a signed generic integer in other ports.
+		if f.GetChoice().GetOptionsExpr() == "" {
+			for _, option := range f.GetChoice().GetOptions() {
+				value := option.GetValue()
+				switch value.GetKind().(type) {
+				case *Value_Int32Value, *Value_Int64Value, *Value_Uint32Value, *Value_Uint64Value:
+					if choiceOptionEqual(x, value) {
+						cloned, _ := proto.Clone(value).(*Value)
+						return cloned, nil
+					}
+				}
+			}
+		}
+
 		return FromGo(x)
 	case *Schema_Field_Duration_:
 		d, ok := x.(time.Duration)

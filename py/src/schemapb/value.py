@@ -225,6 +225,23 @@ def _fail(msg: str) -> Value:
     raise CanonicalError(msg)
 
 
+def _integer_choice_value(f: SchemaField, x: Native) -> Value | None:
+    if f.choice is not None and not f.choice.options_expr:
+        n = as_int(x)
+        for option in f.choice.options:
+            value = option.value
+            if value is not None and n is not None and to_native(value) == n:
+                if value.int32_value is not None:
+                    return int32_v(n)
+                if value.int64_value is not None:
+                    return int64_v(n)
+                if value.uint32_value is not None:
+                    return uint32_v(n)
+                if value.uint64_value is not None:
+                    return uint64_v(n)
+    return None
+
+
 def canonical_value(
     f: SchemaField,
     x: Native,
@@ -265,6 +282,8 @@ def canonical_value(
         return str_v(x) if isinstance(x, str) else _fail(f"field {f.name}: not string")
     if f.bytes is not None:
         return bytes_v(x) if isinstance(x, bytes) else _fail(f"field {f.name}: not bytes")
+    if (integer_choice := _integer_choice_value(f, x)) is not None:
+        return integer_choice
     if f.choice is not None or f.json is not None:
         return from_native(x)
     if f.duration is not None:

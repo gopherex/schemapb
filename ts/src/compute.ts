@@ -437,6 +437,36 @@ export function coerceInput(f: Schema_Field, val: Native): Native | undefined {
     return undefined;
   }
   switch (f.kind.case) {
+    case "choice": {
+      const choice = f.kind.value;
+      if (choice.optionsExpr || choice.options.some((o) => toNative(o.value) === val)) {
+        return undefined;
+      }
+      if (!/^[+-]?[0-9]+$/.test(val)) {
+        return undefined;
+      }
+      const n = BigInt(val);
+      for (const option of choice.options) {
+        const kind = option.value?.kind.case;
+        if (
+          kind !== "int32Value" &&
+          kind !== "int64Value" &&
+          kind !== "uint32Value" &&
+          kind !== "uint64Value"
+        ) {
+          continue;
+        }
+        // Unsigned parsing does not accept a sign, including negative zero.
+        if ((kind === "uint32Value" || kind === "uint64Value") && !/^[0-9]+$/.test(val)) {
+          continue;
+        }
+        const value = toNative(option.value);
+        if (value === n) {
+          return value;
+        }
+      }
+      return undefined;
+    }
     case "int32":
     case "int64": {
       if (!/^-?\d+$/.test(val)) {

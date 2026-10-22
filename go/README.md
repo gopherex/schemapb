@@ -62,6 +62,25 @@ optional, nullable, not materialized.
 `example_test.go` walks the entire public API (builders, registry + `Link`,
 `Choice`, `OneOf`, `Ref`, tuples, secrets, merge) in one runnable example.
 
+## Protobuf enums
+
+Generated protobuf enum types reflect as integer `Choice` fields automatically,
+including `[]MyEnum`, `[N]MyEnum`, pointers and `map[string]MyEnum`. Each option
+contains the enum number and the value name from its protobuf descriptor as its
+label. Numeric aliases use the first declared name. Unknown numbers are rejected;
+use `WithType` to choose a different schema or application-specific labels.
+
+For hand-built schemas, `Enum("mode", pb.Mode(0).Descriptor())` returns a Choice
+builder. Reflection preserves numeric `validate:"oneof=1 2"` restrictions and
+accepts `schemapb:"default=2"` for a declared integer option. Elements of an enum
+list need no tags: their options come from their type's descriptor.
+
+With coercion enabled (`Reflect` enables it), `"2"` selects integer option `2`;
+an explicit string option `"2"` takes priority. Enum names/labels are for display,
+not input aliases. The same behavior applies to collection elements. Integer
+choices bake with the matching option's wire type. Dynamic `options_expr` choices
+do not infer conversion targets from static options.
+
 ## Reflection attributes
 
 The `schemapb` struct tag applies protobuf attributes to the reflected field:

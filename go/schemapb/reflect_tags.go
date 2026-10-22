@@ -50,7 +50,7 @@ func SetFieldAttribute(field *Schema_Field, name, value string) error {
 		return fmt.Errorf("schemapb: attribute %q has no kind descriptor instance", name)
 	}
 
-	raw, err := attributeJSON(descriptor, strings.TrimSpace(value))
+	raw, err := fieldAttributeJSON(field, descriptor, strings.TrimSpace(value))
 	if err != nil {
 		return fmt.Errorf("schemapb: invalid value for attribute %q (%s)", name, descriptor.Kind())
 	}
@@ -71,6 +71,25 @@ func SetFieldAttribute(field *Schema_Field, name, value string) error {
 	owner.Set(descriptor, patch.Get(descriptor))
 
 	return nil
+}
+
+// Preserve numeric default tags when an integer enum reflects as Choice.
+// Full Value protoJSON remains available for every choice kind.
+//
+//nolint:wrapcheck // caller adds attribute context and omits raw tag values
+func fieldAttributeJSON(field *Schema_Field, descriptor protoreflect.FieldDescriptor, raw string) ([]byte, error) {
+	if descriptor.Name() == "default" && field.GetChoice() != nil {
+		if value, ok := coerceChoice(field.GetChoice(), raw); ok {
+			wire, err := FromGo(value)
+			if err != nil {
+				return nil, err
+			}
+
+			return protojson.Marshal(wire)
+		}
+	}
+
+	return attributeJSON(descriptor, raw)
 }
 
 // ireturn reports this nondeterministically, hence nolintlint too.
