@@ -45,11 +45,13 @@ def _schema_with_name(name: str) -> Schema:
     )
 
 
-@pytest.mark.parametrize("bad", ["a.b", "my-field", "1st", "in", "true", "while"])
+@pytest.mark.parametrize("bad", ["a.b", "my-field", "1st"])
 def test_field_name_rejected(bad: str) -> None:
     assert spb.check_descriptor(_schema_with_name(bad))
 
 
-@pytest.mark.parametrize("good", ["snake_case", "camelCase", "_x", "a1"])
+@pytest.mark.parametrize(
+    "good", ["snake_case", "camelCase", "_x", "a1", "in", "true", "while", "namespace"]
+)
 def test_field_name_accepted(good: str) -> None:
     assert spb.check_descriptor(_schema_with_name(good)) == []

@@ -12,20 +12,6 @@ import (
 // a field name.
 var fieldNameRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-// isCELReserved reports CEL keywords and reserved words: a field with such
-// a name would be unaddressable from expressions.
-func isCELReserved(name string) bool {
-	switch name {
-	case "true", "false", "null", "in",
-		"as", "break", "const", "continue", "else", "for", "function", "if",
-		"import", "let", "loop", "package", "namespace", "return", "var",
-		"void", "while":
-		return true
-	}
-
-	return false
-}
-
 // SchemaError reports a malformed schema DESCRIPTOR (not invalid form values):
 // missing identity, a field without a kind, duplicate names, uncompilable
 // expressions, computed cycles. It carries the same proto ValidationError
@@ -109,14 +95,12 @@ func checkFields(fields []*Schema_Field, prefix string) []*ValidationError {
 		}
 
 		// Field names are referenced by CEL expressions (when/computed/rules)
-		// and by schema paths (Lookup): both require identifier names. This
-		// only states an invariant that CEL already imposed implicitly.
+		// and by schema paths (Lookup): both require identifier names. A CEL
+		// reserved word is a valid name: `this` is a map, so an expression
+		// reaches the field by index (`this["in"]`, `"in" in this`).
 		if !fieldNameRE.MatchString(f.GetName()) {
 			errs = append(errs, schemaErr(path,
 				"field name must be an identifier ([A-Za-z_][A-Za-z0-9_]*)"))
-		} else if isCELReserved(f.GetName()) {
-			errs = append(errs, schemaErr(path,
-				fmt.Sprintf("field name %q is a CEL reserved word", f.GetName())))
 		}
 
 		if seen[f.GetName()] {

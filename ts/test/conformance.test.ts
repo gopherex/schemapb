@@ -169,6 +169,23 @@ describe("nested ref conformance", () => {
   }
 });
 
+const reservedNames = JSON.parse(golden("reserved-names.json")) as {
+  schema: JsonValue;
+  cases: { name: string; input: JsonValue; result: JsonValue; baked?: JsonValue }[];
+};
+
+describe("reserved-name conformance", () => {
+  for (const c of reservedNames.cases) {
+    it(c.name, () => {
+      const e = Engine.compile(fromJson(SchemaSchema, reservedNames.schema));
+      const outcome = e.bake(structToNative(fromJson(StructValueSchema, c.input)));
+      expect(outcome.result).toStrictEqual(fromJson(ValidationResultSchema, c.result));
+      if (c.baked === undefined) expect(outcome.baked).toBeUndefined();
+      else expect(outcome.baked?.values).toStrictEqual(fromJson(StructValueSchema, c.baked));
+    });
+  }
+});
+
 const recursiveCases = JSON.parse(golden("recursive-resolve.json")) as {
   name: string;
   schema: JsonValue;

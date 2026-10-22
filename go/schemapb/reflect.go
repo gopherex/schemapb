@@ -179,9 +179,9 @@ func (r *reflector) fieldsOf(t reflect.Type, visited map[reflect.Type]bool) ([]*
 			continue // an embedded unexported non-struct contributes nothing
 		}
 
-		if !fieldNameRE.MatchString(name) || isCELReserved(name) {
+		if !fieldNameRE.MatchString(name) {
 			return nil, fmt.Errorf(
-				"field %s: json name %q is not a valid schemapb field name (identifier, not a CEL reserved word)",
+				"field %s: json name %q is not a valid schemapb field name (identifier)",
 				structField.Name, name)
 		}
 

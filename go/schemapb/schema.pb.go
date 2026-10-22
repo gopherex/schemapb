@@ -399,7 +399,10 @@ func (x *SchemaIdentity) GetVersion() string {
 // Renderer contract: an inactive field (when=false) MUST NOT be rendered.
 type Schema_Field struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Field name; the key under which the value lives in the form.
+	// Field name; the key under which the value lives in the form. An
+	// identifier ([A-Za-z_][A-Za-z0-9_]*). A CEL reserved word (in,
+	// namespace, const, ...) is a valid name: expressions reach such a
+	// field by index — this["in"], "in" in this — since `this` is a map.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Human description of the field.
 	Description *string `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`

@@ -24,12 +24,6 @@
       "message": "field name is required"
     },
     {
-      "path": "in",
-      "code": "ERROR_CODE_INVALID_SCHEMA",
-      "severity": "SEVERITY_ERROR",
-      "message": "field name \"in\" is a CEL reserved word"
-    },
-    {
       "path": "dup",
       "code": "ERROR_CODE_INVALID_SCHEMA",
       "severity": "SEVERITY_ERROR",

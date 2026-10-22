@@ -256,7 +256,7 @@ fn lookup_cases() {
     }
 }
 
-/// Field names must be identifiers and not CEL reserved words.
+/// Field names must be identifiers; CEL reserved words are valid names.
 #[test]
 fn field_name_rules() {
     use schemapb::gen::schemapb::schema::field::{Kind, String as StringKind};
@@ -276,14 +276,23 @@ fn field_name_rules() {
         ..Default::default()
     };
 
-    for bad in ["a.b", "my-field", "1st", "in", "true", "while"] {
+    for bad in ["a.b", "my-field", "1st"] {
         assert!(
             !schemapb::descriptor::check_descriptor(&with_name(bad)).is_empty(),
             "field name {bad:?} accepted, want descriptor error"
         );
     }
 
-    for good in ["snake_case", "camelCase", "_x", "a1"] {
+    for good in [
+        "snake_case",
+        "camelCase",
+        "_x",
+        "a1",
+        "in",
+        "true",
+        "while",
+        "namespace",
+    ] {
         assert!(
             schemapb::descriptor::check_descriptor(&with_name(good)).is_empty(),
             "field name {good:?} rejected"
@@ -418,6 +427,35 @@ fn nested_ref_conformance() {
                 Some(expected.clone()),
                 "{name}: rebake"
             );
+        }
+    }
+}
+
+/// Reserved-name conformance: fields named with CEL reserved words compile,
+/// and expressions reach them by index exactly as Go does.
+#[test]
+fn reserved_names_conformance() {
+    use schemapb::value::struct_to_native;
+
+    let doc: serde_json::Value = serde_json::from_str(&golden("reserved-names.json")).unwrap();
+    let schema: Schema = serde_json::from_value(doc["schema"].clone()).unwrap();
+    let e = Engine::compile(schema, schemapb::formats::FormatRegistry::new()).unwrap();
+    for case in doc["cases"].as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let input: StructValue = serde_json::from_value(case["input"].clone()).unwrap();
+        let outcome = e.bake(&mut struct_to_native(Some(&input)));
+        let result: ValidationResult = serde_json::from_value(case["result"].clone()).unwrap();
+        assert_eq!(outcome.result, result, "{name}: validation");
+        match case.get("baked") {
+            None => assert!(outcome.baked.is_none(), "{name}: must not bake"),
+            Some(baked) => {
+                let expected: StructValue = serde_json::from_value(baked.clone()).unwrap();
+                assert_eq!(
+                    outcome.baked.unwrap().values,
+                    Some(expected),
+                    "{name}: baked"
+                );
+            }
         }
     }
 }

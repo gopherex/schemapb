@@ -1,0 +1,252 @@
+{
+  "schema": {
+    "id": {
+      "namespace": "conformance",
+      "name": "reserved",
+      "version": "v1.0.0"
+    },
+    "fields": [
+      {
+        "name": "namespace",
+        "required": true,
+        "string": {
+          "minLen": "1"
+        }
+      },
+      {
+        "name": "in",
+        "string": {}
+      },
+      {
+        "name": "const",
+        "string": {},
+        "when": "root[\"namespace\"] == \"strict\""
+      },
+      {
+        "name": "function",
+        "computed": {
+          "expr": "size(root[\"namespace\"])",
+          "result": "RESULT_TYPE_INT64"
+        }
+      },
+      {
+        "name": "while",
+        "rules": [
+          {
+            "expr": "this \u003e= 0",
+            "message": "must not be negative"
+          }
+        ],
+        "int64": {}
+      }
+    ],
+    "rules": [
+      {
+        "expr": "!(\"in\" in this) || this[\"in\"] != this[\"namespace\"]",
+        "message": "in must differ from namespace",
+        "id": "in_ne_namespace"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "valid",
+      "input": {
+        "fields": {
+          "in": {
+            "stringValue": "b"
+          },
+          "namespace": {
+            "stringValue": "a"
+          },
+          "while": {
+            "int64Value": "1"
+          }
+        }
+      },
+      "result": {},
+      "baked": {
+        "fields": {
+          "function": {
+            "int64Value": "1"
+          },
+          "in": {
+            "stringValue": "b"
+          },
+          "namespace": {
+            "stringValue": "a"
+          },
+          "while": {
+            "int64Value": "1"
+          }
+        }
+      }
+    },
+    {
+      "name": "absent in",
+      "input": {
+        "fields": {
+          "namespace": {
+            "stringValue": "abc"
+          }
+        }
+      },
+      "result": {},
+      "baked": {
+        "fields": {
+          "function": {
+            "int64Value": "3"
+          },
+          "namespace": {
+            "stringValue": "abc"
+          }
+        }
+      }
+    },
+    {
+      "name": "rule on index",
+      "input": {
+        "fields": {
+          "in": {
+            "stringValue": "a"
+          },
+          "namespace": {
+            "stringValue": "a"
+          }
+        }
+      },
+      "result": {
+        "errors": [
+          {
+            "path": "in_ne_namespace",
+            "code": "ERROR_CODE_RULE_VIOLATED",
+            "expr": "!(\"in\" in this) || this[\"in\"] != this[\"namespace\"]",
+            "ruleId": "in_ne_namespace",
+            "severity": "SEVERITY_ERROR",
+            "message": "in must differ from namespace",
+            "pathSegments": [
+              {
+                "key": "in_ne_namespace"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "field rule",
+      "input": {
+        "fields": {
+          "namespace": {
+            "stringValue": "a"
+          },
+          "while": {
+            "int64Value": "-1"
+          }
+        }
+      },
+      "result": {
+        "errors": [
+          {
+            "path": "while",
+            "code": "ERROR_CODE_RULE_VIOLATED",
+            "expr": "this \u003e= 0",
+            "severity": "SEVERITY_ERROR",
+            "message": "must not be negative",
+            "pathSegments": [
+              {
+                "key": "while"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty namespace",
+      "input": {
+        "fields": {
+          "namespace": {
+            "stringValue": ""
+          }
+        }
+      },
+      "result": {
+        "errors": [
+          {
+            "path": "namespace",
+            "code": "ERROR_CODE_MIN_LEN_VIOLATED",
+            "expected": {
+              "uint64Value": "1"
+            },
+            "actual": {
+              "stringValue": ""
+            },
+            "constraint": "min_len",
+            "severity": "SEVERITY_ERROR",
+            "message": "length must be at least 1",
+            "pathSegments": [
+              {
+                "key": "namespace"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "when active",
+      "input": {
+        "fields": {
+          "const": {
+            "stringValue": "c"
+          },
+          "namespace": {
+            "stringValue": "strict"
+          }
+        }
+      },
+      "result": {},
+      "baked": {
+        "fields": {
+          "const": {
+            "stringValue": "c"
+          },
+          "function": {
+            "int64Value": "6"
+          },
+          "namespace": {
+            "stringValue": "strict"
+          }
+        }
+      }
+    },
+    {
+      "name": "when inactive",
+      "input": {
+        "fields": {
+          "const": {
+            "stringValue": "c"
+          },
+          "namespace": {
+            "stringValue": "loose"
+          }
+        }
+      },
+      "result": {},
+      "baked": {
+        "fields": {
+          "const": {
+            "stringValue": "c"
+          },
+          "function": {
+            "int64Value": "5"
+          },
+          "namespace": {
+            "stringValue": "loose"
+          }
+        }
+      }
+    }
+  ]
+}

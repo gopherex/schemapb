@@ -57,11 +57,14 @@ describe("field name rules", () => {
       fields: [{ name, kind: { case: "string", value: {} } }],
     });
 
-  it.each(["a.b", "my-field", "1st", "in", "true", "while"])("rejects %s", (bad) => {
+  it.each(["a.b", "my-field", "1st"])("rejects %s", (bad) => {
     expect(checkDescriptor(schemaWithName(bad)).length).toBeGreaterThan(0);
   });
 
-  it.each(["snake_case", "camelCase", "_x", "a1"])("accepts %s", (good) => {
-    expect(checkDescriptor(schemaWithName(good))).toEqual([]);
-  });
+  it.each(["snake_case", "camelCase", "_x", "a1", "in", "true", "while", "namespace"])(
+    "accepts %s",
+    (good) => {
+      expect(checkDescriptor(schemaWithName(good))).toEqual([]);
+    },
+  );
 });

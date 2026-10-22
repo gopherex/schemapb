@@ -496,7 +496,12 @@ message Schema {
       optional StructValue default = 3;
     }
 
-    /* Field name; the key under which the value lives in the form. */
+    /*
+     * Field name; the key under which the value lives in the form. An
+     * identifier ([A-Za-z_][A-Za-z0-9_]*). A CEL reserved word (in,
+     * namespace, const, ...) is a valid name: expressions reach such a
+     * field by index — this["in"], "in" in this — since `this` is a map.
+     */
     string name = 1;
     /* Human description of the field. */
     optional string description = 2;

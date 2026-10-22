@@ -146,6 +146,21 @@ def test_nested_ref_conformance(case: dict[str, object]) -> None:
 
 
 @pytest.mark.parametrize(
+    "case", json.loads(golden("reserved-names.json"))["cases"], ids=lambda c: c["name"]
+)
+def test_reserved_names_conformance(case: dict[str, object]) -> None:
+    doc = json.loads(golden("reserved-names.json"))
+    e = spb.compile_schema(Schema().from_json(json.dumps(doc["schema"])))
+    outcome = e.bake(spb.struct_to_native(StructValue().from_json(json.dumps(case["input"]))))
+    assert outcome.result == ValidationResult().from_json(json.dumps(case["result"]))
+    if "baked" not in case:
+        assert outcome.baked is None
+    else:
+        assert outcome.baked is not None
+        assert outcome.baked.values == StructValue().from_json(json.dumps(case["baked"]))
+
+
+@pytest.mark.parametrize(
     "case", json.loads(golden("recursive-resolve.json")), ids=lambda c: c["name"]
 )
 def test_recursive_resolve_conformance(case: dict[str, object]) -> None:

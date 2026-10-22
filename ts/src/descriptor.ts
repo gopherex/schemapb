@@ -103,33 +103,10 @@ export function checkDescriptor(s: Schema): ValidationError[] {
 }
 
 // Field names are referenced by CEL expressions (when/computed/rules) and
-// by schema paths (lookup): both require identifier names. This only
-// states an invariant that CEL already imposed implicitly.
+// by schema paths (lookup): both require identifier names. A CEL reserved
+// word is a valid name: `this` is a map, so an expression reaches the field
+// by index (`this["in"]`, `"in" in this`).
 const fieldNameRe = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-const celReserved = new Set([
-  "true",
-  "false",
-  "null",
-  "in",
-  "as",
-  "break",
-  "const",
-  "continue",
-  "else",
-  "for",
-  "function",
-  "if",
-  "import",
-  "let",
-  "loop",
-  "package",
-  "namespace",
-  "return",
-  "var",
-  "void",
-  "while",
-]);
 
 function checkFields(fields: Schema_Field[], prefix: string): ValidationError[] {
   const errs: ValidationError[] = [];
@@ -150,8 +127,6 @@ function checkFields(fields: Schema_Field[], prefix: string): ValidationError[] 
     }
     if (!fieldNameRe.test(f.name)) {
       errs.push(schemaErr(path, "field name must be an identifier ([A-Za-z_][A-Za-z0-9_]*)"));
-    } else if (celReserved.has(f.name)) {
-      errs.push(schemaErr(path, `field name ${JSON.stringify(f.name)} is a CEL reserved word`));
     }
     if (seen.has(f.name)) {
       errs.push(schemaErr(path, "duplicate field name"));

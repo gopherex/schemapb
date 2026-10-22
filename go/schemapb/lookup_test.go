@@ -105,7 +105,7 @@ func TestLookupEmptyPath(t *testing.T) {
 func TestFieldNameRules(t *testing.T) {
 	t.Parallel()
 
-	for _, bad := range []string{"a.b", "my-field", "1st", "in", "true", "while"} {
+	for _, bad := range []string{"a.b", "my-field", "1st"} {
 		s := &schemapb.Schema{
 			Id: schemapb.ID("t", "names", schemapb.Ver(1, 0, 0)),
 			Fields: []*schemapb.Schema_Field{{
@@ -119,8 +119,8 @@ func TestFieldNameRules(t *testing.T) {
 		}
 	}
 
-	// snake_case and camelCase both stay legal.
-	for _, good := range []string{"snake_case", "camelCase", "_x", "a1"} {
+	// snake_case, camelCase and CEL reserved words are all legal.
+	for _, good := range []string{"snake_case", "camelCase", "_x", "a1", "in", "true", "while", "namespace"} {
 		s := &schemapb.Schema{
 			Id: schemapb.ID("t", "names", schemapb.Ver(1, 0, 0)),
 			Fields: []*schemapb.Schema_Field{{

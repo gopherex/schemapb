@@ -847,7 +847,11 @@ class SchemaField(betterproto2.Message):
 
     name: "str" = betterproto2.field(1, betterproto2.TYPE_STRING)
     """
-    Field name; the key under which the value lives in the form. 
+    
+    Field name; the key under which the value lives in the form. An
+    identifier ([A-Za-z_][A-Za-z0-9_]*). A CEL reserved word (in,
+    namespace, const, ...) is a valid name: expressions reach such a
+    field by index — this["in"], "in" in this — since `this` is a map.
     """
 
     description: "str | None" = betterproto2.field(

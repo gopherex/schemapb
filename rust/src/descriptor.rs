@@ -38,43 +38,15 @@ pub fn schema_err(path: &str, msg: &str) -> ValidationError {
 }
 
 /// Field names are referenced by CEL expressions (when/computed/rules) and
-/// by schema paths (lookup): both require identifier names. This only
-/// states an invariant that CEL already imposed implicitly.
+/// by schema paths (lookup): both require identifier names. A CEL reserved
+/// word is a valid name: `this` is a map, so an expression reaches the field
+/// by index (`this["in"]`, `"in" in this`).
 fn is_identifier(name: &str) -> bool {
     let mut chars = name.chars();
     chars
         .next()
         .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
-}
-
-/// CEL keywords and reserved words: a field with such a name would be
-/// unaddressable from expressions.
-fn is_cel_reserved(name: &str) -> bool {
-    matches!(
-        name,
-        "true"
-            | "false"
-            | "null"
-            | "in"
-            | "as"
-            | "break"
-            | "const"
-            | "continue"
-            | "else"
-            | "for"
-            | "function"
-            | "if"
-            | "import"
-            | "let"
-            | "loop"
-            | "package"
-            | "namespace"
-            | "return"
-            | "var"
-            | "void"
-            | "while"
-    )
 }
 
 #[must_use]
@@ -182,11 +154,6 @@ fn check_fields(fields: &[SchemaField], prefix: &str) -> Vec<ValidationError> {
             errs.push(schema_err(
                 &path,
                 "field name must be an identifier ([A-Za-z_][A-Za-z0-9_]*)",
-            ));
-        } else if is_cel_reserved(&f.name) {
-            errs.push(schema_err(
-                &path,
-                &format!("field name \"{}\" is a CEL reserved word", f.name),
             ));
         }
         if !seen.insert(f.name.clone()) {

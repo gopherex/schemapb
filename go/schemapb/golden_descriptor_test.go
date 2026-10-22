@@ -28,7 +28,6 @@ func invalidSchema() *schemapb.Schema {
 				}},
 			}}},
 			{Name: "", Kind: str},
-			{Name: "in", Kind: str},
 			{Name: "dup", Kind: str},
 			{Name: "dup", Kind: str},
 			{Name: "nokind"},

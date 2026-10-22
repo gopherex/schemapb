@@ -217,7 +217,11 @@ pub mod schema {
     /// Renderer contract: an inactive field (when=false) MUST NOT be rendered.
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Field {
-        /// Field name; the key under which the value lives in the form. 
+        ///
+        /// Field name; the key under which the value lives in the form. An
+        /// identifier ([A-Za-z_][A-Za-z0-9_]*). A CEL reserved word (in,
+        /// namespace, const, ...) is a valid name: expressions reach such a
+        /// field by index — this\["in"\], "in" in this — since `this` is a map.
         #[prost(string, tag="1")]
         pub name: ::prost::alloc::string::String,
         /// Human description of the field. 
