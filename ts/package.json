@@ -25,6 +25,10 @@
       "types": "./dist/zod.d.ts",
       "import": "./dist/zod.js"
     },
+    "./schemapb/*.js": {
+      "types": "./dist/gen/schemapb/*.d.ts",
+      "import": "./dist/gen/schemapb/*.js"
+    },
     "./schemapb/*": {
       "types": "./dist/gen/schemapb/*.d.ts",
       "import": "./dist/gen/schemapb/*.js"
