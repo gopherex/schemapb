@@ -118,8 +118,9 @@
     },
     {
       "name": "flag",
-      "required": true,
-      "bool": {}
+      "bool": {
+        "default": false
+      }
     },
     {
       "name": "opt",
@@ -195,8 +196,9 @@
           "fields": [
             {
               "name": "on",
-              "required": true,
-              "bool": {}
+              "bool": {
+                "default": false
+              }
             }
           ]
         }
@@ -209,8 +211,9 @@
           "fields": [
             {
               "name": "on",
-              "required": true,
-              "bool": {}
+              "bool": {
+                "default": false
+              }
             }
           ]
         },

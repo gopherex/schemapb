@@ -114,6 +114,36 @@ func TestReflectMarshalerBecomesJSON(t *testing.T) {
 	}
 }
 
+func TestReflectBoolDefaultsFalse(t *testing.T) {
+	t.Parallel()
+
+	type params struct {
+		Insecure bool `json:"insecure"`
+		On       bool `json:"on"       schemapb:"default=true"`
+		Must     bool `json:"must"     validate:"required"`
+	}
+
+	s, err := schemapb.ReflectType[params](testID(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	insecure, _ := s.LookupPath("insecure")
+	if insecure.GetRequired() || insecure.GetBool().Default == nil || insecure.GetBool().GetDefault() {
+		t.Fatalf("bool without omitempty must default to false, got %+v", insecure)
+	}
+
+	on, _ := s.LookupPath("on")
+	if !on.GetBool().GetDefault() {
+		t.Fatalf("default=true must win, got %+v", on)
+	}
+
+	must, _ := s.LookupPath("must")
+	if !must.GetRequired() || must.GetBool().Default != nil {
+		t.Fatalf(`validate:"required" bool must stay required, got %+v`, must)
+	}
+}
+
 func TestReflectPointerNullable(t *testing.T) {
 	t.Parallel()
 

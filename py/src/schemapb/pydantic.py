@@ -11,8 +11,9 @@ for models, ``value_field`` otherwise), model cycles to JSON.
 A field annotated with a nested model — not ``X | None``, no default — is a
 section: optional with an implicit empty object default (Go's
 ``schemapb:"default={}"``), so an absent section resolves its inner
-defaults. ``required()`` keeps it required without a default (Go's
-``validate:"required"``).
+defaults. A ``bool`` without a default is false when absent (Go: a bool
+without ``omitempty``). ``required()`` keeps either required without a
+default (Go's ``validate:"required"``).
 
 Python's type system lacks sized numerics and a few schema notions, so
 this module exports markers to close the gap: ``Int32``/``UInt32``/
@@ -194,6 +195,10 @@ class _Reflector:
             # and cycles never build an ObjectB, so they never are.
             if isinstance(fb, b.ObjectB) and not nullable and info.is_required() and not explicit:
                 fb = fb.default_empty()
+            # A bool without a default is false when absent (Go: a bool
+            # without omitempty), unless explicitly required.
+            elif isinstance(fb, b.BoolB) and not nullable and info.is_required() and not explicit:
+                fb = fb.default(v=False)
             elif explicit or info.is_required():
                 fb = fb.required()
             out.append(fb)

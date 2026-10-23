@@ -309,6 +309,7 @@ func (r *reflector) finishField(
 	}
 
 	field.Required = required && !section
+
 	if info.nullable {
 		field.Nullable = true
 	}
@@ -323,12 +324,24 @@ func (r *reflector) finishField(
 		return nil, err
 	}
 
+	optionalBool(field, c)
+
 	if section && field.GetImmutable() && field.GetObject().GetDefault() == implicit {
 		field.GetObject().Default = nil
 		field.Required = required
 	}
 
 	return field, nil
+}
+
+// optionalBool: a bool without omitempty and without a default tag is
+// false when absent, not required; only validate:"required" asks for it to
+// be set.
+func optionalBool(field *Schema_Field, c *fieldConstraints) {
+	if b := field.GetBool(); b != nil && field.Required && (c == nil || !c.required) && b.Default == nil {
+		b.Default = proto.Bool(false)
+		field.Required = false
+	}
 }
 
 // fieldOfKind maps a plain Go kind (no stdlib/override/cycle special cases).

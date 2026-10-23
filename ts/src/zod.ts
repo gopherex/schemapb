@@ -11,8 +11,9 @@
  * A member that is a plain `z.object(...)` (not `.optional()`, not
  * `.nullable()`) is a section: optional with an implicit empty object
  * default (Go's `schemapb:"default={}"`), so an absent section resolves its
- * inner defaults. `required(...)` keeps it required without a default (Go's
- * `validate:"required"`).
+ * inner defaults. A plain `z.boolean()` member is false when absent (Go: a
+ * bool without `omitempty`). `required(...)` keeps either required without
+ * a default (Go's `validate:"required"`).
  *
  * TypeScript lacks sized numerics and some schema notions, so this module
  * exports markers to close the gap — applied to the fully-built inner
@@ -29,6 +30,7 @@ import { equals } from "@bufbuild/protobuf";
 import type { Schema_Field, SchemaIdentity } from "./gen/schemapb/schema_pb.js";
 import { type Schema, Schema_FieldSchema } from "./gen/schemapb/schema_pb.js";
 import {
+  BoolB,
   bool,
   bytes,
   choice,
@@ -251,6 +253,10 @@ class Reflector {
     // cycles never build an ObjectB, so they never are.
     if (member && required && !nullable && !explicit && fb instanceof ObjectB) {
       fb.defaultEmpty();
+    } else if (member && required && !nullable && !explicit && fb instanceof BoolB) {
+      // A bool without a default is false when absent (Go: a bool without
+      // omitempty), unless explicitly required.
+      fb.default(false);
     } else if (required || explicit) {
       done.required = true;
     }

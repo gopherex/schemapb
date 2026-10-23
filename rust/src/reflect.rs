@@ -19,8 +19,9 @@
 //! A struct field whose type is a derived struct (not `Option<T>`) is a
 //! SECTION: optional with an implicit empty object default (Go's
 //! `schemapb:"default={}"`), so an absent section resolves its inner
-//! defaults. `#[schemapb(required)]` keeps it required without a default
-//! (Go's `validate:"required"`); a hand-written [`ReflectField`] impl (an
+//! defaults. A `bool` field is false when absent (Go: a bool without
+//! `omitempty`). `#[schemapb(required)]` keeps either required without a
+//! default (Go's `validate:"required"`); a hand-written [`ReflectField`] impl (an
 //! override) is never a section.
 
 use std::any::TypeId;
@@ -343,9 +344,19 @@ pub mod apply {
     ///
     /// The type's own [`ReflectField::REQUIRED`], except that a section (a
     /// derived struct that reflected as an Object, not a cycle) is optional
-    /// with an implicit empty object default.
+    /// with an implicit empty object default, and a bool is optional with
+    /// default false.
     pub fn presence<T: super::ReflectField>(f: &mut Field) {
         f.required = T::REQUIRED;
+        // A bool without a default is false when absent (Go: a bool without
+        // omitempty).
+        if let Some(K::Bool(k)) = f.kind.as_mut() {
+            if T::REQUIRED && !f.nullable && k.default.is_none() {
+                k.default = Some(false);
+                f.required = false;
+            }
+            return;
+        }
         if !T::SECTION || !T::REQUIRED || f.nullable {
             return;
         }
