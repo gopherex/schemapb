@@ -390,6 +390,185 @@ func TestValidatorOK(t *testing.T) {
 	}
 }
 
+// fullNative is every native kind Order can hold, as Values emits it
+// (the Any entry named by protomsg.AnyTypeKey).
+func fullNative() map[string]any {
+	return map[string]any{
+		"id":     int64(1),
+		"note":   "abc",
+		"tier":   "TIER_GOLD",
+		"items":  []any{map[string]any{"sku": "a"}},
+		"by_sku": map[string]any{"k": map[string]any{"sku": "b"}},
+		"at":     time.Unix(10, 5).UTC(),
+		"ttl":    1500 * time.Millisecond,
+		"limit":  uint64(7),
+		"meta":   map[string]any{"a": 1.5, "b": nil, "c": []any{"x"}},
+		"mask":   []any{"a.b"},
+		"blob":   []byte{1, 2},
+		"item":   map[string]any{"sku": "c"},
+		"any":    map[string]any{protomsg.AnyTypeKey: "type.googleapis.com/test.v1.Item", "sku": "inner"},
+	}
+}
+
+func fullOrder(t *testing.T, desc protoreflect.MessageDescriptor) *dynamicpb.Message {
+	t.Helper()
+
+	itemMD := desc.Fields().ByName("items").Message()
+	order := dynamicpb.NewMessage(desc)
+
+	set(order, "id", protoreflect.ValueOfInt32(1))
+	set(order, "note", protoreflect.ValueOfString("abc"))
+	set(order, "tier", protoreflect.ValueOfEnum(1))
+
+	list := order.Mutable(desc.Fields().ByName("items")).List()
+	list.Append(protoreflect.ValueOfMessage(item(itemMD, "a")))
+
+	order.Mutable(desc.Fields().ByName("by_sku")).Map().
+		Set(protoreflect.ValueOfString("k").MapKey(), protoreflect.ValueOfMessage(item(itemMD, "b")))
+
+	set(order, "at", msgV(timestamppb.New(time.Unix(10, 5).UTC())))
+	set(order, "ttl", msgV(durationpb.New(1500*time.Millisecond)))
+	set(order, "limit", msgV(wrapperspb.UInt32(7)))
+
+	meta, err := structpb.NewStruct(map[string]any{"a": 1.5, "b": nil, "c": []any{"x"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	set(order, "meta", msgV(meta))
+	set(order, "mask", msgV(&fieldmaskpb.FieldMask{Paths: []string{"a.b"}}))
+	set(order, "blob", protoreflect.ValueOfBytes([]byte{1, 2}))
+	set(order, "item", msgV(item(itemMD, "c")))
+
+	packed, err := proto.Marshal(item(itemMD, "inner"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	set(order, "any", msgV(&anypb.Any{TypeUrl: "type.googleapis.com/test.v1.Item", Value: packed}))
+
+	return order
+}
+
+func TestWriteBackBuildsFromNative(t *testing.T) {
+	t.Parallel()
+
+	desc := orderDesc(t)
+	itemType := dynamicpb.NewMessageType(desc.Fields().ByName("items").Message())
+
+	order := dynamicpb.NewMessage(desc)
+	if err := protomsg.WriteBack(order, fullNative(), protomsg.WithAnyTypes(itemType)); err != nil {
+		t.Fatal(err)
+	}
+
+	if !proto.Equal(order, fullOrder(t, desc)) {
+		t.Fatalf("WriteBack:\n got %v", order)
+	}
+
+	// The round trip: Values then WriteBack is the identity.
+	values, err := protomsg.Values(fullOrder(t, desc), protomsg.WithAnyTypes(itemType))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	back := dynamicpb.NewMessage(desc)
+	if err := protomsg.WriteBack(back, values, protomsg.WithAnyTypes(itemType)); err != nil {
+		t.Fatal(err)
+	}
+
+	if !proto.Equal(back, fullOrder(t, desc)) {
+		t.Fatalf("round trip:\n got %v", back)
+	}
+}
+
+func TestWriteBackMergesIntoAnExistingMessage(t *testing.T) {
+	t.Parallel()
+
+	desc := orderDesc(t)
+	fields := desc.Fields()
+	itemMD := fields.ByName("items").Message()
+	itemType := dynamicpb.NewMessageType(itemMD)
+
+	order := dynamicpb.NewMessage(desc)
+	set(order, "id", protoreflect.ValueOfInt32(7))
+	order.Mutable(fields.ByName("items")).List().Append(protoreflect.ValueOfMessage(item(itemMD, "keep")))
+
+	packed, err := proto.Marshal(item(itemMD, "old"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	set(order, "any", msgV(&anypb.Any{TypeUrl: "type.googleapis.com/test.v1.Item", Value: packed}))
+
+	if err := protomsg.WriteBack(order, map[string]any{
+		"note":   "new",
+		"tier":   int64(1), // integers are accepted as in the TS bridge
+		"items":  []any{map[string]any{"sku": "z"}},
+		"by_sku": map[string]any{"k": map[string]any{"sku": "y"}},
+		"any":    map[string]any{protomsg.AnyTypeKey: "type.googleapis.com/test.v1.Item", "sku": "rewritten"},
+	}, protomsg.WithAnyTypes(itemType)); err != nil {
+		t.Fatal(err)
+	}
+
+	if order.Get(fields.ByName("id")).Int() != 7 {
+		t.Error("a key absent from values changed the field")
+	}
+
+	if order.Get(fields.ByName("note")).String() != "new" || order.Get(fields.ByName("tier")).Enum() != 1 {
+		t.Errorf("note/tier not written: %v %v", order.Get(fields.ByName("note")), order.Get(fields.ByName("tier")))
+	}
+
+	rewritten := itemType.New()
+	anyMsg := order.Get(fields.ByName("any")).Message()
+
+	if err := proto.Unmarshal(anyMsg.Get(anyMsg.Descriptor().Fields().ByName("value")).Bytes(), rewritten.Interface()); err != nil {
+		t.Fatal(err)
+	}
+
+	if rewritten.Get(itemMD.Fields().ByName("sku")).String() != "rewritten" {
+		t.Errorf("Any not repacked: %v", rewritten)
+	}
+
+	if err := protomsg.WriteBack(order, map[string]any{"note": nil}); err != nil {
+		t.Fatal(err)
+	}
+
+	if order.Has(fields.ByName("note")) {
+		t.Error("null did not clear the field")
+	}
+}
+
+func TestWriteBackMisfitAndUnlistedAny(t *testing.T) {
+	t.Parallel()
+
+	desc := orderDesc(t)
+	fields := desc.Fields()
+
+	order := dynamicpb.NewMessage(desc)
+	set(order, "id", protoreflect.ValueOfInt32(7))
+	before := proto.Clone(order)
+
+	// 2^40 does not fit the int32 id: nothing is stored.
+	if err := protomsg.WriteBack(order, map[string]any{"id": int64(1) << 40, "note": "x"}); !errors.Is(err, protomsg.ErrWriteBack) {
+		t.Fatalf("want ErrWriteBack, got %v", err)
+	}
+
+	if !proto.Equal(before, order) {
+		t.Error("a failed write-back modified the message")
+	}
+
+	// An unlisted Any type was seen only by its "@type": the field is left as is.
+	if err := protomsg.WriteBack(order, map[string]any{
+		"any": map[string]any{protomsg.AnyTypeKey: "type.googleapis.com/test.v1.Item", "sku": "no"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if order.Has(fields.ByName("any")) {
+		t.Error("an unlisted Any set the field")
+	}
+}
+
 func TestResolveRepacksAny(t *testing.T) {
 	t.Parallel()
 

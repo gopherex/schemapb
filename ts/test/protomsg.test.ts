@@ -25,9 +25,16 @@ import {
 import { describe, expect, it } from "vitest";
 import { SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
 import * as b from "../src/new.js";
-import { messageValues, ValidationFailure, Validator, WriteBackError } from "../src/protomsg.js";
+import {
+  messageFromValues,
+  messageValues,
+  ValidationFailure,
+  Validator,
+  WriteBackError,
+  writeBackValues,
+} from "../src/protomsg.js";
 import { id, Version } from "../src/typed.js";
-import { structFromNative } from "../src/value.js";
+import { type NativeStruct, structFromNative } from "../src/value.js";
 
 const opt = "LABEL_OPTIONAL";
 const rep = "LABEL_REPEATED";
@@ -219,6 +226,108 @@ describe("protomsg", () => {
       sku: "inner",
       "@type": "type.googleapis.com/test.v1.Item",
     });
+  });
+
+  /** Every native kind Order can hold. */
+  function fullNative(): NativeStruct {
+    return {
+      id: 1n,
+      note: "abc",
+      tier: "TIER_GOLD",
+      items: [{ sku: "a" }],
+      by_sku: { k: { sku: "b" } },
+      at: create(TimestampSchema, { seconds: 10n, nanos: 5 }),
+      ttl: create(DurationSchema, { seconds: 1n, nanos: 500_000_000 }),
+      limit: 7n,
+      meta: { a: 1.5, b: null, c: ["x"] },
+      mask: ["a.b"],
+      blob: Uint8Array.from([1, 2]),
+      item: { sku: "c" },
+      any: { "@type": "type.googleapis.com/test.v1.Item", sku: "inner" },
+    };
+  }
+
+  function fullMessage(): Dyn {
+    const order: Dyn = create(orderDesc, {
+      id: 1,
+      note: "abc",
+      tier: 1,
+      items: [item("a")],
+      bySku: { k: item("b") },
+      at: create(TimestampSchema, { seconds: 10n, nanos: 5 }),
+      ttl: create(DurationSchema, { seconds: 1n, nanos: 500_000_000 }),
+      limit: 7,
+      meta: { a: 1.5, b: null, c: ["x"] },
+      mask: create(FieldMaskSchema, { paths: ["a.b"] }),
+      blob: Uint8Array.from([1, 2]),
+      item: item("c"),
+    } as Dyn);
+    order.any = anyPack(itemDesc, item("inner"));
+    return order;
+  }
+
+  it("messageFromValues builds a message from native values", () => {
+    const got = messageFromValues(orderDesc, fullNative(), [itemDesc]);
+    expect(equals(orderDesc, got, fullMessage())).toBe(true);
+  });
+
+  it("messageFromValues and messageValues round-trip", () => {
+    const msg = fullMessage();
+    const back = messageFromValues(orderDesc, messageValues(orderDesc, msg, [itemDesc]), [
+      itemDesc,
+    ]);
+    expect(equals(orderDesc, back, msg)).toBe(true);
+  });
+
+  it("writeBackValues merges into an existing message", () => {
+    const order: Dyn = create(orderDesc, { id: 7, items: [item("keep")] } as Dyn);
+    order.any = anyPack(itemDesc, item("old"));
+
+    writeBackValues(
+      orderDesc,
+      order,
+      {
+        note: "new",
+        tier: "TIER_GOLD",
+        items: [{ sku: "z" }],
+        by_sku: { k: { sku: "y" } },
+        any: { "@type": "type.googleapis.com/test.v1.Item", sku: "rewritten" },
+      },
+      [itemDesc],
+    );
+
+    expect(order.id).toBe(7); // key absent: left unchanged
+    expect(order.note).toBe("new");
+    expect(order.tier).toBe(1);
+    expect(order.items.map((i: Dyn) => i.sku)).toEqual(["z"]);
+    expect(order.bySku.k.sku).toBe("y");
+    expect((anyUnpack(order.any, itemDesc) as Dyn).sku).toBe("rewritten");
+
+    writeBackValues(orderDesc, order, { note: null });
+    expect(order.note).toBeUndefined(); // null clears explicit presence
+  });
+
+  it("write-back is all or nothing: a misfit leaves the message untouched", () => {
+    const order: Dyn = create(orderDesc, { id: 7 } as Dyn);
+    const before = clone(orderDesc, order);
+    // 2^40 does not fit the int32 id.
+    expect(() => writeBackValues(orderDesc, order, { id: 1099511627776n, note: "x" })).toThrow(
+      WriteBackError,
+    );
+    expect(equals(orderDesc, order, before)).toBe(true);
+    expect(() => messageFromValues(orderDesc, { id: 1099511627776n })).toThrow(WriteBackError);
+  });
+
+  it("write-back rejects a value that does not fit its native form", () => {
+    const order: Dyn = create(orderDesc, { id: 7 } as Dyn);
+    const before = clone(orderDesc, order);
+    // An enum is a value name, or an integer like the Go bridge accepts.
+    expect(() => writeBackValues(orderDesc, order, { tier: "TIER_NOPE" })).toThrow(WriteBackError);
+    expect(() => writeBackValues(orderDesc, order, { tier: 1.5 })).toThrow(WriteBackError);
+    // An unlisted Any type was seen only by its "@type": the field is left as is.
+    writeBackValues(orderDesc, order, { any: { "@type": "type.googleapis.com/test.v1.Item" } });
+    expect(equals(orderDesc, order, before)).toBe(true);
+    expect(order.any).toBeUndefined();
   });
 
   it("validates with field numbers and schema identity", () => {

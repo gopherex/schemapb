@@ -67,39 +67,47 @@ func isObject(md protoreflect.MessageDescriptor) bool {
 }
 
 // setObject writes obj into a plain message, or into the message an Any
-// packs when its type is listed.
-func (mp mapping) setObject(m protoreflect.Message, obj map[string]any) error {
+// packs: its type is the "@type" of the value tree, falling back to the
+// type URL the message already holds, and must be listed. It reports
+// whether anything was written.
+func (mp mapping) setObject(m protoreflect.Message, obj map[string]any) (bool, error) {
 	if m.Descriptor().FullName() != anyName {
-		return mp.setMessage(m, obj)
+		return true, mp.setMessage(m, obj)
 	}
 
-	desc := m.Descriptor()
-	url := m.Get(desc.Fields().ByName("type_url")).String()
+	fields := m.Descriptor().Fields()
+	urlField, raw := fields.ByName("type_url"), fields.ByName("value")
 
-	t, ok := mp.anyTypes[url]
-	if !ok {
-		return nil // only "@type" was seen: nothing resolved
+	url, isURL := obj[AnyTypeKey].(string)
+	if !isURL {
+		url = m.Get(urlField).String()
+	}
+
+	t, listed := mp.anyTypes[url]
+	if !listed {
+		return false, nil // only "@type" was seen: nothing resolved
 	}
 
 	inner := t.New()
-	raw := desc.Fields().ByName("value")
-
-	if err := proto.Unmarshal(m.Get(raw).Bytes(), inner.Interface()); err != nil {
-		return fmt.Errorf("%w: unpack Any %s: %w", ErrWriteBack, url, err)
+	if m.Get(urlField).String() == url { // rewrite the packed message when it holds this type
+		if err := proto.Unmarshal(m.Get(raw).Bytes(), inner.Interface()); err != nil {
+			return false, fmt.Errorf("%w: unpack Any %s: %w", ErrWriteBack, url, err)
+		}
 	}
 
 	if err := mp.setMessage(inner, obj); err != nil {
-		return err
+		return false, err
 	}
 
 	packed, err := proto.MarshalOptions{Deterministic: true}.Marshal(inner.Interface())
 	if err != nil {
-		return fmt.Errorf("%w: pack Any %s: %w", ErrWriteBack, url, err)
+		return false, fmt.Errorf("%w: pack Any %s: %w", ErrWriteBack, url, err)
 	}
 
+	m.Set(urlField, protoreflect.ValueOfString(url))
 	m.Set(raw, protoreflect.ValueOfBytes(packed))
 
-	return nil
+	return true, nil
 }
 
 func (mp mapping) setField(m protoreflect.Message, field protoreflect.FieldDescriptor, x any) error {
@@ -118,7 +126,16 @@ func (mp mapping) setField(m protoreflect.Message, field protoreflect.FieldDescr
 			return misfit(field, x)
 		}
 
-		return mp.setObject(m.Mutable(field).Message(), obj)
+		// Mutable marks presence; an unlisted Any writes nothing, so undo
+		// the presence it would otherwise leave as an empty message.
+		wasSet := m.Has(field)
+
+		wrote, err := mp.setObject(m.Mutable(field).Message(), obj)
+		if !wrote && !wasSet {
+			m.Clear(field)
+		}
+
+		return err
 	default:
 		v, err := toProto(field, m.NewField(field), x)
 		if err != nil {
@@ -151,7 +168,7 @@ func (mp mapping) setList(m protoreflect.Message, field protoreflect.FieldDescri
 				list.Append(list.NewElement())
 			}
 
-			if err := mp.setObject(list.Get(i).Message(), obj); err != nil {
+			if _, err := mp.setObject(list.Get(i).Message(), obj); err != nil {
 				return err
 			}
 
@@ -200,7 +217,7 @@ func (mp mapping) setMap(m protoreflect.Message, field protoreflect.FieldDescrip
 				return misfit(field, item)
 			}
 
-			if err := mp.setObject(target.Mutable(key).Message(), obj); err != nil {
+			if _, err := mp.setObject(target.Mutable(key).Message(), obj); err != nil {
 				return err
 			}
 

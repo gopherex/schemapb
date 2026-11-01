@@ -22,6 +22,7 @@
  */
 
 import {
+  clearField,
   clone,
   create,
   createRegistry,
@@ -351,9 +352,11 @@ class Mapping {
         }
         case "message":
           if (isObjectMessage(field.message)) {
-            const el = r.isSet(field) ? r.get(field) : reflect(field.message);
-            this.#setObject(el, asStruct(field, x));
-            r.set(field, el);
+            const wasSet = r.isSet(field);
+            const el = wasSet ? r.get(field) : reflect(field.message);
+            if (this.#setObject(el, asStruct(field, x)) || wasSet) {
+              r.set(field, el);
+            }
           } else {
             r.set(field, toProto(field, x));
           }
@@ -364,26 +367,32 @@ class Mapping {
     }
   }
 
-  /** Writes obj into a plain message, or into the message a listed Any packs. */
-  #setObject(el: ReflectMessage, obj: NativeStruct): void {
+  /**
+   * Writes obj into a plain message, or into the message a listed Any packs
+   * (its type read from "@type"); reports whether anything was written.
+   */
+  #setObject(el: ReflectMessage, obj: NativeStruct): boolean {
     if (el.desc.typeName !== anyName) {
       this.setMessage(el, obj);
-      return;
+      return true;
     }
     const any = el.message as Any;
-    const name = any.typeUrl.startsWith(anyUrlPrefix) ? any.typeUrl.slice(anyUrlPrefix.length) : "";
+    const url = typeof obj[anyTypeKey] === "string" ? (obj[anyTypeKey] as string) : any.typeUrl;
+    const name = url.startsWith(anyUrlPrefix) ? url.slice(anyUrlPrefix.length) : "";
     const desc = name === "" ? undefined : this.#anyTypes.getMessage(name);
-    const inner = desc === undefined ? undefined : anyUnpack(any, desc);
-    if (desc === undefined || inner === undefined) {
-      return; // only "@type" was seen: nothing resolved
+    if (desc === undefined) {
+      return false; // only "@type" was seen: nothing resolved
     }
+    const inner = anyUnpack(any, desc) ?? create(desc);
     this.setMessage(reflect(desc, inner), obj);
+    any.typeUrl = url;
     any.value = toBinary(desc, inner);
+    return true;
   }
 }
 
 // =============================================================================
-// Write-back: the resolved value tree into a message
+// Write-back: a native or resolved value tree into a message
 // =============================================================================
 
 /**
@@ -401,7 +410,39 @@ function writeBack<Desc extends DescMessage>(
 ): void {
   const copy = clone(desc, msg);
   mapping.setMessage(reflect(desc, copy), values);
+  // clear every field first: one the mapping unset (or cleared with null) has
+  // no own property on the copy, and Object.assign would leave the old value.
+  for (const field of desc.fields) {
+    clearField(msg, field);
+  }
   Object.assign(msg, copy);
+}
+
+/**
+ * Stores the native values into msg, all or nothing: the inverse of
+ * messageValues, no validation involved. Keys absent from values leave
+ * their field unchanged; a null clears it. An Any value carries "@type"
+ * naming its packed type, which must be in anyTypes to be written.
+ * Throws WriteBackError (msg unchanged) when a value does not fit its field.
+ */
+export function writeBackValues<Desc extends DescMessage>(
+  desc: Desc,
+  msg: MessageShape<Desc>,
+  values: NativeStruct,
+  anyTypes: readonly DescMessage[] = [],
+): void {
+  writeBack(new Mapping(createRegistry(...anyTypes)), desc, msg, values);
+}
+
+/** Builds a new message from the native values: the inverse of messageValues. */
+export function messageFromValues<Desc extends DescMessage>(
+  desc: Desc,
+  values: NativeStruct,
+  anyTypes: readonly DescMessage[] = [],
+): MessageShape<Desc> {
+  const msg = create(desc);
+  writeBackValues(desc, msg, values, anyTypes);
+  return msg;
 }
 
 const anyName = "google.protobuf.Any";
@@ -455,6 +496,8 @@ function toProto(field: DescField, x: Native): unknown {
       if (v !== undefined) return v.number;
     } else if (typeof x === "bigint") {
       return Number(x);
+    } else if (typeof x === "number" && Number.isInteger(x) && x >= -2147483648 && x <= 2147483647) {
+      return x; // integers are accepted as in the Go bridge (open enums)
     }
     throw misfit(field, x);
   }

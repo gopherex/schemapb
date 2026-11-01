@@ -107,6 +107,22 @@ v.resolve(user);   // validate, then write defaults/normalize/computed back
 
 The third constructor argument lists the message types an Any may hold.
 
+Between a message and the native value tree, both directions are public
+without any validation (an Any value names its packed type by `"@type"`,
+which must be listed to be written either way):
+
+```ts
+const values = messageValues(OrderSchema, order);       // message → values
+const fresh = messageFromValues(OrderSchema, values);   // values → new message
+writeBackValues(OrderSchema, order, values); // merge into the message, all or nothing
+```
+
+`writeBackValues` leaves keys absent from `values` unchanged and clears a
+field on `null`; it throws `WriteBackError` with the message untouched when
+a value does not fit its field. The forms the value tree takes per field
+kind are listed at the top of `protomsg.ts` (the same table as the Go
+package documentation).
+
 A map or object key `"__proto__"` is an ordinary key to the engine: it is
 validated, passed to CEL and kept in baked snapshots like any other.
 protobuf-es itself drops such a map key when decoding (`fromBinary`,

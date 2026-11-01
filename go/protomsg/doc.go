@@ -26,4 +26,10 @@
 //
 // Validator.Resolve also writes the resolved values (defaults, normalize,
 // computed) back into the message, all or nothing.
+//
+// WriteBack is the inverse of Values with no validation involved: it stores
+// a native value tree into a message, all or nothing, leaving keys absent
+// from the tree unchanged and clearing a field on nil; ErrWriteBack reports
+// a value that does not fit its field. Build a new message by writing into
+// a zero one.
 package protomsg

@@ -59,6 +59,19 @@ func Values(msg proto.Message, opts ...Option) (map[string]any, error) {
 	return newMapping(opts).messageValues(msg.ProtoReflect())
 }
 
+// WriteBack stores the native value tree into msg, all or nothing: the
+// inverse of Values, with no validation involved. Keys absent from values
+// leave their field unchanged; nil clears it. An Any value carries
+// AnyTypeKey naming its packed type, which must be listed in opts to be
+// written. ErrWriteBack reports a value that does not fit its field; msg is
+// then left untouched. Build a new message by writing into a zero one:
+//
+//	msg := &orderpb.Order{}
+//	err := protomsg.WriteBack(msg, values)
+func WriteBack(msg proto.Message, values map[string]any, opts ...Option) error {
+	return newMapping(opts).writeBack(msg, values)
+}
+
 func (mp mapping) messageValues(m protoreflect.Message) (map[string]any, error) {
 	fields := m.Descriptor().Fields()
 	out := make(map[string]any, fields.Len())
