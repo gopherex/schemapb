@@ -496,7 +496,12 @@ function toProto(field: DescField, x: Native): unknown {
       if (v !== undefined) return v.number;
     } else if (typeof x === "bigint") {
       return Number(x);
-    } else if (typeof x === "number" && Number.isInteger(x) && x >= -2147483648 && x <= 2147483647) {
+    } else if (
+      typeof x === "number" &&
+      Number.isInteger(x) &&
+      x >= -2147483648 &&
+      x <= 2147483647
+    ) {
       return x; // integers are accepted as in the Go bridge (open enums)
     }
     throw misfit(field, x);
