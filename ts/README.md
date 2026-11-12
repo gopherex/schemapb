@@ -64,9 +64,9 @@ const schema = reflectZod(myZodObject, spb.id("shared", "service", spb.Version.o
 
 zod's vocabulary carries over (checks, enums, records, lazy cycles);
 markers (`i32`, `u64`, `bytesField`, `durationField`, ...) close the gaps
-TypeScript cannot express. zod stays an optional peer dependency — the
-module reads only the published `_zod.def` shape. Pinned by
-conformance/golden/reflect.json.
+TypeScript cannot express. The package does not depend on zod: the module
+never imports it and reads only the published `_zod.def` shape of the schema
+you pass (zod 4). Pinned by conformance/golden/reflect.json.
 
 Object sections are optional by default. A member that is a plain
 `z.object(...)` (not `.optional()`, not `.nullable()`) reflects as an

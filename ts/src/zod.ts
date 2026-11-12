@@ -21,8 +21,9 @@
  * `f32(z.number())`, `required(...)`, and the leaf helpers
  * `bytesField(...)`, `durationField()`, `timestampField()`.
  *
- * zod is an OPTIONAL peer dependency (only its published `_zod.def` shape
- * is read; nothing from the zod runtime is imported). Everything
+ * The package does not depend on zod: only the published `_zod.def` shape of
+ * the given schema is read, nothing from the zod runtime is imported, so no
+ * peer dependency is declared. Everything
  * unrepresentable fails LOUDLY. Supported: zod 4.
  */
 
