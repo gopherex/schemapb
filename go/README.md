@@ -64,6 +64,22 @@ optional, nullable, not materialized.
 
 ## Protobuf enums
 
+Collection tags follow the validator's grammar. Keys before `dive` constrain the
+list or map itself, keys after it each item or map value, and a
+`dive,keys,...,endkeys` group each map key:
+
+```go
+Tags     []string        `json:"tags" validate:"unique"`                    // List.unique
+Modes    []string        `json:"modes" validate:"min=1,dive,oneof=fast safe"` // 1+ items, each a Choice
+Features map[Feature]bool `json:"features" validate:"dive,keys,oneof=calls chat,endkeys"`
+```
+
+`min`/`max` count items or map entries. `unique` compares whole items, so a
+list of structs is unique only when entire items repeat. For "each key once"
+model a map: its `keys` group becomes `Map.key_field`, and `oneof` there closes
+the key set, refused at validation. `unique=Field` and `unique` on a map have no
+schema equivalent and fail reflection.
+
 Generated protobuf enum types reflect as integer `Choice` fields automatically,
 including `[]MyEnum`, `[N]MyEnum`, pointers and `map[string]MyEnum`. Each option
 contains the enum number and the value name from its protobuf descriptor as its

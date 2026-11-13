@@ -13,6 +13,11 @@
 //   - slice -> List, [N]T -> List with exactly N items, []byte/[N]byte -> Bytes
 //   - map[string]V -> Map: struct values via value_schema, everything else
 //     via value_field
+//   - collection tags follow the validator: keys before `dive` constrain the
+//     list/map itself (min/max = item/entry count, `unique` = unique items),
+//     keys after `dive` each item / map value, and `dive,keys,...,endkeys`
+//     each map key (Map.key_field, e.g. `oneof` = a closed key set).
+//     `unique=Field` and unique map values are not representable and fail
 //   - honest numbers: int8/16/32 -> Int32, int/int64 -> Int64, uint8/16/32 ->
 //     UInt32, uint/uint64 -> UInt64, float32 -> Float, float64 -> Double
 //   - stdlib natively: time.Time -> Timestamp, time.Duration -> Duration,
@@ -37,6 +42,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -186,7 +192,10 @@ func (r *reflector) fieldsOf(t reflect.Type, visited map[reflect.Type]bool) ([]*
 				structField.Name, name)
 		}
 
-		c := parseConstraints(structField.Tag)
+		c, err := parseConstraints(structField.Tag)
+		if err != nil {
+			return nil, fmt.Errorf("field %s: %w", structField.Name, err)
+		}
 
 		required := structField.Type.Kind() != reflect.Pointer && !omit
 
@@ -334,6 +343,63 @@ func (r *reflector) finishField(
 	return field, nil
 }
 
+// mapBounds applies a map field's own constraints: min/max entries (the
+// validator's length meaning for maps) and the `keys ... endkeys` group as
+// Map.key_field, read as a string key.
+func (r *reflector) mapBounds(b *MapB, c *fieldConstraints) (*Schema_Field, error) {
+	if v, ok, err := c.uintOf(c.min, "min"); err != nil {
+		return nil, err
+	} else if ok {
+		b = b.MinEntries(v)
+	}
+
+	if v, ok, err := c.uintOf(c.max, "max"); err != nil {
+		return nil, err
+	} else if ok {
+		b = b.MaxEntries(v)
+	}
+
+	if c.key != nil {
+		key, err := r.stringField("key", c.key)
+		if err != nil {
+			return nil, fmt.Errorf("validate tag keys: %w", err)
+		}
+
+		b = b.Key(key)
+	}
+
+	return b.Done(), nil
+}
+
+// fitsKind refuses validator keys whose meaning a schema of this kind cannot
+// carry, instead of dropping them: keys outside a map, unique outside a
+// collection, unique on map values, and unique=Field (by a struct field).
+func (c *fieldConstraints) fitsKind(kind reflect.Kind) error {
+	collection := kind == reflect.Slice || kind == reflect.Array
+	switch {
+	case c.key != nil && kind != reflect.Map:
+		return errors.New("validate tag keys: only a map has keys")
+	case c.unique && kind == reflect.Map:
+		return errors.New("validate tag unique: unique map values are not representable")
+	case c.unique && !collection:
+		return errors.New("validate tag unique: only a list can be unique")
+	case c.uniqueBy != "":
+		return fmt.Errorf("validate tag unique=%s: uniqueness by a struct field is not representable", c.uniqueBy)
+	}
+
+	return nil
+}
+
+// elemOrNone returns the item / map value constraints, empty when the tag
+// has no `dive`.
+func (c *fieldConstraints) elemOrNone() *fieldConstraints {
+	if c.elem == nil {
+		return &fieldConstraints{}
+	}
+
+	return c.elem
+}
+
 // optionalBool: a bool without omitempty and without a default tag is
 // false when absent, not required; only validate:"required" asks for it to
 // be set.
@@ -350,6 +416,10 @@ func optionalBool(field *Schema_Field, c *fieldConstraints) {
 func (r *reflector) fieldOfKind(
 	fname FieldName, t reflect.Type, c *fieldConstraints, visited map[reflect.Type]bool,
 ) (*Schema_Field, error) {
+	if err := c.fitsKind(t.Kind()); err != nil {
+		return nil, err
+	}
+
 	switch t.Kind() {
 	case reflect.Struct:
 		fields, err := r.fieldsOf(t, visited)
@@ -363,12 +433,15 @@ func (r *reflector) fieldOfKind(
 			return r.bytesField(fname, t, c)
 		}
 
-		item, err := r.fieldOf("item", t.Elem(), true, &fieldConstraints{}, visited, nil)
+		item, err := r.fieldOf("item", t.Elem(), true, c.elemOrNone(), visited, nil)
 		if err != nil {
 			return nil, err
 		}
 
 		listB := List(fname, item)
+		if c.unique {
+			listB = listB.Unique()
+		}
 
 		if t.Kind() == reflect.Array {
 			// Fixed length is part of the type.
@@ -407,15 +480,15 @@ func (r *reflector) fieldOfKind(
 				return nil, err
 			}
 
-			return Map(fname, fieldDefs(fields)...).Done(), nil
+			return r.mapBounds(Map(fname, fieldDefs(fields)...), c)
 		}
 
-		value, err := r.fieldOf("value", t.Elem(), true, &fieldConstraints{}, visited, nil)
+		value, err := r.fieldOf("value", t.Elem(), true, c.elemOrNone(), visited, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		return MapOf(fname, value).Done(), nil
+		return r.mapBounds(MapOf(fname, value), c)
 	case reflect.String:
 		return r.stringField(fname, c)
 	case reflect.Bool:
@@ -611,6 +684,13 @@ type fieldConstraints struct {
 	// numeric bounds — kept as strings, parsed against the field's own type.
 	min, max, length string
 	gte, gt, lte, lt string
+	// unique: items must be unique; uniqueBy is the validator's
+	// unique=Field (by a struct field), which a schema cannot carry.
+	unique   bool
+	uniqueBy string
+	// elem constrains each item / map value (keys after `dive`), key each
+	// map key (`keys ... endkeys`); nil when the tag has none.
+	elem, key *fieldConstraints
 }
 
 // uintOf parses one unsigned tag value; ("", false, nil) when absent.
@@ -664,12 +744,81 @@ var reflectFormats = map[string]bool{
 // tags. Unknown validate keys are IGNORED (the full validator vocabulary
 // is wider than what a schema can carry); malformed values of known keys
 // error at the use site.
-func parseConstraints(tag reflect.StructTag) *fieldConstraints {
-	c := &fieldConstraints{desc: tag.Get("desc"), pattern: tag.Get("pattern")}
+//
+// The validator's collection grammar is honored: keys before `dive` apply
+// to the field, keys after it to each item / map value, and a
+// `keys ... endkeys` group right after `dive` to each map key. A malformed
+// group fails here.
+func parseConstraints(tag reflect.StructTag) (*fieldConstraints, error) {
+	parts := strings.Split(tag.Get("validate"), ",")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
 
-	for _, part := range strings.Split(tag.Get("validate"), ",") {
-		key, val, _ := strings.Cut(strings.TrimSpace(part), "=")
+	c, err := parseValidate(parts)
+	if err != nil {
+		return nil, err
+	}
+
+	c.desc, c.pattern = tag.Get("desc"), tag.Get("pattern")
+
+	return c, nil
+}
+
+// parseValidate reads one level of validate keys and, after `dive`, the
+// next level (recursively, so nested collections dive again).
+func parseValidate(parts []string) (*fieldConstraints, error) {
+	field, rest := splitAt(parts, "dive")
+	c := constraintsOf(field)
+
+	if slices.Contains(field, "keys") || slices.Contains(field, "endkeys") {
+		return nil, errors.New("validate tag keys: must directly follow dive")
+	}
+
+	if rest == nil {
+		return c, nil
+	}
+
+	if len(rest) > 0 && rest[0] == "keys" {
+		keys, after := splitAt(rest[1:], "endkeys")
+		if after == nil {
+			return nil, errors.New("validate tag keys: missing endkeys")
+		}
+
+		c.key = constraintsOf(keys)
+		rest = after
+	}
+
+	elem, err := parseValidate(rest)
+	if err != nil {
+		return nil, err
+	}
+
+	c.elem = elem
+
+	return c, nil
+}
+
+// splitAt splits parts at the first sep: (before, after). after is nil when
+// sep is absent.
+func splitAt(parts []string, sep string) ([]string, []string) {
+	i := slices.Index(parts, sep)
+	if i < 0 {
+		return parts, nil
+	}
+
+	return parts[:i], parts[i+1:]
+}
+
+// constraintsOf reads one run of validate keys.
+func constraintsOf(parts []string) *fieldConstraints {
+	c := &fieldConstraints{}
+
+	for _, part := range parts {
+		key, val, _ := strings.Cut(part, "=")
 		switch key {
+		case "unique":
+			c.unique, c.uniqueBy = true, val
 		case "required":
 			c.required = true
 		case "oneof":
