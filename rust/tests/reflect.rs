@@ -59,9 +59,9 @@ struct MirrorModel {
     #[schemapb(max = 65535)]
     port: u16,
     total: u64,
-    #[schemapb(gte = 0)]
+    #[schemapb(gte = 0, finite)]
     ratio: f32,
-    #[schemapb(lt = 1)]
+    #[schemapb(lt = 1, finite)]
     score: f64,
     flag: bool,
     opt: Option<String>,
@@ -215,7 +215,10 @@ fn reflect_attributes_match_go_tags() {
     let e = schemapb::engine::Engine::compile(schema, schemapb::formats::FormatRegistry::new())
         .unwrap();
     let outcome = e.bake(&mut schemapb::value::NativeStruct::new());
-    assert!(outcome.result.errors.is_empty());
+    assert_eq!(
+        outcome.result.errors,
+        [] as [schemapb::gen::schemapb::ValidationError; 0]
+    );
     let values: StructValue =
         serde_json::from_str(&golden("reflect-attributes-baked.json")).unwrap();
     assert_eq!(outcome.baked.unwrap().values, Some(values));

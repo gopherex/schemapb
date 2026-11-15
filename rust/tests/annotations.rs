@@ -21,7 +21,10 @@ fn annotations_conformance() {
     let engine = Engine::compile(schema.clone(), std::collections::HashMap::new()).unwrap();
     let input: StructValue = serde_json::from_value(doc["input"].clone()).unwrap();
     let outcome = engine.bake_detailed(&mut struct_to_native(Some(&input)));
-    assert!(outcome.result.errors.is_empty());
+    assert_eq!(
+        outcome.result.errors,
+        [] as [schemapb::gen::schemapb::ValidationError; 0]
+    );
     assert_eq!(
         outcome.report,
         Some(serde_json::from_value::<ResolveReport>(doc["report"].clone()).unwrap())

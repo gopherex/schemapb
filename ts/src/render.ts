@@ -14,7 +14,7 @@ import { asBigInt, isNativeStruct, type Native, type NativeStruct, toNative } fr
 
 /**
  * Renders a native value in the spec's display form: integers in decimal,
- * doubles in JSON number form, bool as true/false, durations in Go form
+ * doubles in JSON number form (NaN, Infinity, -Infinity otherwise), bool as true/false, durations in Go form
  * ("5m0s"), timestamps as RFC3339, bytes as std base64, lists and objects as
  * compact JSON with the same leaf forms.
  */
@@ -32,7 +32,8 @@ export function displayString(v: Native): string {
     return v.toString(10);
   }
   if (typeof v === "number") {
-    return JSON.stringify(v);
+    // NaN and the infinities take their protoJSON spelling.
+    return Number.isFinite(v) ? JSON.stringify(v) : String(v);
   }
   if (v instanceof Uint8Array) {
     return base64(v);
@@ -52,7 +53,10 @@ export function displayString(v: Native): string {
  * keys are sorted — Go marshals maps sorted.
  */
 function displayJson(v: Native): unknown {
-  if (v === null || typeof v === "boolean" || typeof v === "number" || typeof v === "string") {
+  if (typeof v === "number") {
+    return Number.isFinite(v) ? v : String(v);
+  }
+  if (v === null || typeof v === "boolean" || typeof v === "string") {
     return v;
   }
   if (typeof v === "bigint") {

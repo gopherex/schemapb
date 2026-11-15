@@ -1,6 +1,8 @@
 //! The validation engine, mirroring the Go reference validate.go: identical
 //! codes, deterministic order, typed expected/actual, secret masking.
 
+use std::cmp::Ordering;
+
 use crate::compute::{
     default_value, expr_err, field_is_active, is_tuple, list_item_def, object_schema, ref_def_key,
 };
@@ -379,6 +381,7 @@ fn check_kind(
             k.multiple_of.map(f64::from),
             &k.r#in.iter().copied().map(f64::from).collect::<Vec<_>>(),
             &k.not_in.iter().copied().map(f64::from).collect::<Vec<_>>(),
+            k.finite,
         ),
         K::Double(k) => check_double(
             path,
@@ -392,6 +395,7 @@ fn check_kind(
             k.multiple_of,
             &k.r#in,
             &k.not_in,
+            k.finite,
         ),
         K::Int32(k) => check_int(
             path,
@@ -521,11 +525,21 @@ fn check_double(
     mul: Option<f64>,
     in_set: &[f64],
     not_in: &[f64],
+    finite: bool,
 ) -> Vec<ValidationError> {
     let Some(n) = as_double(val) else {
         return vec![type_err(path, "number", val)];
     };
     let mut out = Vec::new();
+    if finite && !n.is_finite() {
+        out.push(verr(
+            path,
+            ErrorCode::NotFinite,
+            "finite",
+            None,
+            Some(double_v(n)),
+        ));
+    }
     let mut add = |code, constraint: &str, expected| {
         out.push(verr(
             path,
@@ -535,28 +549,30 @@ fn check_double(
             Some(double_v(n)),
         ));
     };
+    // IEEE equality: NaN equals nothing, an infinity equals itself.
     if let Some(c) = cst {
-        if (n - c).abs() != 0.0 {
+        if n.partial_cmp(&c) != Some(Ordering::Equal) {
             add(ErrorCode::ConstMismatch, "const", double_v(c));
         }
     }
+    // A bound holds only when its comparison is true, so NaN violates every bound.
     if let Some(b) = gt {
-        if n <= b {
+        if n.partial_cmp(&b) != Some(Ordering::Greater) {
             add(ErrorCode::GtViolated, "gt", double_v(b));
         }
     }
     if let Some(b) = gte {
-        if n < b {
+        if !matches!(n.partial_cmp(&b), Some(Ordering::Greater | Ordering::Equal)) {
             add(ErrorCode::GteViolated, "gte", double_v(b));
         }
     }
     if let Some(b) = lt {
-        if n >= b {
+        if n.partial_cmp(&b) != Some(Ordering::Less) {
             add(ErrorCode::LtViolated, "lt", double_v(b));
         }
     }
     if let Some(b) = lte {
-        if n > b {
+        if !matches!(n.partial_cmp(&b), Some(Ordering::Less | Ordering::Equal)) {
             add(ErrorCode::LteViolated, "lte", double_v(b));
         }
     }

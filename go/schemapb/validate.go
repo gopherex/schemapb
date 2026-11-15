@@ -347,11 +347,13 @@ func (e *Engine) checkKind(f *Schema_Field, val any, path string, root map[strin
 	case f.GetFloat() != nil:
 		k := f.GetFloat()
 
-		return checkNumber(path, val, numFloat[float32]{k.Const, k.Gt, k.Gte, k.Lt, k.Lte, k.MultipleOf, k.In, k.NotIn})
+		return checkNumber(path, val,
+			numFloat[float32]{k.Const, k.Gt, k.Gte, k.Lt, k.Lte, k.MultipleOf, k.In, k.NotIn, k.Finite})
 	case f.GetDouble() != nil:
 		k := f.GetDouble()
 
-		return checkNumber(path, val, numFloat[float64]{k.Const, k.Gt, k.Gte, k.Lt, k.Lte, k.MultipleOf, k.In, k.NotIn})
+		return checkNumber(path, val,
+			numFloat[float64]{k.Const, k.Gt, k.Gte, k.Lt, k.Lte, k.MultipleOf, k.In, k.NotIn, k.Finite})
 	case f.GetInt32() != nil:
 		k := f.GetInt32()
 
@@ -470,10 +472,13 @@ type numInt[T int32 | int64 | uint32 | uint64] struct {
 type numFloat[T float32 | float64] struct {
 	cst, gt, gte, lt, lte, mul *T
 	in, notIn                  []T
+	finite                     bool
 }
 
 // numViolations runs the shared ordered constraint sequence for any ordered
 // numeric type; mkV canonicalizes a bound into a wire Value for the error.
+// A bound holds only when its comparison is true, so NaN (every comparison
+// false) violates every bound.
 func numViolations[T int64 | uint64 | float64](path string, n T,
 	cst, gt, gte, lt, lte *T, in, notIn []T, mkV func(T) *Value,
 ) []*ValidationError {
@@ -486,20 +491,28 @@ func numViolations[T int64 | uint64 | float64](path string, n T,
 		add(ErrorCode_ERROR_CODE_CONST_MISMATCH, "const", mkV(*cst))
 	}
 
-	if gt != nil && n <= *gt {
-		add(ErrorCode_ERROR_CODE_GT_VIOLATED, "gt", mkV(*gt))
+	if gt != nil {
+		if above := n > *gt; !above {
+			add(ErrorCode_ERROR_CODE_GT_VIOLATED, "gt", mkV(*gt))
+		}
 	}
 
-	if gte != nil && n < *gte {
-		add(ErrorCode_ERROR_CODE_GTE_VIOLATED, "gte", mkV(*gte))
+	if gte != nil {
+		if atLeast := n >= *gte; !atLeast {
+			add(ErrorCode_ERROR_CODE_GTE_VIOLATED, "gte", mkV(*gte))
+		}
 	}
 
-	if lt != nil && n >= *lt {
-		add(ErrorCode_ERROR_CODE_LT_VIOLATED, "lt", mkV(*lt))
+	if lt != nil {
+		if below := n < *lt; !below {
+			add(ErrorCode_ERROR_CODE_LT_VIOLATED, "lt", mkV(*lt))
+		}
 	}
 
-	if lte != nil && n > *lte {
-		add(ErrorCode_ERROR_CODE_LTE_VIOLATED, "lte", mkV(*lte))
+	if lte != nil {
+		if atMost := n <= *lte; !atMost {
+			add(ErrorCode_ERROR_CODE_LTE_VIOLATED, "lte", mkV(*lte))
+		}
 	}
 
 	if len(in) > 0 && !slices.Contains(in, n) {
@@ -598,10 +611,15 @@ func checkNumber[T float32 | float64](path string, val any, k numFloat[T]) []*Va
 		return []*ValidationError{typeErr(path, "number", val)}
 	}
 
-	errs := numViolations(path, n,
+	var errs []*ValidationError
+	if k.finite && (math.IsNaN(n) || math.IsInf(n, 0)) {
+		errs = append(errs, verr(path, ErrorCode_ERROR_CODE_NOT_FINITE, "finite", nil, DoubleV(n)))
+	}
+
+	errs = append(errs, numViolations(path, n,
 		widen[T, float64](k.cst), widen[T, float64](k.gt), widen[T, float64](k.gte),
 		widen[T, float64](k.lt), widen[T, float64](k.lte),
-		widenSlice[T, float64](k.in), widenSlice[T, float64](k.notIn), DoubleV)
+		widenSlice[T, float64](k.in), widenSlice[T, float64](k.notIn), DoubleV)...)
 	if k.mul != nil && float64(*k.mul) != 0 && math.Mod(n, float64(*k.mul)) != 0 {
 		errs = append(errs, verr(path, ErrorCode_ERROR_CODE_MULTIPLE_OF_VIOLATED, "multiple_of",
 			DoubleV(float64(*k.mul)), DoubleV(n)))

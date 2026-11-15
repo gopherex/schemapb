@@ -418,8 +418,9 @@ class Reflector {
       return nb;
     }
 
+    // zod 4 numbers never accept NaN or the infinities.
     const mk = kind === "float" ? float : double;
-    let nb = mk(name);
+    let nb = mk(name).finite();
     for (const b of bounds) {
       nb = applyBound(nb, b.check, b.value, b.inclusive);
     }

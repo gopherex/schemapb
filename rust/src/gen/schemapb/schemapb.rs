@@ -302,6 +302,8 @@ pub mod schema {
         /// Float field kind and its single-field constraints.
         /// gt = exclusive min (> 0), gte = inclusive min (>= 1).
         /// lt = exclusive max, lte = inclusive max.
+        /// A bound holds only when its comparison is true: NaN violates every
+        /// bound, an infinity only the bound on its side. finite rejects both.
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Float {
             /// Default value used when the field is unset. 
@@ -331,8 +333,11 @@ pub mod schema {
             /// Divisibility: quotient value/multiple_of must be whole. 
             #[prost(float, optional, tag="9")]
             pub multiple_of: ::core::option::Option<f32>,
+            /// Value must be finite: NaN and ±Inf are rejected. 
+            #[prost(bool, tag="10")]
+            pub finite: bool,
         }
-        /// Double field kind and its single-field constraints. 
+        /// Double field kind and its single-field constraints (bounds as Float). 
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Double {
             /// Default value used when the field is unset. 
@@ -362,6 +367,9 @@ pub mod schema {
             /// Divisibility: quotient value/multiple_of must be whole. 
             #[prost(double, optional, tag="9")]
             pub multiple_of: ::core::option::Option<f64>,
+            /// Value must be finite: NaN and ±Inf are rejected. 
+            #[prost(bool, tag="10")]
+            pub finite: bool,
         }
         /// Int32 field kind and its single-field constraints. 
         #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1191,6 +1199,7 @@ pub enum ErrorCode {
     NotInAllowedSet = 15,
     InForbiddenSet = 16,
     MultipleOfViolated = 17,
+    NotFinite = 18,
     /// String constraints. 
     LenMismatch = 20,
     MinLenViolated = 21,
@@ -1248,6 +1257,7 @@ impl ErrorCode {
             Self::NotInAllowedSet => "ERROR_CODE_NOT_IN_ALLOWED_SET",
             Self::InForbiddenSet => "ERROR_CODE_IN_FORBIDDEN_SET",
             Self::MultipleOfViolated => "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+            Self::NotFinite => "ERROR_CODE_NOT_FINITE",
             Self::LenMismatch => "ERROR_CODE_LEN_MISMATCH",
             Self::MinLenViolated => "ERROR_CODE_MIN_LEN_VIOLATED",
             Self::MaxLenViolated => "ERROR_CODE_MAX_LEN_VIOLATED",
@@ -1290,6 +1300,7 @@ impl ErrorCode {
             "ERROR_CODE_NOT_IN_ALLOWED_SET" => Some(Self::NotInAllowedSet),
             "ERROR_CODE_IN_FORBIDDEN_SET" => Some(Self::InForbiddenSet),
             "ERROR_CODE_MULTIPLE_OF_VIOLATED" => Some(Self::MultipleOfViolated),
+            "ERROR_CODE_NOT_FINITE" => Some(Self::NotFinite),
             "ERROR_CODE_LEN_MISMATCH" => Some(Self::LenMismatch),
             "ERROR_CODE_MIN_LEN_VIOLATED" => Some(Self::MinLenViolated),
             "ERROR_CODE_MAX_LEN_VIOLATED" => Some(Self::MaxLenViolated),

@@ -55,6 +55,8 @@ message Schema {
      * Float field kind and its single-field constraints.
      * gt = exclusive min (> 0), gte = inclusive min (>= 1).
      * lt = exclusive max, lte = inclusive max.
+     * A bound holds only when its comparison is true: NaN violates every
+     * bound, an infinity only the bound on its side. finite rejects both.
      */
     message Float {
       /* Default value used when the field is unset. */
@@ -75,8 +77,10 @@ message Schema {
       repeated float not_in = 8;
       /* Divisibility: quotient value/multiple_of must be whole. */
       optional float multiple_of = 9;
+      /* Value must be finite: NaN and ±Inf are rejected. */
+      bool finite = 10;
     }
-    /* Double field kind and its single-field constraints. */
+    /* Double field kind and its single-field constraints (bounds as Float). */
     message Double {
       /* Default value used when the field is unset. */
       optional double default = 1;
@@ -96,6 +100,8 @@ message Schema {
       repeated double not_in = 8;
       /* Divisibility: quotient value/multiple_of must be whole. */
       optional double multiple_of = 9;
+      /* Value must be finite: NaN and ±Inf are rejected. */
+      bool finite = 10;
     }
     /* Int32 field kind and its single-field constraints. */
     message Int32 {

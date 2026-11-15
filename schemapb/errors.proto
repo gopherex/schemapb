@@ -126,28 +126,28 @@ enum ErrorCode {
     actual: PAYLOAD_SCALAR
   }];
   ERROR_CODE_GT_VIOLATED = 11 [(error_spec) = {
-    summary: "The value is not strictly greater than the bound."
+    summary: "The value is not strictly greater than the bound; NaN never satisfies a bound."
     template: "must be > {expected}"
     constraints: "gt"
     expected: PAYLOAD_SCALAR
     actual: PAYLOAD_SCALAR
   }];
   ERROR_CODE_GTE_VIOLATED = 12 [(error_spec) = {
-    summary: "The value is less than the inclusive lower bound."
+    summary: "The value is less than the inclusive lower bound; NaN never satisfies a bound."
     template: "must be >= {expected}"
     constraints: "gte"
     expected: PAYLOAD_SCALAR
     actual: PAYLOAD_SCALAR
   }];
   ERROR_CODE_LT_VIOLATED = 13 [(error_spec) = {
-    summary: "The value is not strictly less than the bound."
+    summary: "The value is not strictly less than the bound; NaN never satisfies a bound."
     template: "must be < {expected}"
     constraints: "lt"
     expected: PAYLOAD_SCALAR
     actual: PAYLOAD_SCALAR
   }];
   ERROR_CODE_LTE_VIOLATED = 14 [(error_spec) = {
-    summary: "The value is greater than the inclusive upper bound."
+    summary: "The value is greater than the inclusive upper bound; NaN never satisfies a bound."
     template: "must be <= {expected}"
     constraints: "lte"
     expected: PAYLOAD_SCALAR
@@ -172,6 +172,13 @@ enum ErrorCode {
     template: "must be a multiple of {expected}"
     constraints: "multiple_of"
     expected: PAYLOAD_SCALAR
+    actual: PAYLOAD_SCALAR
+  }];
+  ERROR_CODE_NOT_FINITE = 18 [(error_spec) = {
+    summary: "A float/double field marked finite received NaN or an infinity."
+    template: "must be finite"
+    constraints: "finite"
+    expected: PAYLOAD_NONE
     actual: PAYLOAD_SCALAR
   }];
 

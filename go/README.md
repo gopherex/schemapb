@@ -107,8 +107,13 @@ type Config struct {
     Workers int32         `json:"workers" schemapb:"default=4;gte=1;lte=64"`
     Timeout time.Duration `json:"timeout" schemapb:"default=30s"`
     Enabled bool          `json:"enabled" schemapb:"default=false"`
+    Rate    float64       `json:"rate" schemapb:"default=50;gt=0;finite=true"`
 }
 ```
+
+`finite=true` (builder: `schemapb.Double("rate").Finite()`) rejects NaN and
+the infinities on a float/double field; bounds (`gt`, `lte`, ...) always
+reject NaN, an infinity only the bound on its side.
 
 Attributes are discovered from protobuf descriptors. Common attributes such
 as `secret`, `required`, `description`, `normalize` and `rules` address the

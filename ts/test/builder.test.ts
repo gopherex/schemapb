@@ -6,9 +6,10 @@ import { choiceOptions } from "../src/compute.js";
 import { SchemaError } from "../src/descriptor.js";
 import { ErrorCode } from "../src/gen/schemapb/errors_pb.js";
 import * as b from "../src/new.js";
+import { displayString } from "../src/render.js";
 import { id, templateName, Version } from "../src/typed.js";
 import { validate } from "../src/validate.js";
-import { structFromNative, strV } from "../src/value.js";
+import { type Native, structFromNative, strV } from "../src/value.js";
 
 describe("builder", () => {
   it("builds, validates, bakes and renders like the Go smoke test", () => {
@@ -95,5 +96,57 @@ describe("engine method surface", () => {
     expect(engine.renderBaked(merged.baked as typeof baked, templateName("conf"))).toBe(
       "svc: 768MB",
     );
+  });
+});
+
+// A bound holds only when its comparison is true: NaN violates every bound,
+// an infinity only the bound on its side; finite rejects NaN and ±Infinity.
+describe("float bounds and finite", () => {
+  const { engine } = b
+    .newSchema(id("t", "nonfinite", Version.of(1, 0, 0)))
+    .fields(
+      b.double("gt").gt(0),
+      b.double("gte").gte(0),
+      b.float("lt").lt(10),
+      b.float("lte").lte(10),
+      b.double("fin").finite(),
+      b.float("fin32").finite().gte(1),
+      b.int64("i").gt(0n).lte(3n),
+    )
+    .build();
+
+  it.concurrent.each([
+    ["gt", Number.NaN, ["GT_VIOLATED"]],
+    ["gte", Number.NaN, ["GTE_VIOLATED"]],
+    ["lt", Number.NaN, ["LT_VIOLATED"]],
+    ["lte", Number.NaN, ["LTE_VIOLATED"]],
+    ["gte", Number.POSITIVE_INFINITY, []],
+    ["gte", Number.NEGATIVE_INFINITY, ["GTE_VIOLATED"]],
+    ["lte", Number.POSITIVE_INFINITY, ["LTE_VIOLATED"]],
+    ["gte", 0, []],
+    ["fin", 1e308, []],
+    ["fin", Number.NaN, ["NOT_FINITE"]],
+    ["fin", Number.POSITIVE_INFINITY, ["NOT_FINITE"]],
+    ["fin", Number.NEGATIVE_INFINITY, ["NOT_FINITE"]],
+    ["fin32", Number.NaN, ["NOT_FINITE", "GTE_VIOLATED"]],
+    ["i", 0n, ["GT_VIOLATED"]],
+    ["i", 3n, []],
+    ["i", 4n, ["LTE_VIOLATED"]],
+  ] as const)("%s = %s", async (path, val, want) => {
+    const res = validate(engine, { [path]: val });
+    expect(res.errors.filter((e) => e.path === path).map((e) => ErrorCode[e.code])).toEqual(want);
+  });
+});
+
+// NaN and the infinities display in protoJSON spelling, as JSON strings inside containers.
+describe("non-finite display", () => {
+  it.concurrent.each([
+    [Number.NaN, "NaN"],
+    [Number.POSITIVE_INFINITY, "Infinity"],
+    [Number.NEGATIVE_INFINITY, "-Infinity"],
+    [1.5, "1.5"],
+    [[Number.NEGATIVE_INFINITY, 2], '["-Infinity",2]'],
+  ] as const)("%s", async (v, want) => {
+    expect(displayString(v as Native)).toBe(want);
   });
 });

@@ -105,6 +105,8 @@ class ErrorCode(betterproto2.Enum):
 
     MULTIPLE_OF_VIOLATED = 17
 
+    NOT_FINITE = 18
+
     LEN_MISMATCH = 20
     """
     String constraints. 
@@ -200,6 +202,7 @@ class ErrorCode(betterproto2.Enum):
             15: "ERROR_CODE_NOT_IN_ALLOWED_SET",
             16: "ERROR_CODE_IN_FORBIDDEN_SET",
             17: "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+            18: "ERROR_CODE_NOT_FINITE",
             20: "ERROR_CODE_LEN_MISMATCH",
             21: "ERROR_CODE_MIN_LEN_VIOLATED",
             22: "ERROR_CODE_MAX_LEN_VIOLATED",
@@ -242,6 +245,7 @@ class ErrorCode(betterproto2.Enum):
             "ERROR_CODE_NOT_IN_ALLOWED_SET": 15,
             "ERROR_CODE_IN_FORBIDDEN_SET": 16,
             "ERROR_CODE_MULTIPLE_OF_VIOLATED": 17,
+            "ERROR_CODE_NOT_FINITE": 18,
             "ERROR_CODE_LEN_MISMATCH": 20,
             "ERROR_CODE_MIN_LEN_VIOLATED": 21,
             "ERROR_CODE_MAX_LEN_VIOLATED": 22,
@@ -1327,7 +1331,7 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False)
 class SchemaFieldDouble(betterproto2.Message):
     """
-    Double field kind and its single-field constraints.
+    Double field kind and its single-field constraints (bounds as Float).
     """
 
     default: "float | None" = betterproto2.field(
@@ -1381,6 +1385,11 @@ class SchemaFieldDouble(betterproto2.Message):
     )
     """
     Divisibility: quotient value/multiple_of must be whole. 
+    """
+
+    finite: "bool" = betterproto2.field(10, betterproto2.TYPE_BOOL)
+    """
+    Value must be finite: NaN and ±Inf are rejected. 
     """
 
 
@@ -1458,6 +1467,8 @@ class SchemaFieldFloat(betterproto2.Message):
     Float field kind and its single-field constraints.
     gt = exclusive min (> 0), gte = inclusive min (>= 1).
     lt = exclusive max, lte = inclusive max.
+    A bound holds only when its comparison is true: NaN violates every
+    bound, an infinity only the bound on its side. finite rejects both.
     """
 
     default: "float | None" = betterproto2.field(
@@ -1511,6 +1522,11 @@ class SchemaFieldFloat(betterproto2.Message):
     )
     """
     Divisibility: quotient value/multiple_of must be whole. 
+    """
+
+    finite: "bool" = betterproto2.field(10, betterproto2.TYPE_BOOL)
+    """
+    Value must be finite: NaN and ±Inf are rejected. 
     """
 
 

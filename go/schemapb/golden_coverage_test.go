@@ -78,12 +78,12 @@ func coverageSchema() *schemapb.Schema {
 				Kind: &schemapb.Schema_Field_Float_{Float: &schemapb.Schema_Field_Float{
 					Default: ptr(float32(1)), Const: ptr(float32(2)), Gt: ptr(float32(3)),
 					Gte: ptr(float32(4)), Lt: ptr(float32(5)), Lte: ptr(float32(6)),
-					In: []float32{7}, NotIn: []float32{8}, MultipleOf: ptr(float32(9)),
+					In: []float32{7}, NotIn: []float32{8}, MultipleOf: ptr(float32(9)), Finite: true,
 				}},
 			},
 			{Name: "double_all", Kind: &schemapb.Schema_Field_Double_{Double: &schemapb.Schema_Field_Double{
 				Default: ptr(1.0), Const: ptr(2.0), Gt: ptr(3.0), Gte: ptr(4.0), Lt: ptr(5.0), Lte: ptr(6.0),
-				In: []float64{7}, NotIn: []float64{8}, MultipleOf: ptr(9.0),
+				In: []float64{7}, NotIn: []float64{8}, MultipleOf: ptr(9.0), Finite: true,
 			}}},
 			{Name: "int32_all", Kind: &schemapb.Schema_Field_Int32_{Int32: &schemapb.Schema_Field_Int32{
 				Default: ptr(int32(1)), Const: ptr(int32(2)), Gt: ptr(int32(3)), Gte: ptr(int32(4)),

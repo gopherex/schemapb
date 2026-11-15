@@ -60,6 +60,9 @@ string-keyed maps become Map, `serde_json::Value` JSON, `pbjson_types`
 Duration/Timestamp their kinds, and a type cycle degrades to JSON. The
 derive mirror model is pinned by conformance/golden/reflect.json.
 
+`#[schemapb(finite)]` on an `f32`/`f64` rejects NaN and the infinities;
+bounds (`gte`, `lt`, ...) always reject NaN.
+
 Struct sections are optional by default. A field whose type is a derived
 struct (not `Option<T>`) reflects as an Object with an implicit empty
 default, the same as Go's `schemapb:"default={}"`: an absent section is

@@ -68,6 +68,9 @@ TypeScript cannot express. The package does not depend on zod: the module
 never imports it and reads only the published `_zod.def` shape of the schema
 you pass (zod 4). Pinned by conformance/golden/reflect.json.
 
+A zod 4 number never accepts NaN or the infinities, so every non-integer
+number reflects as a `finite` float/double.
+
 Object sections are optional by default. A member that is a plain
 `z.object(...)` (not `.optional()`, not `.nullable()`) reflects as an
 Object with an implicit empty default, the same as Go's

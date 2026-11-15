@@ -245,16 +245,32 @@ export class NumB<T extends number | bigint> extends FieldB {
   }
 }
 
-export function float(name: string): NumB<number> {
+/** Float/Double builder: the numeric constraints plus the float-only finite. */
+export class FloatB extends NumB<number> {
+  readonly #k: { finite: boolean };
+
+  constructor(name: string, k: NumKind<number> & { finite: boolean }) {
+    super(name, k);
+    this.#k = k;
+  }
+
+  /** Rejects NaN and ±Infinity. */
+  finite(): this {
+    this.#k.finite = true;
+    return this;
+  }
+}
+
+export function float(name: string): FloatB {
   const k = create(Schema_Field_FloatSchema);
-  const b = new NumB<number>(name, k);
+  const b = new FloatB(name, k);
   b.f.kind = { case: "float", value: k };
   return b;
 }
 
-export function double(name: string): NumB<number> {
+export function double(name: string): FloatB {
   const k = create(Schema_Field_DoubleSchema);
-  const b = new NumB<number>(name, k);
+  const b = new FloatB(name, k);
   b.f.kind = { case: "double", value: k };
   return b;
 }

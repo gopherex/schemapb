@@ -26,6 +26,7 @@ pub const fn template(code: ErrorCode) -> Option<&'static str> {
         C::NotInAllowedSet => Some("must be one of {expected}"),
         C::InForbiddenSet => Some("must not be one of {expected}"),
         C::MultipleOfViolated => Some("must be a multiple of {expected}"),
+        C::NotFinite => Some("must be finite"),
         C::LenMismatch => Some("length must be exactly {expected}"),
         C::MinLenViolated => Some("length must be at least {expected}"),
         C::MaxLenViolated => Some("length must be at most {expected}"),

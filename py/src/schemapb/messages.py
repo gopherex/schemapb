@@ -29,6 +29,7 @@ MESSAGE_TEMPLATES: dict[ErrorCode, str] = {
     ErrorCode.NOT_IN_ALLOWED_SET: "must be one of {expected}",
     ErrorCode.IN_FORBIDDEN_SET: "must not be one of {expected}",
     ErrorCode.MULTIPLE_OF_VIOLATED: "must be a multiple of {expected}",
+    ErrorCode.NOT_FINITE: "must be finite",
     ErrorCode.LEN_MISMATCH: "length must be exactly {expected}",
     ErrorCode.MIN_LEN_VIOLATED: "length must be at least {expected}",
     ErrorCode.MAX_LEN_VIOLATED: "length must be at most {expected}",

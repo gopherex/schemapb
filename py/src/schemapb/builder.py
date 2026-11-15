@@ -183,12 +183,21 @@ class NumB(FieldB):
         return self
 
 
-def float_(name: str) -> NumB:
-    return NumB(name, "float")
+class FloatB(NumB):
+    """Float/double builder: the numeric constraints plus the float-only finite."""
+
+    def finite(self) -> Self:
+        """Reject NaN and the infinities."""
+        self._k.finite = True
+        return self
 
 
-def double(name: str) -> NumB:
-    return NumB(name, "double")
+def float_(name: str) -> FloatB:
+    return FloatB(name, "float")
+
+
+def double(name: str) -> FloatB:
+    return FloatB(name, "double")
 
 
 def int32(name: str) -> NumB:

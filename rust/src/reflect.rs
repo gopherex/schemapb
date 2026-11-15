@@ -433,6 +433,7 @@ pub mod apply {
                 "gt" => k.gt = Some(parse(&name, key, raw)),
                 "max" | "lte" => k.lte = Some(parse(&name, key, raw)),
                 "lt" => k.lt = Some(parse(&name, key, raw)),
+                "finite" => k.finite = true,
                 _ => oops(&name, &format!("{key} does not apply to float")),
             },
             Some(K::Double(k)) => match key {
@@ -440,6 +441,7 @@ pub mod apply {
                 "gt" => k.gt = Some(parse(&name, key, raw)),
                 "max" | "lte" => k.lte = Some(parse(&name, key, raw)),
                 "lt" => k.lt = Some(parse(&name, key, raw)),
+                "finite" => k.finite = true,
                 _ => oops(&name, &format!("{key} does not apply to double")),
             },
             _ => oops(&name, &format!("{key} does not apply to this kind")),

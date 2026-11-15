@@ -128,6 +128,7 @@ impl serde::Serialize for ErrorCode {
             Self::NotInAllowedSet => "ERROR_CODE_NOT_IN_ALLOWED_SET",
             Self::InForbiddenSet => "ERROR_CODE_IN_FORBIDDEN_SET",
             Self::MultipleOfViolated => "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+            Self::NotFinite => "ERROR_CODE_NOT_FINITE",
             Self::LenMismatch => "ERROR_CODE_LEN_MISMATCH",
             Self::MinLenViolated => "ERROR_CODE_MIN_LEN_VIOLATED",
             Self::MaxLenViolated => "ERROR_CODE_MAX_LEN_VIOLATED",
@@ -176,6 +177,7 @@ impl<'de> serde::Deserialize<'de> for ErrorCode {
             "ERROR_CODE_NOT_IN_ALLOWED_SET",
             "ERROR_CODE_IN_FORBIDDEN_SET",
             "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+            "ERROR_CODE_NOT_FINITE",
             "ERROR_CODE_LEN_MISMATCH",
             "ERROR_CODE_MIN_LEN_VIOLATED",
             "ERROR_CODE_MAX_LEN_VIOLATED",
@@ -253,6 +255,7 @@ impl<'de> serde::Deserialize<'de> for ErrorCode {
                     "ERROR_CODE_NOT_IN_ALLOWED_SET" => Ok(ErrorCode::NotInAllowedSet),
                     "ERROR_CODE_IN_FORBIDDEN_SET" => Ok(ErrorCode::InForbiddenSet),
                     "ERROR_CODE_MULTIPLE_OF_VIOLATED" => Ok(ErrorCode::MultipleOfViolated),
+                    "ERROR_CODE_NOT_FINITE" => Ok(ErrorCode::NotFinite),
                     "ERROR_CODE_LEN_MISMATCH" => Ok(ErrorCode::LenMismatch),
                     "ERROR_CODE_MIN_LEN_VIOLATED" => Ok(ErrorCode::MinLenViolated),
                     "ERROR_CODE_MAX_LEN_VIOLATED" => Ok(ErrorCode::MaxLenViolated),
@@ -2887,6 +2890,9 @@ impl serde::Serialize for schema::field::Double {
         if self.multiple_of.is_some() {
             len += 1;
         }
+        if self.finite {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("schemapb.Schema.Field.Double", len)?;
         if let Some(v) = self.default.as_ref() {
             struct_ser.serialize_field("default", v)?;
@@ -2915,6 +2921,9 @@ impl serde::Serialize for schema::field::Double {
         if let Some(v) = self.multiple_of.as_ref() {
             struct_ser.serialize_field("multipleOf", v)?;
         }
+        if self.finite {
+            struct_ser.serialize_field("finite", &self.finite)?;
+        }
         struct_ser.end()
     }
 }
@@ -2936,6 +2945,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Double {
             "notIn",
             "multiple_of",
             "multipleOf",
+            "finite",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -2949,6 +2959,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Double {
             In,
             NotIn,
             MultipleOf,
+            Finite,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -2979,6 +2990,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Double {
                             "in" => Ok(GeneratedField::In),
                             "notIn" | "not_in" => Ok(GeneratedField::NotIn),
                             "multipleOf" | "multiple_of" => Ok(GeneratedField::MultipleOf),
+                            "finite" => Ok(GeneratedField::Finite),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -3007,6 +3019,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Double {
                 let mut r#in__ = None;
                 let mut not_in__ = None;
                 let mut multiple_of__ = None;
+                let mut finite__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Default => {
@@ -3083,6 +3096,12 @@ impl<'de> serde::Deserialize<'de> for schema::field::Double {
                                 map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
                             ;
                         }
+                        GeneratedField::Finite => {
+                            if finite__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("finite"));
+                            }
+                            finite__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(schema::field::Double {
@@ -3095,6 +3114,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Double {
                     r#in: r#in__.unwrap_or_default(),
                     not_in: not_in__.unwrap_or_default(),
                     multiple_of: multiple_of__,
+                    finite: finite__.unwrap_or_default(),
                 })
             }
         }
@@ -3295,6 +3315,9 @@ impl serde::Serialize for schema::field::Float {
         if self.multiple_of.is_some() {
             len += 1;
         }
+        if self.finite {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("schemapb.Schema.Field.Float", len)?;
         if let Some(v) = self.default.as_ref() {
             struct_ser.serialize_field("default", v)?;
@@ -3323,6 +3346,9 @@ impl serde::Serialize for schema::field::Float {
         if let Some(v) = self.multiple_of.as_ref() {
             struct_ser.serialize_field("multipleOf", v)?;
         }
+        if self.finite {
+            struct_ser.serialize_field("finite", &self.finite)?;
+        }
         struct_ser.end()
     }
 }
@@ -3344,6 +3370,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Float {
             "notIn",
             "multiple_of",
             "multipleOf",
+            "finite",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -3357,6 +3384,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Float {
             In,
             NotIn,
             MultipleOf,
+            Finite,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -3387,6 +3415,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Float {
                             "in" => Ok(GeneratedField::In),
                             "notIn" | "not_in" => Ok(GeneratedField::NotIn),
                             "multipleOf" | "multiple_of" => Ok(GeneratedField::MultipleOf),
+                            "finite" => Ok(GeneratedField::Finite),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -3415,6 +3444,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Float {
                 let mut r#in__ = None;
                 let mut not_in__ = None;
                 let mut multiple_of__ = None;
+                let mut finite__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Default => {
@@ -3491,6 +3521,12 @@ impl<'de> serde::Deserialize<'de> for schema::field::Float {
                                 map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
                             ;
                         }
+                        GeneratedField::Finite => {
+                            if finite__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("finite"));
+                            }
+                            finite__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(schema::field::Float {
@@ -3503,6 +3539,7 @@ impl<'de> serde::Deserialize<'de> for schema::field::Float {
                     r#in: r#in__.unwrap_or_default(),
                     not_in: not_in__.unwrap_or_default(),
                     multiple_of: multiple_of__,
+                    finite: finite__.unwrap_or_default(),
                 })
             }
         }

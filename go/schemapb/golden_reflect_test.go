@@ -44,8 +44,8 @@ type mirrorModel struct {
 	Big    int64                   `json:"big"           validate:"gt=-10,lt=10"`
 	Port   uint16                  `json:"port"          validate:"max=65535"`
 	Total  uint64                  `json:"total"`
-	Ratio  float32                 `json:"ratio"         validate:"gte=0"`
-	Score  float64                 `json:"score"         validate:"lt=1"`
+	Ratio  float32                 `json:"ratio"         schemapb:"finite=true"     validate:"gte=0"`
+	Score  float64                 `json:"score"         schemapb:"finite=true"     validate:"lt=1"`
 	Flag   bool                    `json:"flag"`
 	Opt    *string                 `json:"opt,omitempty"`
 	Must   *int64                  `json:"must"          validate:"required"`

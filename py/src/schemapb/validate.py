@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import math
 import re
 from typing import TYPE_CHECKING
 
@@ -329,12 +330,12 @@ def _check_kind(
     if f.float is not None:
         k = f.float
         return _check_number(
-            path, val, k.const, k.gt, k.gte, k.lt, k.lte, k.multiple_of, k.in_, k.not_in
+            path, val, k.const, k.gt, k.gte, k.lt, k.lte, k.multiple_of, k.in_, k.not_in, k.finite
         )
     if f.double is not None:
         k = f.double
         return _check_number(
-            path, val, k.const, k.gt, k.gte, k.lt, k.lte, k.multiple_of, k.in_, k.not_in
+            path, val, k.const, k.gt, k.gte, k.lt, k.lte, k.multiple_of, k.in_, k.not_in, k.finite
         )
     if f.int32 is not None:
         k = f.int32
@@ -441,6 +442,7 @@ def _check_number(
     mul: float | None,
     in_set: list[float],
     not_in: list[float],
+    finite: bool,
 ) -> list[ValidationError]:
     n = as_float(val)
     if n is None:
@@ -450,15 +452,18 @@ def _check_number(
     def add(code: ErrorCode, constraint: str, expected: Value) -> None:
         out.append(_verr(path, code, constraint, expected, double_v(n)))
 
+    if finite and not math.isfinite(n):
+        out.append(_verr(path, ErrorCode.NOT_FINITE, "finite", None, double_v(n)))
     if cst is not None and n != cst:
         add(ErrorCode.CONST_MISMATCH, "const", double_v(cst))
-    if gt is not None and n <= gt:
+    # A bound holds only when its comparison is true, so NaN violates every bound.
+    if gt is not None and not n > gt:
         add(ErrorCode.GT_VIOLATED, "gt", double_v(gt))
-    if gte is not None and n < gte:
+    if gte is not None and not n >= gte:
         add(ErrorCode.GTE_VIOLATED, "gte", double_v(gte))
-    if lt is not None and n >= lt:
+    if lt is not None and not n < lt:
         add(ErrorCode.LT_VIOLATED, "lt", double_v(lt))
-    if lte is not None and n > lte:
+    if lte is not None and not n <= lte:
         add(ErrorCode.LTE_VIOLATED, "lte", double_v(lte))
     if in_set and n not in in_set:
         add(ErrorCode.NOT_IN_ALLOWED_SET, "in", list_v(*(double_v(x) for x in in_set)))

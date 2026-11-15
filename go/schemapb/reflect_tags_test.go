@@ -135,6 +135,36 @@ func TestSetFieldAttributeUsesDescriptors(t *testing.T) {
 	}
 }
 
+// The finite tag reaches float/double kinds only: an integer has no finite.
+func TestReflectFiniteTag(t *testing.T) {
+	t.Parallel()
+
+	type cfg struct {
+		Rate  float64 `json:"rate"  schemapb:"finite=true;gt=0"`
+		Ratio float32 `json:"ratio" schemapb:"finite=true"`
+	}
+
+	s, err := sp.ReflectType[cfg](testID(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rate, _ := s.LookupPath("rate")
+	ratio, _ := s.LookupPath("ratio")
+
+	if !rate.GetDouble().GetFinite() || !ratio.GetFloat().GetFinite() {
+		t.Fatalf("finite not reflected: %v, %v", rate, ratio)
+	}
+
+	type bad struct {
+		N int64 `json:"n" schemapb:"finite=true"`
+	}
+
+	if _, err := sp.ReflectType[bad](testID(t)); err == nil {
+		t.Fatal("finite on an integer accepted")
+	}
+}
+
 func TestReflectFieldTagHooks(t *testing.T) {
 	t.Parallel()
 

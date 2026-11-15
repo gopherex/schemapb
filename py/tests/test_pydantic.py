@@ -43,8 +43,8 @@ class MirrorModel(MirrorBase):
     big: Annotated[int, Field(gt=-10, lt=10)]
     port: Annotated[sp.UInt32, Field(le=65535)]
     total: sp.UInt64
-    ratio: Annotated[sp.Float32, Field(ge=0)]
-    score: Annotated[float, Field(lt=1)]
+    ratio: Annotated[sp.Float32, Field(ge=0, allow_inf_nan=False)]
+    score: Annotated[float, Field(lt=1, allow_inf_nan=False)]
     flag: bool
     opt: str | None = None
     must: int | None

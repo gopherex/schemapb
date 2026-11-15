@@ -33,7 +33,8 @@
           "notIn": [
             8
           ],
-          "multipleOf": 9
+          "multipleOf": 9,
+          "finite": true
         },
         "immutable": true,
         "group": "grp",
@@ -69,7 +70,8 @@
           "notIn": [
             8
           ],
-          "multipleOf": 9
+          "multipleOf": 9,
+          "finite": true
         }
       },
       {
@@ -470,7 +472,8 @@
               "notIn": [
                 8
               ],
-              "multipleOf": 9
+              "multipleOf": 9,
+              "finite": true
             },
             "immutable": true,
             "group": "grp",
@@ -506,7 +509,8 @@
               "notIn": [
                 8
               ],
-              "multipleOf": 9
+              "multipleOf": 9,
+              "finite": true
             }
           },
           {
@@ -873,7 +877,8 @@
             "notIn": [
               8
             ],
-            "multipleOf": 9
+            "multipleOf": 9,
+            "finite": true
           },
           "immutable": true,
           "group": "grp",
@@ -909,7 +914,8 @@
             "notIn": [
               8
             ],
-            "multipleOf": 9
+            "multipleOf": 9,
+            "finite": true
           }
         },
         {
@@ -1241,7 +1247,7 @@
     ]
   },
   "errorSpec": {
-    "summary": "The value is less than the inclusive lower bound.",
+    "summary": "The value is less than the inclusive lower bound; NaN never satisfies a bound.",
     "template": "must be >= {expected}",
     "constraints": [
       "gte"

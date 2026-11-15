@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import datetime as dt
 import json
+import math
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from schemapb.duration import format_go_duration, format_rfc3339
@@ -37,11 +38,20 @@ def display_string(v: Native) -> str:
 
 
 def _json_number(v: float) -> str:
+    if not math.isfinite(v):
+        return _non_finite(v)
     # Match JSON/Go shortest form: integral floats render without ".0"?
     # encoding/json renders 2.0 as "2"; Python json gives "2.0" — align.
     if v == int(v) and abs(v) < 1e15:
         return str(int(v))
     return json.dumps(v)
+
+
+def _non_finite(v: float) -> str:
+    """NaN and the infinities take their protoJSON spelling."""
+    if math.isnan(v):
+        return "NaN"
+    return "Infinity" if v > 0 else "-Infinity"
 
 
 def _display_json(v: Native) -> Any:  # noqa: ANN401 - JSON-shaped output
@@ -50,6 +60,8 @@ def _display_json(v: Native) -> Any:  # noqa: ANN401 - JSON-shaped output
     if isinstance(v, int):
         return v if -(2**53) < v < 2**53 else str(v)
     if isinstance(v, float):
+        if not math.isfinite(v):
+            return _non_finite(v)
         return int(v) if v == int(v) and abs(v) < 1e15 else v
     if isinstance(v, (bytes, dt.timedelta, dt.datetime)):
         return display_string(v)

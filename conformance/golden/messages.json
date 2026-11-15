@@ -20,6 +20,7 @@
   "ERROR_CODE_MIN_LEN_VIOLATED": "length must be at least {expected}",
   "ERROR_CODE_MIN_PROPERTIES_VIOLATED": "must have at least {expected} properties",
   "ERROR_CODE_MULTIPLE_OF_VIOLATED": "must be a multiple of {expected}",
+  "ERROR_CODE_NOT_FINITE": "must be finite",
   "ERROR_CODE_NOT_IN_ALLOWED_SET": "must be one of {expected}",
   "ERROR_CODE_NOT_NULLABLE": "must not be null",
   "ERROR_CODE_NOT_UNIQUE": "must be unique",

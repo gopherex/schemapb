@@ -92,8 +92,9 @@ own descriptor even when another scope contains a field with the same name.
 
 Map iteration is sorted wherever order reaches output; string casing helpers
 are ASCII-only; display forms (numbers, durations RFC3339, base64, compact
-JSON) follow the spec exactly. If the language's default differs, the
-default loses.
+JSON) follow the spec exactly: NaN and the infinities display as `NaN`,
+`Infinity`, `-Infinity` (protoJSON spelling, JSON strings inside containers).
+If the language's default differs, the default loses.
 
 ## 10. Minimal, spec-compatible dependencies
 

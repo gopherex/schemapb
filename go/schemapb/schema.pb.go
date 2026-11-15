@@ -933,6 +933,8 @@ func (*Schema_Field_Json_) isSchema_Field_Kind() {}
 // Float field kind and its single-field constraints.
 // gt = exclusive min (> 0), gte = inclusive min (>= 1).
 // lt = exclusive max, lte = inclusive max.
+// A bound holds only when its comparison is true: NaN violates every
+// bound, an infinity only the bound on its side. finite rejects both.
 type Schema_Field_Float struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Default value used when the field is unset.
@@ -952,7 +954,9 @@ type Schema_Field_Float struct {
 	// Value must not be any of these.
 	NotIn []float32 `protobuf:"fixed32,8,rep,packed,name=not_in,json=notIn,proto3" json:"not_in,omitempty"`
 	// Divisibility: quotient value/multiple_of must be whole.
-	MultipleOf    *float32 `protobuf:"fixed32,9,opt,name=multiple_of,json=multipleOf,proto3,oneof" json:"multiple_of,omitempty"`
+	MultipleOf *float32 `protobuf:"fixed32,9,opt,name=multiple_of,json=multipleOf,proto3,oneof" json:"multiple_of,omitempty"`
+	// Value must be finite: NaN and ±Inf are rejected.
+	Finite        bool `protobuf:"varint,10,opt,name=finite,proto3" json:"finite,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1050,7 +1054,14 @@ func (x *Schema_Field_Float) GetMultipleOf() float32 {
 	return 0
 }
 
-// Double field kind and its single-field constraints.
+func (x *Schema_Field_Float) GetFinite() bool {
+	if x != nil {
+		return x.Finite
+	}
+	return false
+}
+
+// Double field kind and its single-field constraints (bounds as Float).
 type Schema_Field_Double struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Default value used when the field is unset.
@@ -1070,7 +1081,9 @@ type Schema_Field_Double struct {
 	// Value must not be any of these.
 	NotIn []float64 `protobuf:"fixed64,8,rep,packed,name=not_in,json=notIn,proto3" json:"not_in,omitempty"`
 	// Divisibility: quotient value/multiple_of must be whole.
-	MultipleOf    *float64 `protobuf:"fixed64,9,opt,name=multiple_of,json=multipleOf,proto3,oneof" json:"multiple_of,omitempty"`
+	MultipleOf *float64 `protobuf:"fixed64,9,opt,name=multiple_of,json=multipleOf,proto3,oneof" json:"multiple_of,omitempty"`
+	// Value must be finite: NaN and ±Inf are rejected.
+	Finite        bool `protobuf:"varint,10,opt,name=finite,proto3" json:"finite,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1166,6 +1179,13 @@ func (x *Schema_Field_Double) GetMultipleOf() float64 {
 		return *x.MultipleOf
 	}
 	return 0
+}
+
+func (x *Schema_Field_Double) GetFinite() bool {
+	if x != nil {
+		return x.Finite
+	}
+	return false
 }
 
 // Int32 field kind and its single-field constraints.
@@ -2876,7 +2896,7 @@ var File_schemapb_schema_proto protoreflect.FileDescriptor
 
 const file_schemapb_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xb8;\n" +
+	"\x15schemapb/schema.proto\x12\bschemapb\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14schemapb/value.proto\"\xe8;\n" +
 	"\x06Schema\x12(\n" +
 	"\x02id\x18\x01 \x01(\v2\x18.schemapb.SchemaIdentityR\x02id\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12.\n" +
@@ -2888,7 +2908,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x06coerce\x18\b \x01(\bR\x06coerce\x12.\n" +
 	"\x04defs\x18\t \x03(\v2\x1a.schemapb.Schema.DefsEntryR\x04defs\x12=\n" +
 	"\ttemplates\x18\n" +
-	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xc36\n" +
+	" \x03(\v2\x1f.schemapb.Schema.TemplatesEntryR\ttemplates\x1a\xf36\n" +
 	"\x05Field\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x1a\n" +
@@ -2926,7 +2946,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x06secret\x18\x1a \x01(\bR\x06secret\x12!\n" +
 	"\tnormalize\x18\x1b \x01(\tH\x05R\tnormalize\x88\x01\x01\x12\x17\n" +
 	"\x04when\x18\x1e \x01(\tH\x06R\x04when\x88\x01\x01\x12I\n" +
-	"\vannotations\x18\" \x03(\v2'.schemapb.Schema.Field.AnnotationsEntryR\vannotations\x1a\xaa\x02\n" +
+	"\vannotations\x18\" \x03(\v2'.schemapb.Schema.Field.AnnotationsEntryR\vannotations\x1a\xc2\x02\n" +
 	"\x05Float\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\x02H\x00R\adefault\x88\x01\x01\x12\x19\n" +
 	"\x05const\x18\x02 \x01(\x02H\x01R\x05const\x88\x01\x01\x12\x13\n" +
@@ -2937,7 +2957,9 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x02in\x18\a \x03(\x02R\x02in\x12\x15\n" +
 	"\x06not_in\x18\b \x03(\x02R\x05notIn\x12$\n" +
 	"\vmultiple_of\x18\t \x01(\x02H\x06R\n" +
-	"multipleOf\x88\x01\x01B\n" +
+	"multipleOf\x88\x01\x01\x12\x16\n" +
+	"\x06finite\x18\n" +
+	" \x01(\bR\x06finiteB\n" +
 	"\n" +
 	"\b_defaultB\b\n" +
 	"\x06_constB\x05\n" +
@@ -2945,7 +2967,7 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x04_gteB\x05\n" +
 	"\x03_ltB\x06\n" +
 	"\x04_lteB\x0e\n" +
-	"\f_multiple_of\x1a\xab\x02\n" +
+	"\f_multiple_of\x1a\xc3\x02\n" +
 	"\x06Double\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\x01H\x00R\adefault\x88\x01\x01\x12\x19\n" +
 	"\x05const\x18\x02 \x01(\x01H\x01R\x05const\x88\x01\x01\x12\x13\n" +
@@ -2956,7 +2978,9 @@ const file_schemapb_schema_proto_rawDesc = "" +
 	"\x02in\x18\a \x03(\x01R\x02in\x12\x15\n" +
 	"\x06not_in\x18\b \x03(\x01R\x05notIn\x12$\n" +
 	"\vmultiple_of\x18\t \x01(\x01H\x06R\n" +
-	"multipleOf\x88\x01\x01B\n" +
+	"multipleOf\x88\x01\x01\x12\x16\n" +
+	"\x06finite\x18\n" +
+	" \x01(\bR\x06finiteB\n" +
 	"\n" +
 	"\b_defaultB\b\n" +
 	"\x06_constB\x05\n" +

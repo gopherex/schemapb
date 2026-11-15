@@ -65,6 +65,10 @@ the field `Annotated[DB, sp.required()]` to require the section itself
 (Go's `validate:"required"`). `DB | None` fields, fields with a pydantic
 default, `overrides`, list items and map values are unchanged.
 
+A float field with `Field(allow_inf_nan=False)` reflects as `finite`: NaN
+and the infinities are rejected. Without it a pydantic float accepts them,
+and so does the schema; bounds (`ge`, `lt`, ...) always reject NaN.
+
 ## Using schemapb types from your own protos
 
 If your `.proto` files embed schemapb messages and you generate them with

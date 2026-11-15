@@ -396,11 +396,35 @@ function checkKind(
   switch (kind.case) {
     case "float": {
       const k = kind.value;
-      return checkNumber(path, val, k.const, k.gt, k.gte, k.lt, k.lte, k.multipleOf, k.in, k.notIn);
+      return checkNumber(
+        path,
+        val,
+        k.const,
+        k.gt,
+        k.gte,
+        k.lt,
+        k.lte,
+        k.multipleOf,
+        k.in,
+        k.notIn,
+        k.finite,
+      );
     }
     case "double": {
       const k = kind.value;
-      return checkNumber(path, val, k.const, k.gt, k.gte, k.lt, k.lte, k.multipleOf, k.in, k.notIn);
+      return checkNumber(
+        path,
+        val,
+        k.const,
+        k.gt,
+        k.gte,
+        k.lt,
+        k.lte,
+        k.multipleOf,
+        k.in,
+        k.notIn,
+        k.finite,
+      );
     }
     case "int32": {
       const k = kind.value;
@@ -545,6 +569,7 @@ function checkNumber(
   mul: number | undefined,
   inSet: number[],
   notIn: number[],
+  finite: boolean,
 ): ValidationError[] {
   const n = asFloat(val);
   if (n === undefined) {
@@ -554,19 +579,23 @@ function checkNumber(
   const add = (code: ErrorCode, constraint: string, expected: Value): void => {
     out.push(verr(path, code, constraint, expected, doubleV(n)));
   };
+  if (finite && !Number.isFinite(n)) {
+    out.push(verr(path, ErrorCode.NOT_FINITE, "finite", undefined, doubleV(n)));
+  }
   if (cst !== undefined && n !== cst) {
     add(ErrorCode.CONST_MISMATCH, "const", doubleV(cst));
   }
-  if (gt !== undefined && n <= gt) {
+  // A bound holds only when its comparison is true, so NaN violates every bound.
+  if (gt !== undefined && !(n > gt)) {
     add(ErrorCode.GT_VIOLATED, "gt", doubleV(gt));
   }
-  if (gte !== undefined && n < gte) {
+  if (gte !== undefined && !(n >= gte)) {
     add(ErrorCode.GTE_VIOLATED, "gte", doubleV(gte));
   }
-  if (lt !== undefined && n >= lt) {
+  if (lt !== undefined && !(n < lt)) {
     add(ErrorCode.LT_VIOLATED, "lt", doubleV(lt));
   }
-  if (lte !== undefined && n > lte) {
+  if (lte !== undefined && !(n <= lte)) {
     add(ErrorCode.LTE_VIOLATED, "lte", doubleV(lte));
   }
   if (inSet.length > 0 && !inSet.includes(n)) {

@@ -117,6 +117,7 @@ class _Constraints:
     fmt: str | None = None
     kind: str | None = None
     required: bool = False
+    finite: bool = False
 
 
 def _collect(metadata: list[Any]) -> _Constraints:
@@ -146,6 +147,10 @@ def _collect(metadata: list[Any]) -> _Constraints:
                 v = getattr(m, src, None)
                 if v is not None:
                     setattr(c, dst, v)
+            # allow_inf_nan=False (Field or AllowInfNan) rejects NaN and the
+            # infinities: the schema's finite.
+            if getattr(m, "allow_inf_nan", None) is False:
+                c.finite = True
     return c
 
 
@@ -393,6 +398,8 @@ def _float_field(name: str, c: _Constraints) -> b.FieldB:
     if mk is None:
         raise _ReflectError(name, f"kind marker {c.kind!r} does not apply to float")
     nb = mk(name)
+    if c.finite:
+        nb = nb.finite()
     return _apply_bounds(nb, c)
 
 

@@ -7,7 +7,7 @@
 //! ```text
 //! #[schemapb(desc = "...", rename = "x", required, secret, skip,
 //!            min = 1, max = 64, len = 4,
-//!            gte = 0, gt = -10, lte = 100, lt = 10,
+//!            gte = 0, gt = -10, lte = 100, lt = 10, finite,
 //!            pattern = "^[a-z-]+$", format = "email",
 //!            oneof("fast", "safe"))]      // or oneof(1, 2, 3)
 //! ```
@@ -170,6 +170,7 @@ fn parse_attrs(field: &syn::Field) -> syn::Result<FieldAttrs> {
                 "required" => out.required = true,
                 "secret" => out.secret = true,
                 "skip" => out.skip = true,
+                "finite" => out.constraints.push((key, "true".to_owned())),
                 "desc" => out.desc = Some(lit_str(&meta)?),
                 "rename" => out.rename = Some(lit_str(&meta)?),
                 "pattern" | "format" => {

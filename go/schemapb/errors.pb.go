@@ -131,6 +131,7 @@ const (
 	ErrorCode_ERROR_CODE_NOT_IN_ALLOWED_SET   ErrorCode = 15
 	ErrorCode_ERROR_CODE_IN_FORBIDDEN_SET     ErrorCode = 16
 	ErrorCode_ERROR_CODE_MULTIPLE_OF_VIOLATED ErrorCode = 17
+	ErrorCode_ERROR_CODE_NOT_FINITE           ErrorCode = 18
 	// String constraints.
 	ErrorCode_ERROR_CODE_LEN_MISMATCH     ErrorCode = 20
 	ErrorCode_ERROR_CODE_MIN_LEN_VIOLATED ErrorCode = 21
@@ -185,6 +186,7 @@ var (
 		15: "ERROR_CODE_NOT_IN_ALLOWED_SET",
 		16: "ERROR_CODE_IN_FORBIDDEN_SET",
 		17: "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+		18: "ERROR_CODE_NOT_FINITE",
 		20: "ERROR_CODE_LEN_MISMATCH",
 		21: "ERROR_CODE_MIN_LEN_VIOLATED",
 		22: "ERROR_CODE_MAX_LEN_VIOLATED",
@@ -224,6 +226,7 @@ var (
 		"ERROR_CODE_NOT_IN_ALLOWED_SET":      15,
 		"ERROR_CODE_IN_FORBIDDEN_SET":        16,
 		"ERROR_CODE_MULTIPLE_OF_VIOLATED":    17,
+		"ERROR_CODE_NOT_FINITE":              18,
 		"ERROR_CODE_LEN_MISMATCH":            20,
 		"ERROR_CODE_MIN_LEN_VIOLATED":        21,
 		"ERROR_CODE_MAX_LEN_VIOLATED":        22,
@@ -633,7 +636,7 @@ const file_schemapb_errors_proto_rawDesc = "" +
 	"\x0ePAYLOAD_STRING\x10\x06\x12\x17\n" +
 	"\x13PAYLOAD_STRING_LIST\x10\a\x12\x11\n" +
 	"\rPAYLOAD_COUNT\x10\b\x12\x14\n" +
-	"\x10PAYLOAD_ANY_LIST\x10\t*\xce'\n" +
+	"\x10PAYLOAD_ANY_LIST\x10\t*\xc4)\n" +
 	"\tErrorCode\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12\xab\x01\n" +
 	"\x18ERROR_CODE_TYPE_MISMATCH\x10\x01\x1a\x8c\x01\xa2\xbb\x18\x87\x01\n" +
@@ -648,21 +651,23 @@ const file_schemapb_errors_proto_rawDesc = "" +
 	"KAn immutable field was given a value different from its default (expected).\x12\x1cimmutable: cannot be changed\x1a\timmutable \x04(\x02\x12s\n" +
 	"\x19ERROR_CODE_CONST_MISMATCH\x10\n" +
 	"\x1aT\xa2\xbb\x18P\n" +
-	",The value differs from the const constraint.\x12\x15must equal {expected}\x1a\x05const \x04(\x04\x12q\n" +
-	"\x16ERROR_CODE_GT_VIOLATED\x10\v\x1aU\xa2\xbb\x18Q\n" +
-	"1The value is not strictly greater than the bound.\x12\x14must be > {expected}\x1a\x02gt \x04(\x04\x12t\n" +
-	"\x17ERROR_CODE_GTE_VIOLATED\x10\f\x1aW\xa2\xbb\x18S\n" +
-	"1The value is less than the inclusive lower bound.\x12\x15must be >= {expected}\x1a\x03gte \x04(\x04\x12n\n" +
-	"\x16ERROR_CODE_LT_VIOLATED\x10\r\x1aR\xa2\xbb\x18N\n" +
-	".The value is not strictly less than the bound.\x12\x14must be < {expected}\x1a\x02lt \x04(\x04\x12w\n" +
-	"\x17ERROR_CODE_LTE_VIOLATED\x10\x0e\x1aZ\xa2\xbb\x18V\n" +
-	"4The value is greater than the inclusive upper bound.\x12\x15must be <= {expected}\x1a\x03lte \x04(\x04\x12p\n" +
+	",The value differs from the const constraint.\x12\x15must equal {expected}\x1a\x05const \x04(\x04\x12\x8e\x01\n" +
+	"\x16ERROR_CODE_GT_VIOLATED\x10\v\x1ar\xa2\xbb\x18n\n" +
+	"NThe value is not strictly greater than the bound; NaN never satisfies a bound.\x12\x14must be > {expected}\x1a\x02gt \x04(\x04\x12\x91\x01\n" +
+	"\x17ERROR_CODE_GTE_VIOLATED\x10\f\x1at\xa2\xbb\x18p\n" +
+	"NThe value is less than the inclusive lower bound; NaN never satisfies a bound.\x12\x15must be >= {expected}\x1a\x03gte \x04(\x04\x12\x8b\x01\n" +
+	"\x16ERROR_CODE_LT_VIOLATED\x10\r\x1ao\xa2\xbb\x18k\n" +
+	"KThe value is not strictly less than the bound; NaN never satisfies a bound.\x12\x14must be < {expected}\x1a\x02lt \x04(\x04\x12\x94\x01\n" +
+	"\x17ERROR_CODE_LTE_VIOLATED\x10\x0e\x1aw\xa2\xbb\x18s\n" +
+	"QThe value is greater than the inclusive upper bound; NaN never satisfies a bound.\x12\x15must be <= {expected}\x1a\x03lte \x04(\x04\x12p\n" +
 	"\x1dERROR_CODE_NOT_IN_ALLOWED_SET\x10\x0f\x1aM\xa2\xbb\x18I\n" +
 	"$The value is not in the allowed set.\x12\x19must be one of {expected}\x1a\x02in \x05(\x04\x12t\n" +
 	"\x1bERROR_CODE_IN_FORBIDDEN_SET\x10\x10\x1aS\xa2\xbb\x18O\n" +
 	"\"The value is in the forbidden set.\x12\x1dmust not be one of {expected}\x1a\x06not_in \x05(\x04\x12\x89\x01\n" +
 	"\x1fERROR_CODE_MULTIPLE_OF_VIOLATED\x10\x11\x1ad\xa2\xbb\x18`\n" +
-	"+The value is not a multiple of the divisor.\x12 must be a multiple of {expected}\x1a\vmultiple_of \x04(\x04\x12\x89\x01\n" +
+	"+The value is not a multiple of the divisor.\x12 must be a multiple of {expected}\x1a\vmultiple_of \x04(\x04\x12|\n" +
+	"\x15ERROR_CODE_NOT_FINITE\x10\x12\x1aa\xa2\xbb\x18]\n" +
+	"?A float/double field marked finite received NaN or an infinity.\x12\x0emust be finite\x1a\x06finite \x01(\x04\x12\x89\x01\n" +
 	"\x17ERROR_CODE_LEN_MISMATCH\x10\x14\x1al\xa2\xbb\x18h\n" +
 	":The string (code points) or bytes length differs from len.\x12!length must be exactly {expected}\x1a\x03len \b(\x04\x12\x92\x01\n" +
 	"\x1bERROR_CODE_MIN_LEN_VIOLATED\x10\x15\x1aq\xa2\xbb\x18m\n" +

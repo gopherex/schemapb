@@ -3,6 +3,9 @@ package schemapb_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -83,6 +86,113 @@ func TestNumericConstraints(t *testing.T) {
 
 	if !hasCode(bad, "i", schemapb.ErrorCode_ERROR_CODE_MULTIPLE_OF_VIOLATED) {
 		t.Errorf("i: want MULTIPLE_OF violation too")
+	}
+}
+
+// A bound holds only when its comparison is true: NaN violates every bound,
+// an infinity only the bound on its side; finite rejects NaN and ±Inf alone.
+func TestFloatNonFinite(t *testing.T) {
+	t.Parallel()
+
+	s := schemapb.NewSchema(schemapb.ID("t", "nonfinite", schemapb.MustVersion("v1"))).Fields(
+		schemapb.Double("gt").Gt(0),
+		schemapb.Double("gte").Gte(0),
+		schemapb.Float("lt").Lt(10),
+		schemapb.Float("lte").Lte(10),
+		schemapb.Double("fin").Finite(),
+		schemapb.Float("fin32").Finite().Gte(1),
+	).MustBuild()
+
+	nan, inf := math.NaN(), math.Inf(1)
+
+	for _, tc := range []struct {
+		name string
+		path string
+		val  any
+		want []schemapb.ErrorCode
+	}{
+		{"nan gt", "gt", nan, []schemapb.ErrorCode{schemapb.ErrorCode_ERROR_CODE_GT_VIOLATED}},
+		{"nan gte", "gte", nan, []schemapb.ErrorCode{schemapb.ErrorCode_ERROR_CODE_GTE_VIOLATED}},
+		{"nan lt", "lt", nan, []schemapb.ErrorCode{schemapb.ErrorCode_ERROR_CODE_LT_VIOLATED}},
+		{"nan lte", "lte", nan, []schemapb.ErrorCode{schemapb.ErrorCode_ERROR_CODE_LTE_VIOLATED}},
+		{"+inf above lower bound", "gte", inf, nil},
+		{"-inf below lower bound", "gte", -inf, []schemapb.ErrorCode{schemapb.ErrorCode_ERROR_CODE_GTE_VIOLATED}},
+		{"+inf over upper bound", "lte", inf, []schemapb.ErrorCode{schemapb.ErrorCode_ERROR_CODE_LTE_VIOLATED}},
+		{"bound value", "gte", 0.0, nil},
+		{"finite ok", "fin", 1e308, nil},
+		{"finite nan", "fin", nan, []schemapb.ErrorCode{schemapb.ErrorCode_ERROR_CODE_NOT_FINITE}},
+		{"finite +inf", "fin", inf, []schemapb.ErrorCode{schemapb.ErrorCode_ERROR_CODE_NOT_FINITE}},
+		{"finite -inf", "fin", -inf, []schemapb.ErrorCode{schemapb.ErrorCode_ERROR_CODE_NOT_FINITE}},
+		{"finite then bound", "fin32", nan, []schemapb.ErrorCode{
+			schemapb.ErrorCode_ERROR_CODE_NOT_FINITE, schemapb.ErrorCode_ERROR_CODE_GTE_VIOLATED,
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			res := mustValidate(t, s, map[string]any{tc.path: tc.val})
+			if got := codes(res)[tc.path]; !slices.Equal(got, tc.want) {
+				t.Fatalf("%s = %v: codes %v, want %v", tc.path, tc.val, got, tc.want)
+			}
+		})
+	}
+}
+
+// NaN and the infinities display in protoJSON spelling, as JSON strings
+// inside containers.
+func TestDisplayNonFinite(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		v    *schemapb.Value
+		want string
+	}{
+		{schemapb.DoubleV(math.NaN()), "NaN"},
+		{schemapb.DoubleV(math.Inf(1)), "Infinity"},
+		{schemapb.DoubleV(math.Inf(-1)), "-Infinity"},
+		{schemapb.DoubleV(1.5), "1.5"},
+		{schemapb.ListV(schemapb.DoubleV(math.Inf(-1)), schemapb.DoubleV(2)), `["-Infinity",2]`},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			t.Parallel()
+
+			if got := schemapb.DisplayValue(tc.v); got != tc.want {
+				t.Fatalf("DisplayValue = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// Integer bounds keep their meaning under the comparison-must-hold form.
+func TestIntegerBoundsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	s := schemapb.NewSchema(schemapb.ID("t", "intbounds", schemapb.MustVersion("v1"))).Fields(
+		schemapb.Int64("i").Gt(0).Lte(3),
+		schemapb.UInt64("u").Gte(2).Lt(4),
+	).MustBuild()
+
+	for _, tc := range []struct {
+		path string
+		val  any
+		ok   bool
+	}{
+		{"i", int64(0), false},
+		{"i", int64(1), true},
+		{"i", int64(3), true},
+		{"i", int64(4), false},
+		{"u", uint64(1), false},
+		{"u", uint64(2), true},
+		{"u", uint64(3), true},
+		{"u", uint64(4), false},
+	} {
+		t.Run(fmt.Sprintf("%s=%v", tc.path, tc.val), func(t *testing.T) {
+			t.Parallel()
+
+			if got := mustValidate(t, s, map[string]any{tc.path: tc.val}).Ok(); got != tc.ok {
+				t.Fatalf("ok = %v, want %v", got, tc.ok)
+			}
+		})
 	}
 }
 

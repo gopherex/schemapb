@@ -52,7 +52,7 @@ def valid_input() -> spb.NativeStruct:
 def broken_input() -> spb.NativeStruct:
     return {
         "f32": 0.25,
-        "f64": 2.0,
+        "f64": float("-inf"),
         "i32": 5,
         "i64": 8,
         "u32": 3,

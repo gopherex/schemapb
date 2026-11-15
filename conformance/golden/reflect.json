@@ -106,14 +106,16 @@
       "name": "ratio",
       "required": true,
       "float": {
-        "gte": 0
+        "gte": 0,
+        "finite": true
       }
     },
     {
       "name": "score",
       "required": true,
       "double": {
-        "lt": 1
+        "lt": 1,
+        "finite": true
       }
     },
     {

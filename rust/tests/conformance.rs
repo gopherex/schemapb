@@ -79,7 +79,7 @@ fn valid_input() -> NativeStruct {
 fn broken_input() -> NativeStruct {
     let mut m = NativeStruct::new();
     m.insert("f32".into(), Native::Double(0.25));
-    m.insert("f64".into(), Native::Double(2.0));
+    m.insert("f64".into(), Native::Double(f64::NEG_INFINITY));
     m.insert("i32".into(), Native::Int(5));
     m.insert("i64".into(), Native::Int(8));
     m.insert("u32".into(), Native::Uint(3));

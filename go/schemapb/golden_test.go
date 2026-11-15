@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -57,8 +58,8 @@ func goldenSchema(t *testing.T) *schemapb.Schema {
 		).
 		DefSchema("endpoint", endpoint).
 		Fields(
-			schemapb.Float("f32").Default(0.5).Gt(0).Lt(1).NotIn(0.25),
-			schemapb.Double("f64").Const(1.5).Default(1.5).MultipleOf(0.5),
+			schemapb.Float("f32").Default(0.5).Gt(0).Lt(1).NotIn(0.25).Finite(),
+			schemapb.Double("f64").Const(1.5).Default(1.5).MultipleOf(0.5).Gte(0).Finite(),
 			schemapb.Int32("i32").Default(8).Gte(0).Lte(64).MultipleOf(2).In(2, 4, 8, 16, 32, 64),
 			schemapb.Int64("i64").Default(128).Gte(16).Lte(1<<40).
 				Unit("MB").Group("numbers").Title("Big number").
@@ -227,7 +228,7 @@ func validInput() map[string]any {
 func brokenInput() map[string]any {
 	return map[string]any{
 		"f32":           0.25,                   // NOT_IN + (gt/lt ok)
-		"f64":           2.0,                    // CONST + MULTIPLE_OF ok
+		"f64":           math.Inf(-1),           // NOT_FINITE + CONST + GTE + MULTIPLE_OF
 		"i32":           int64(5),               // MULTIPLE_OF + NOT_IN_ALLOWED_SET
 		"i64":           int64(8),               // GTE
 		"u32":           uint64(3),              // NOT_IN_ALLOWED_SET

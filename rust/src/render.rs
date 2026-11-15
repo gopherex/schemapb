@@ -16,12 +16,24 @@ pub fn display_string(v: &Native) -> String {
         Native::Bool(b) => if *b { "true" } else { "false" }.to_owned(),
         Native::Int(n) => n.to_string(),
         Native::Uint(n) => n.to_string(),
+        Native::Double(f) if !f.is_finite() => non_finite(*f).to_owned(),
         Native::Double(_) | Native::List(_) | Native::Struct(_) => {
             serde_json::to_string(&display_json(v)).unwrap_or_default()
         }
         Native::Bytes(b) => base64::engine::general_purpose::STANDARD.encode(b),
         Native::Duration(d) => format_go_duration(d),
         Native::Timestamp(t) => format_rfc3339(t),
+    }
+}
+
+/// `NaN` and the infinities take their protoJSON spelling.
+fn non_finite(f: f64) -> &'static str {
+    if f.is_nan() {
+        "NaN"
+    } else if f > 0.0 {
+        "Infinity"
+    } else {
+        "-Infinity"
     }
 }
 
@@ -33,6 +45,7 @@ fn display_json(v: &Native) -> serde_json::Value {
         Native::Bool(b) => json!(b),
         Native::Int(n) => json!(n),
         Native::Uint(n) => json!(n),
+        Native::Double(f) if !f.is_finite() => json!(non_finite(*f)),
         Native::Double(f) => {
             // Go's encoding/json renders integral doubles without ".0".
             if f.fract() == 0.0 && f.is_finite() && f.abs() < 1e15 {

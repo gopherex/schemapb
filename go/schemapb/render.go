@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"runtime"
 	"strconv"
 	"time"
@@ -238,9 +239,13 @@ func displayString(v any) string {
 	}
 }
 
-// jsonNumber renders a float in JSON number form (NaN/Inf fall back to
-// fmt's form — they have no JSON encoding).
-func jsonNumber(v any) string {
+// jsonNumber renders a float in JSON number form; NaN and the infinities,
+// which JSON cannot encode, take their protoJSON spelling.
+func jsonNumber[T float32 | float64](v T) string {
+	if s, ok := nonFinite(float64(v)); ok {
+		return s
+	}
+
 	b, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Sprint(v)
@@ -249,12 +254,39 @@ func jsonNumber(v any) string {
 	return string(b)
 }
 
+// nonFinite spells NaN and ±Inf as protoJSON does: "NaN", "Infinity",
+// "-Infinity".
+func nonFinite(v float64) (string, bool) {
+	switch {
+	case math.IsNaN(v):
+		return "NaN", true
+	case math.IsInf(v, 1):
+		return "Infinity", true
+	case math.IsInf(v, -1):
+		return "-Infinity", true
+	default:
+		return "", false
+	}
+}
+
 // displayJSON converts non-JSON leaves (duration, time, bytes) to their
 // display strings so container JSON stays in the spec's leaf forms.
 func displayJSON(v any) any {
 	switch t := v.(type) {
 	case time.Duration, time.Time, []byte:
 		return displayString(t)
+	case float64:
+		if s, ok := nonFinite(t); ok {
+			return s
+		}
+
+		return t
+	case float32:
+		if s, ok := nonFinite(float64(t)); ok {
+			return s
+		}
+
+		return t
 	case []any:
 		out := make([]any, len(t))
 		for i, el := range t {

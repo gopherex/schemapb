@@ -58,12 +58,31 @@
     {
       "error": {
         "path": "f64",
+        "code": "ERROR_CODE_NOT_FINITE",
+        "actual": {
+          "doubleValue": "-Infinity"
+        },
+        "constraint": "finite",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be finite",
+        "pathSegments": [
+          {
+            "key": "f64"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_NOT_FINITE",
+      "message": "must be finite"
+    },
+    {
+      "error": {
+        "path": "f64",
         "code": "ERROR_CODE_CONST_MISMATCH",
         "expected": {
           "doubleValue": 1.5
         },
         "actual": {
-          "doubleValue": 2
+          "doubleValue": "-Infinity"
         },
         "constraint": "const",
         "severity": "SEVERITY_ERROR",
@@ -76,6 +95,50 @@
       },
       "key": "ERROR_CODE_CONST_MISMATCH",
       "message": "must equal 1.5"
+    },
+    {
+      "error": {
+        "path": "f64",
+        "code": "ERROR_CODE_GTE_VIOLATED",
+        "expected": {
+          "doubleValue": 0
+        },
+        "actual": {
+          "doubleValue": "-Infinity"
+        },
+        "constraint": "gte",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be \u003e= 0",
+        "pathSegments": [
+          {
+            "key": "f64"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_GTE_VIOLATED",
+      "message": "должно быть не меньше 0 (сейчас -Infinity)"
+    },
+    {
+      "error": {
+        "path": "f64",
+        "code": "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+        "expected": {
+          "doubleValue": 0.5
+        },
+        "actual": {
+          "doubleValue": "-Infinity"
+        },
+        "constraint": "multiple_of",
+        "severity": "SEVERITY_ERROR",
+        "message": "must be a multiple of 0.5",
+        "pathSegments": [
+          {
+            "key": "f64"
+          }
+        ]
+      },
+      "key": "ERROR_CODE_MULTIPLE_OF_VIOLATED",
+      "message": "must be a multiple of 0.5"
     },
     {
       "error": {

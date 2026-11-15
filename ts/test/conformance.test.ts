@@ -60,7 +60,7 @@ function validInput(): NativeStruct {
 function brokenInput(): NativeStruct {
   return {
     f32: 0.25,
-    f64: 2.0,
+    f64: Number.NEGATIVE_INFINITY,
     i32: 5n,
     i64: 8n,
     u32: 3n,

@@ -14,7 +14,8 @@
         "lt": 1,
         "notIn": [
           0.25
-        ]
+        ],
+        "finite": true
       }
     },
     {
@@ -22,7 +23,9 @@
       "double": {
         "default": 1.5,
         "const": 1.5,
-        "multipleOf": 0.5
+        "gte": 0,
+        "multipleOf": 0.5,
+        "finite": true
       }
     },
     {

@@ -380,92 +380,119 @@ type numSpec[T any] struct {
 	in, notIn                       *[]T
 }
 
-// NumB is the shared builder for Float/Double/Int32/Int64/UInt32/UInt64.
-type NumB[T any] struct {
-	fieldBase[*NumB[T]]
+// numB holds the constraint methods shared by every numeric builder; S is
+// the concrete builder the methods chain back to.
+type numB[T, S any] struct {
+	fieldBase[S]
 	k numSpec[T]
 }
 
+// NumB is the builder for Int32/Int64/UInt32/UInt64.
+type NumB[T any] struct {
+	numB[T, *NumB[T]]
+}
+
+// FloatB is the builder for Float/Double: the numeric constraints plus the
+// float-only Finite.
+type FloatB[T float32 | float64] struct {
+	numB[T, *FloatB[T]]
+	finite *bool
+}
+
 func newNum[T any](name FieldName, k numSpec[T], kind isSchema_Field_Kind) *NumB[T] {
-	b := &NumB[T]{k: k}
+	b := &NumB[T]{numB[T, *NumB[T]]{k: k}}
 	b.fieldBase = newField(name, b)
 	b.f.Kind = kind
 
 	return b
 }
 
-// Default sets the value used when the field is unset.
-func (b *NumB[T]) Default(v T) *NumB[T] {
-	*b.k.def = &v
+func newFloat[T float32 | float64](name FieldName, k numSpec[T], finite *bool, kind isSchema_Field_Kind) *FloatB[T] {
+	b := &FloatB[T]{numB: numB[T, *FloatB[T]]{k: k}, finite: finite}
+	b.fieldBase = newField(name, b)
+	b.f.Kind = kind
+
 	return b
+}
+
+// Finite rejects NaN and ±Inf.
+func (b *FloatB[T]) Finite() *FloatB[T] {
+	*b.finite = true
+	return b
+}
+
+// Default sets the value used when the field is unset.
+func (b *numB[T, S]) Default(v T) S {
+	*b.k.def = &v
+	return b.self
 }
 
 // Const requires the value to equal exactly v.
-func (b *NumB[T]) Const(v T) *NumB[T] {
+func (b *numB[T, S]) Const(v T) S {
 	*b.k.con = &v
-	return b
+	return b.self
 }
 
 // Gt sets the exclusive minimum.
-func (b *NumB[T]) Gt(v T) *NumB[T] {
+func (b *numB[T, S]) Gt(v T) S {
 	*b.k.gt = &v
-	return b
+	return b.self
 }
 
 // Gte sets the inclusive minimum.
-func (b *NumB[T]) Gte(v T) *NumB[T] {
+func (b *numB[T, S]) Gte(v T) S {
 	*b.k.gte = &v
-	return b
+	return b.self
 }
 
 // Lt sets the exclusive maximum.
-func (b *NumB[T]) Lt(v T) *NumB[T] {
+func (b *numB[T, S]) Lt(v T) S {
 	*b.k.lt = &v
-	return b
+	return b.self
 }
 
 // Lte sets the inclusive maximum.
-func (b *NumB[T]) Lte(v T) *NumB[T] {
+func (b *numB[T, S]) Lte(v T) S {
 	*b.k.lte = &v
-	return b
+	return b.self
 }
 
 // In requires the value to be one of vs.
-func (b *NumB[T]) In(vs ...T) *NumB[T] {
+func (b *numB[T, S]) In(vs ...T) S {
 	*b.k.in = vs
-	return b
+	return b.self
 }
 
 // NotIn forbids the value from being any of vs.
-func (b *NumB[T]) NotIn(vs ...T) *NumB[T] {
+func (b *numB[T, S]) NotIn(vs ...T) S {
 	*b.k.notIn = vs
-	return b
+	return b.self
 }
 
 // MultipleOf requires the value to be divisible by v.
-func (b *NumB[T]) MultipleOf(v T) *NumB[T] {
+func (b *numB[T, S]) MultipleOf(v T) S {
 	*b.k.mul = &v
-	return b
+	return b.self
 }
 
 // Float builds a float field.
-func Float(name FieldName) *NumB[float32] {
+func Float(name FieldName) *FloatB[float32] {
 	k := &Schema_Field_Float{}
 
-	return newNum(name, numSpec[float32]{
+	return newFloat(name, numSpec[float32]{
 		def: &k.Default, con: &k.Const, gt: &k.Gt, gte: &k.Gte, lt: &k.Lt, lte: &k.Lte,
 		mul: &k.MultipleOf, in: &k.In, notIn: &k.NotIn,
-	}, &Schema_Field_Float_{Float: k})
+	}, &k.Finite, &Schema_Field_Float_{Float: k})
 }
 
 // Double builds a double field.
-func Double(name FieldName) *NumB[float64] {
+func Double(name FieldName) *FloatB[float64] {
 	k := &Schema_Field_Double{}
 
-	return newNum(name, numSpec[float64]{
+	return newFloat(name, numSpec[float64]{
 		def: &k.Default, con: &k.Const, gt: &k.Gt, gte: &k.Gte, lt: &k.Lt, lte: &k.Lte,
 		mul: &k.MultipleOf, in: &k.In, notIn: &k.NotIn,
-	}, &Schema_Field_Double_{Double: k})
+	}, &k.Finite, &Schema_Field_Double_{Double: k})
 }
 
 // Int32 builds an int32 field.

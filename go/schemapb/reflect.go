@@ -371,6 +371,28 @@ func (r *reflector) mapBounds(b *MapB, c *fieldConstraints) (*Schema_Field, erro
 	return b.Done(), nil
 }
 
+// fieldConstraints is what a field's tags say beyond its Go type: the
+// `desc:"..."`/`pattern:"..."` tags and the subset of the
+// go-playground/validator `validate:"..."` vocabulary the schema can carry.
+type fieldConstraints struct {
+	desc     string
+	required bool
+	oneof    []string
+	pattern  string
+	format   string
+	// min/max/len (validator's type-dependent meaning) and the explicit
+	// numeric bounds — kept as strings, parsed against the field's own type.
+	min, max, length string
+	gte, gt, lte, lt string
+	// unique: items must be unique; uniqueBy is the validator's
+	// unique=Field (by a struct field), which a schema cannot carry.
+	unique   bool
+	uniqueBy string
+	// elem constrains each item / map value (keys after `dive`), key each
+	// map key (`keys ... endkeys`); nil when the tag has none.
+	elem, key *fieldConstraints
+}
+
 // fitsKind refuses validator keys whose meaning a schema of this kind cannot
 // carry, instead of dropping them: keys outside a map, unique outside a
 // collection, unique on map values, and unique=Field (by a struct field).
@@ -643,11 +665,11 @@ func unumField[T uint32 | uint64](c *fieldConstraints, b *NumB[T], maxV uint64) 
 	return b.Done(), nil
 }
 
-func floatField[T float32 | float64](c *fieldConstraints, b *NumB[T]) (*Schema_Field, error) {
+func floatField[T float32 | float64](c *fieldConstraints, b *FloatB[T]) (*Schema_Field, error) {
 	for _, bound := range []struct {
 		raw string
 		tag string
-		set func(T) *NumB[T]
+		set func(T) *FloatB[T]
 	}{
 		{c.min, "min", b.Gte},
 		{c.gte, "gte", b.Gte},
@@ -669,28 +691,6 @@ func floatField[T float32 | float64](c *fieldConstraints, b *NumB[T]) (*Schema_F
 	}
 
 	return b.Done(), nil
-}
-
-// fieldConstraints is what a field's tags say beyond its Go type: the
-// `desc:"..."`/`pattern:"..."` tags and the subset of the
-// go-playground/validator `validate:"..."` vocabulary the schema can carry.
-type fieldConstraints struct {
-	desc     string
-	required bool
-	oneof    []string
-	pattern  string
-	format   string
-	// min/max/len (validator's type-dependent meaning) and the explicit
-	// numeric bounds — kept as strings, parsed against the field's own type.
-	min, max, length string
-	gte, gt, lte, lt string
-	// unique: items must be unique; uniqueBy is the validator's
-	// unique=Field (by a struct field), which a schema cannot carry.
-	unique   bool
-	uniqueBy string
-	// elem constrains each item / map value (keys after `dive`), key each
-	// map key (`keys ... endkeys`); nil when the tag has none.
-	elem, key *fieldConstraints
 }
 
 // uintOf parses one unsigned tag value; ("", false, nil) when absent.
