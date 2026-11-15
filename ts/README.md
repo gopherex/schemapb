@@ -132,6 +132,11 @@ protobuf-es itself drops such a map key when decoding (`fromBinary`,
 `fromJson`), so a message that arrives over the wire reaches the validator
 without that entry; the Go, Python and Rust runtimes keep it.
 
+A bytes value may be a `Uint8Array` from any realm (jsdom's `TextEncoder`, an
+iframe, a worker, `node:vm`). The engine recognizes it without `instanceof`
+and copies it into a `Uint8Array` of its own realm where it enters stored
+values, because protobuf-es checks `instanceof` further down.
+
 Translate messages with `formatMessage(err, catalog, display?)`; keys are
 `messageKey(err)`. See [docs/ERRORS.md](../docs/ERRORS.md).
 

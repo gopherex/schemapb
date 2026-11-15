@@ -6,6 +6,7 @@
 
 import { clone, create, isMessage } from "@bufbuild/protobuf";
 import { DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { localBytes } from "./bytes.js";
 import { joinPath } from "./descriptor.js";
 import { parseGoDuration, parseRfc3339 } from "./duration.js";
 import type { Engine } from "./engine.js";
@@ -425,7 +426,7 @@ export function shapeResult(
     case Schema_Field_ResultType.TIMESTAMP:
       return isMessage(x, TimestampSchema) ? x : undefined;
     case Schema_Field_ResultType.BYTES:
-      return x instanceof Uint8Array ? x : undefined;
+      return localBytes(x);
     default:
       return undefined;
   }

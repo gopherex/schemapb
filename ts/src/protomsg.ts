@@ -49,6 +49,7 @@ import {
   TimestampSchema,
   ValueSchema,
 } from "@bufbuild/protobuf/wkt";
+import { isBytes, localBytes } from "./bytes.js";
 import { Engine } from "./engine.js";
 import type { ValidationResult } from "./gen/schemapb/errors_pb.js";
 import { type Schema, SchemaSchema } from "./gen/schemapb/schema_pb.js";
@@ -146,8 +147,11 @@ function scalarValue(v: unknown): Native {
     case "string":
       return v;
     default:
-      if (v instanceof Uint8Array) {
-        return v;
+      {
+        const bytes = localBytes(v);
+        if (bytes !== undefined) {
+          return bytes;
+        }
       }
       throw new UnsupportedFieldError(typeof v);
   }
@@ -456,13 +460,7 @@ function isObjectMessage(desc: DescMessage | undefined): desc is DescMessage {
 }
 
 function asStruct(field: DescField, x: Native): NativeStruct {
-  if (
-    x === null ||
-    typeof x !== "object" ||
-    Array.isArray(x) ||
-    x instanceof Uint8Array ||
-    isWkt(x)
-  ) {
+  if (x === null || typeof x !== "object" || Array.isArray(x) || isBytes(x) || isWkt(x)) {
     throw misfit(field, x);
   }
   return x as NativeStruct;
@@ -521,7 +519,10 @@ function scalarToProto(field: DescField, scalar: ScalarType | undefined, x: Nati
       if (typeof x === "string") return x;
       break;
     case ScalarType.BYTES:
-      if (x instanceof Uint8Array) return x;
+      {
+        const bytes = localBytes(x);
+        if (bytes !== undefined) return bytes;
+      }
       break;
     case ScalarType.DOUBLE:
     case ScalarType.FLOAT:
@@ -600,7 +601,7 @@ function toJsonValue(x: Native): JsonValue {
     return x;
   if (typeof x === "bigint") return Number(x);
   if (Array.isArray(x)) return x.map(toJsonValue);
-  if (x instanceof Uint8Array || "$typeName" in x) {
+  if (isBytes(x) || "$typeName" in x) {
     throw new WriteBackError("non-JSON value in a JSON field");
   }
   const out: { [k: string]: JsonValue } = {};

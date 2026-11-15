@@ -1,4 +1,5 @@
 import { bakeDetailed } from "./bake.js";
+import { isBytes } from "./bytes.js";
 /**
  * The compiled engine: every CEL expression, regex pattern and Mustache
  * template of a schema compiled exactly once, up front. A bad schema fails
@@ -465,7 +466,7 @@ function nativeToCel(x: Native): CelInput {
   if (x === null || typeof x === "boolean" || typeof x === "bigint" || typeof x === "number") {
     return x;
   }
-  if (typeof x === "string" || x instanceof Uint8Array) {
+  if (typeof x === "string" || isBytes(x)) {
     return x;
   }
   if (isMessage(x, DurationSchema) || isMessage(x, TimestampSchema)) {
@@ -485,7 +486,7 @@ function celToNative(v: CelValue): Native {
   if (v === null || typeof v === "boolean" || typeof v === "bigint" || typeof v === "number") {
     return v;
   }
-  if (typeof v === "string" || v instanceof Uint8Array) {
+  if (typeof v === "string" || isBytes(v)) {
     return v;
   }
   if (isCelUint(v)) {

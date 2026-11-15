@@ -22,6 +22,7 @@
 import { create, isMessage } from "@bufbuild/protobuf";
 import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
 import { DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { isBytes, localBytes } from "./bytes.js";
 import { objectSchema } from "./compute.js";
 import type { Schema, Schema_Field } from "./gen/schemapb/schema_pb.js";
 import type { StructValue, Value } from "./gen/schemapb/value_pb.js";
@@ -204,8 +205,9 @@ export function fromNative(x: Native): Value {
   if (typeof x === "string") {
     return strV(x);
   }
-  if (x instanceof Uint8Array) {
-    return bytesV(x);
+  const bytes = localBytes(x);
+  if (bytes !== undefined) {
+    return bytesV(bytes);
   }
   if (isMessage(x, DurationSchema)) {
     return durationV(x);
@@ -329,8 +331,10 @@ export function canonicalValue(
       return typeof x === "boolean" ? boolV(x) : fail(`field ${f.name}: not bool`);
     case "string":
       return typeof x === "string" ? strV(x) : fail(`field ${f.name}: not string`);
-    case "bytes":
-      return x instanceof Uint8Array ? bytesV(x) : fail(`field ${f.name}: not bytes`);
+    case "bytes": {
+      const bytes = localBytes(x);
+      return bytes !== undefined ? bytesV(bytes) : fail(`field ${f.name}: not bytes`);
+    }
     case "choice": {
       if (!kind.value.optionsExpr) {
         const n = asBigInt(x);
@@ -420,11 +424,5 @@ export function canonicalStruct(
 
 /** Narrow helper: a plain native object (not bytes/messages/arrays). */
 export function isNativeStruct(x: Native): x is NativeStruct {
-  return (
-    typeof x === "object" &&
-    x !== null &&
-    !Array.isArray(x) &&
-    !(x instanceof Uint8Array) &&
-    !isMessage(x)
-  );
+  return typeof x === "object" && x !== null && !Array.isArray(x) && !isBytes(x) && !isMessage(x);
 }

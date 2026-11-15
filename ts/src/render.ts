@@ -7,6 +7,7 @@
 
 import { isMessage } from "@bufbuild/protobuf";
 import { DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { isBytes } from "./bytes.js";
 import { formatGoDuration, formatRfc3339 } from "./duration.js";
 import type { Schema_Field } from "./gen/schemapb/schema_pb.js";
 import { setOwn } from "./own.js";
@@ -35,7 +36,7 @@ export function displayString(v: Native): string {
     // NaN and the infinities take their protoJSON spelling.
     return Number.isFinite(v) ? JSON.stringify(v) : String(v);
   }
-  if (v instanceof Uint8Array) {
+  if (isBytes(v)) {
     return base64(v);
   }
   if (isMessage(v, DurationSchema)) {
@@ -65,7 +66,7 @@ function displayJson(v: Native): unknown {
       ? Number(v)
       : v.toString(10);
   }
-  if (v instanceof Uint8Array || isMessage(v, DurationSchema) || isMessage(v, TimestampSchema)) {
+  if (isBytes(v) || isMessage(v, DurationSchema) || isMessage(v, TimestampSchema)) {
     return displayString(v);
   }
   if (Array.isArray(v)) {
@@ -257,8 +258,8 @@ export function nativeEquals(a: Native, b: Native): boolean {
   if (typeof a === "boolean" || typeof a === "string") {
     return a === b;
   }
-  if (a instanceof Uint8Array) {
-    return b instanceof Uint8Array && a.length === b.length && a.every((x, i) => b[i] === x);
+  if (isBytes(a)) {
+    return isBytes(b) && a.length === b.length && a.every((x, i) => b[i] === x);
   }
   if (isMessage(a, DurationSchema)) {
     return isMessage(b, DurationSchema) && a.seconds === b.seconds && a.nanos === b.nanos;

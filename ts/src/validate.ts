@@ -8,6 +8,7 @@
 import { create, isMessage } from "@bufbuild/protobuf";
 import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
 import { DurationSchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { isBytes } from "./bytes.js";
 import {
   defaultValue,
   exprErr,
@@ -507,9 +508,7 @@ function checkKind(
         ? checkString(e, path, val, kind.value)
         : [typeErr(path, "string", val)];
     case "bytes":
-      return val instanceof Uint8Array
-        ? checkBytes(path, val, kind.value)
-        : [typeErr(path, "bytes", val)];
+      return isBytes(val) ? checkBytes(path, val, kind.value) : [typeErr(path, "bytes", val)];
     case "choice":
       return checkChoice(e, path, val, kind.value, root);
     case "duration":
@@ -1012,7 +1011,7 @@ function uniqueKey(v: Native): string {
         ? Number(x)
         : x.toString(10);
     }
-    if (x instanceof Uint8Array || isMessage(x, DurationSchema) || isMessage(x, TimestampSchema)) {
+    if (isBytes(x) || isMessage(x, DurationSchema) || isMessage(x, TimestampSchema)) {
       return displayString(x as Native);
     }
     return x;

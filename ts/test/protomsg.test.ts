@@ -1,3 +1,4 @@
+import { runInNewContext } from "node:vm";
 import {
   clone,
   create,
@@ -24,6 +25,7 @@ import {
 } from "@bufbuild/protobuf/wkt";
 import { describe, expect, it } from "vitest";
 import { SchemaSchema } from "../src/gen/schemapb/schema_pb.js";
+import { StructValueSchema } from "../src/gen/schemapb/value_pb.js";
 import * as b from "../src/new.js";
 import {
   messageFromValues,
@@ -265,6 +267,21 @@ describe("protomsg", () => {
     order.any = anyPack(itemDesc, item("inner"));
     return order;
   }
+
+  // A bytes field set from another realm (jsdom's TextEncoder, an iframe, a
+  // worker) is still bytes: the engine must not reject it as an object.
+  it("messageValues accepts bytes from another realm", () => {
+    const msg = fullMessage();
+    msg.blob = runInNewContext("new Uint8Array([1, 2])");
+    // toEqual tells realms apart; protobuf equality compares the bytes.
+    expect(
+      equals(
+        StructValueSchema,
+        structFromNative(messageValues(orderDesc, msg, [itemDesc])),
+        structFromNative(fullNative()),
+      ),
+    ).toBe(true);
+  });
 
   it("messageFromValues builds a message from native values", () => {
     const got = messageFromValues(orderDesc, fullNative(), [itemDesc]);
