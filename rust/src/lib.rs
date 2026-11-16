@@ -4,6 +4,7 @@
 //! cross-language conformance suite; the Go implementation is the reference.
 
 pub mod bake;
+pub mod build;
 pub mod compute;
 pub mod descriptor;
 pub mod duration;
@@ -19,8 +20,14 @@ pub mod registry;
 pub mod render;
 pub mod typed;
 pub mod validate;
+pub mod validator;
 pub mod value;
 pub mod value_as;
+pub mod values;
+
+pub use gen::schemapb::ErrorCode;
+pub use validator::{Invalid, LoadError, Report, Severity, Validator, Violation};
+pub use values::{FromNative, IntoNative, ValueError, Values};
 
 mod path;
 
