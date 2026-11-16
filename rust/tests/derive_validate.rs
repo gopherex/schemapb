@@ -403,7 +403,7 @@ fn transparent_newtypes_take_the_inner_shape() {
 
 #[derive(Validate, Serialize)]
 struct BrokenRule {
-    #[schemapb(rule("this +* 1", message = "broken"))]
+    #[schemapb(rule("this >", message = "broken"))]
     n: i64,
 }
 

@@ -221,9 +221,9 @@ Your generated code then references this crate's types directly — no
 conversion layer. The path `schemapb::gen::schemapb` is a stability
 promise.
 
-Runtime dependencies: `prost`/`pbjson` (protobuf + protoJSON),
-`cel-interpreter`/`cel-parser` (CEL evaluation), `mustache`, `chrono`,
-`semver`, `regex`.
+Runtime dependencies: `prost`/`pbjson` (protobuf + protoJSON), `cel` (CEL
+parsing and evaluation; a malformed expression is a schema error, never a
+crash), `mustache`, `chrono`, `semver`, `regex`.
 
 ## Development
 
@@ -232,8 +232,8 @@ From the repository root: `make configure` once, then `make lint-rust`
 (conformance suite).
 
 Known deviations (tracked):
-- no CEL evaluation cost limit: `cel-interpreter` does not expose one
-  (the Go reference has `WithCostLimit`).
+- no CEL evaluation cost limit: `cel` offers a comprehension iteration
+  budget, not cel-go's cost model (the Go reference has `WithCostLimit`).
 - timestamps flow through `chrono::DateTime` inside CEL expressions;
   the conformance goldens only exercise whole-second RFC 3339 values.
 - no typed-message bridge (Go `protomsg`, TS `Validator`) and no generator:

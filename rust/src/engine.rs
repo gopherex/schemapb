@@ -1,13 +1,14 @@
 //! The compiled engine: every CEL expression, regex pattern and Mustache
 //! template compiled once, up front; conversions between the native model
-//! and cel-interpreter values.
+//! and CEL values.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use cel_interpreter::extractors::This;
-use cel_interpreter::objects::{Key, Map as CelMap};
-use cel_interpreter::{Context, Program, Value as Cel};
+use cel::common::ast::{EntryExpr, Expr, LiteralValue};
+use cel::extractors::This;
+use cel::objects::{Key, Map as CelMap};
+use cel::{Context, Env, Program, Value as Cel};
 
 use crate::descriptor::{check_descriptor, join_path, nested_schemas, schema_err, SchemaError};
 use crate::duration::{duration_from_nanos, duration_nanos};
@@ -23,7 +24,8 @@ pub struct Engine {
     pub formats: FormatRegistry,
     pub regexps: HashMap<String, regex::Regex>,
     programs: HashMap<String, Program>,
-    asts: HashMap<String, cel_parser::Expression>,
+    /// The CEL standard environment, built once: every evaluation shares it.
+    env: Arc<Env>,
     templates: HashMap<String, mustache::Template>,
 }
 
@@ -34,14 +36,11 @@ pub(crate) fn compile(schema: Schema, formats: FormatRegistry) -> Result<Engine,
     let mut registry = core_formats();
     registry.extend(formats);
 
+    let env = Arc::new(Env::stdlib());
     let mut programs = HashMap::new();
-    let mut asts = HashMap::new();
     for (src, path) in schema_exprs(&schema) {
-        match Program::compile(&src) {
+        match env.compile(&src) {
             Ok(p) => {
-                if let Ok(ast) = cel_parser::parse(&src) {
-                    asts.insert(src.clone(), ast);
-                }
                 programs.insert(src, p);
             }
             Err(e) => errs.push(schema_err(&path, &format!("cel: {e}"))),
@@ -76,7 +75,7 @@ pub(crate) fn compile(schema: Schema, formats: FormatRegistry) -> Result<Engine,
         formats: registry,
         regexps,
         programs,
-        asts,
+        env,
         templates,
     };
     if errs.is_empty() {
@@ -107,7 +106,7 @@ impl Engine {
         let Some(program) = self.programs.get(src) else {
             return Err(format!("expression not compiled: {src}"));
         };
-        let mut ctx = Context::default();
+        let mut ctx = Context::with_env(Arc::clone(&self.env));
         ctx.add_variable_from_value("this", native_to_cel(this));
         ctx.add_variable_from_value("root", native_to_cel(&Native::Struct(root.clone())));
         ctx.add_variable_from_value("index", Cel::Int(index.unwrap_or(0)));
@@ -129,8 +128,8 @@ impl Engine {
     #[must_use]
     pub fn expr_deps(&self, src: &str) -> Vec<String> {
         let mut deps = Vec::new();
-        if let Some(ast) = self.asts.get(src) {
-            walk_deps(ast, &mut deps);
+        if let Some(program) = self.programs.get(src) {
+            walk_deps(&program.expression().expr, &mut deps);
         }
         deps
     }
@@ -210,44 +209,26 @@ impl Engine {
     }
 }
 
-/// The strings-extension subset (cel-interpreter has no built-in strings
-/// extension; the remainder is a tracked gap).
+/// The strings-extension subset and the spec's `sort()`, registered on
+/// every evaluation context (the standard environment has neither).
 fn register_string_ext(ctx: &mut Context) {
-    ctx.add_function("lowerAscii", |This(s): This<Arc<String>>| ascii_lower(&s));
-    ctx.add_function("upperAscii", |This(s): This<Arc<String>>| ascii_upper(&s));
-    ctx.add_function("trim", |This(s): This<Arc<String>>| s.trim().to_owned());
-
-    // cel-interpreter's builtin string() has no Bool arm ("cannot convert
-    // Bool(true) to string"): override with the spec conversion, keeping
-    // every builtin arm intact.
-    ctx.add_function("string", cel_string);
+    // Registration only fails on a clash with a standard overload; these
+    // names are not standard, so a failure is a dependency upgrade that
+    // added one: surfaced by the conformance suite.
+    let _ = ctx.add_function("lowerAscii", |This(s): This<Arc<String>>| ascii_lower(&s));
+    let _ = ctx.add_function("upperAscii", |This(s): This<Arc<String>>| ascii_upper(&s));
+    let _ = ctx.add_function("trim", |This(s): This<Arc<String>>| s.trim().to_owned());
 
     // The spec's `<list>.sort()`: ascending over a homogeneous list of
     // strings, ints, uints or doubles. Map iteration order is
     // implementation-defined in CEL, so sorting is the ONLY portable way
     // to derive a deterministic value from map keys — every implementation
     // registers this same function.
-    ctx.add_function("sort", cel_sort);
+    let _ = ctx.add_function("sort", cel_sort);
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn cel_string(
-    ftx: &cel_interpreter::FunctionContext,
-    This(this): This<Cel>,
-) -> Result<Cel, cel_interpreter::ExecutionError> {
-    match this {
-        Cel::Bool(b) => Ok(Cel::String(Arc::new(
-            if b { "true" } else { "false" }.to_owned(),
-        ))),
-        other => cel_interpreter::functions::string(ftx, This(other)),
-    }
-}
-
-#[allow(clippy::needless_pass_by_value)]
-fn cel_sort(
-    ftx: &cel_interpreter::FunctionContext,
-    This(this): This<Cel>,
-) -> Result<Cel, cel_interpreter::ExecutionError> {
+fn cel_sort(ftx: &cel::FunctionContext, This(this): This<Cel>) -> Result<Cel, cel::ExecutionError> {
     let Cel::List(items) = this else {
         return Err(ftx.error("sort: not a list"));
     };
@@ -456,8 +437,7 @@ fn cel_to_native(v: &Cel) -> Option<Native> {
 // AST dependency walk
 // =============================================================================
 
-fn walk_deps(expr: &cel_parser::Expression, deps: &mut Vec<String>) {
-    use cel_parser::Expression as E;
+fn walk_deps(expr: &Expr, deps: &mut Vec<String>) {
     if let Some(path) = select_path(expr) {
         if !path.is_empty() {
             deps.push(path);
@@ -465,67 +445,74 @@ fn walk_deps(expr: &cel_parser::Expression, deps: &mut Vec<String>) {
         return;
     }
     match expr {
-        E::Arithmetic(a, _, b) | E::Relation(a, _, b) => {
-            walk_deps(a, deps);
-            walk_deps(b, deps);
-        }
-        E::Ternary(c, a, b) => {
-            walk_deps(c, deps);
-            walk_deps(a, deps);
-            walk_deps(b, deps);
-        }
-        E::Or(a, b) | E::And(a, b) => {
-            walk_deps(a, deps);
-            walk_deps(b, deps);
-        }
-        E::Unary(_, a) => walk_deps(a, deps),
-        E::Member(target, member) => {
-            walk_deps(target, deps);
-            if let cel_parser::Member::Index(idx) = member.as_ref() {
-                walk_deps(idx, deps);
+        Expr::Call(call) => {
+            if let Some(target) = &call.target {
+                walk_deps(&target.expr, deps);
+            }
+            for arg in &call.args {
+                walk_deps(&arg.expr, deps);
             }
         }
-        E::FunctionCall(f, target, args) => {
-            walk_deps(f, deps);
-            if let Some(t) = target {
-                walk_deps(t, deps);
-            }
-            for a in args {
-                walk_deps(a, deps);
-            }
-        }
-        E::List(items) => {
-            for a in items {
-                walk_deps(a, deps);
+        Expr::Comprehension(c) => {
+            for part in [
+                &c.iter_range,
+                &c.accu_init,
+                &c.loop_cond,
+                &c.loop_step,
+                &c.result,
+            ] {
+                walk_deps(&part.expr, deps);
             }
         }
-        E::Map(entries) => {
-            for (k, v) in entries {
-                walk_deps(k, deps);
-                walk_deps(v, deps);
+        Expr::List(list) => {
+            for el in &list.elements {
+                walk_deps(&el.expr, deps);
             }
         }
-        E::Atom(_) | E::Ident(_) => {}
+        Expr::Map(map) => {
+            for entry in &map.entries {
+                if let EntryExpr::MapEntry(e) = &entry.expr {
+                    walk_deps(&e.key.expr, deps);
+                    walk_deps(&e.value.expr, deps);
+                }
+            }
+        }
+        Expr::Select(sel) => walk_deps(&sel.operand.expr, deps),
+        Expr::Struct(st) => {
+            for entry in &st.entries {
+                if let EntryExpr::StructField(f) = &entry.expr {
+                    walk_deps(&f.value.expr, deps);
+                }
+            }
+        }
+        Expr::Ident(_) | Expr::Literal(_) | Expr::Unspecified => {}
     }
 }
 
-fn select_path(expr: &cel_parser::Expression) -> Option<String> {
-    use cel_parser::{Atom, Expression as E, Member};
+/// The dotted `root` path an expression selects: `root.a.b`, `root["a"]`,
+/// `root.list[0]`; `None` for anything else.
+fn select_path(expr: &Expr) -> Option<String> {
     match expr {
-        E::Ident(name) => (name.as_ref() == "root").then(String::new),
-        E::Member(target, member) => {
-            let base = select_path(target)?;
-            let key = match member.as_ref() {
-                Member::Attribute(name) => name.as_ref().clone(),
-                Member::Index(idx) => match idx.as_ref() {
-                    E::Atom(Atom::String(s)) => s.as_ref().clone(),
-                    E::Atom(Atom::Int(i)) if *i >= 0 => return Some(format!("{base}[{i}]")),
-                    E::Atom(Atom::UInt(i)) => return Some(format!("{base}[{i}]")),
-                    _ => return None,
-                },
-                _ => return None,
+        Expr::Ident(name) => (name == "root").then(String::new),
+        Expr::Select(sel) if !sel.test => {
+            let base = select_path(&sel.operand.expr)?;
+            Some(crate::descriptor::join_path(&base, &sel.field))
+        }
+        Expr::Call(call) if call.func_name == "_[_]" && call.target.is_none() => {
+            let [operand, index] = call.args.as_slice() else {
+                return None;
             };
-            Some(crate::descriptor::join_path(&base, &key))
+            let base = select_path(&operand.expr)?;
+            match &index.expr {
+                Expr::Literal(LiteralValue::String(s)) => {
+                    Some(crate::descriptor::join_path(&base, s.inner()))
+                }
+                Expr::Literal(LiteralValue::Int(i)) if *i.inner() >= 0 => {
+                    Some(format!("{base}[{}]", i.inner()))
+                }
+                Expr::Literal(LiteralValue::UInt(i)) => Some(format!("{base}[{}]", i.inner())),
+                _ => None,
+            }
         }
         _ => None,
     }
