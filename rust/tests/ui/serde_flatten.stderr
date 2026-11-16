@@ -1,0 +1,5 @@
+error: schemapb: #[serde(flatten)] is not supported; nest the struct as a field
+ --> tests/ui/serde_flatten.rs:8:13
+  |
+8 |     #[serde(flatten)]
+  |             ^^^^^^^

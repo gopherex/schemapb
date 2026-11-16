@@ -607,6 +607,14 @@ impl<'de> Visitor<'de> for NativeVisitor {
         Ok(Native::Double(v))
     }
 
+    fn visit_bytes<E: de::Error>(self, v: &[u8]) -> Result<Native, E> {
+        Ok(Native::Bytes(v.to_vec()))
+    }
+
+    fn visit_byte_buf<E: de::Error>(self, v: Vec<u8>) -> Result<Native, E> {
+        Ok(Native::Bytes(v))
+    }
+
     fn visit_str<E: de::Error>(self, v: &str) -> Result<Native, E> {
         Ok(Native::Str(v.to_owned()))
     }

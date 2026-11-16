@@ -1,0 +1,5 @@
+error: schemapb: untagged enums have no schema shape; use #[serde(tag = "...")]
+ --> tests/ui/untagged_enum.rs:2:9
+  |
+2 | #[serde(untagged)]
+  |         ^^^^^^^^

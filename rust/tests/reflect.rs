@@ -59,9 +59,9 @@ struct MirrorModel {
     #[schemapb(max = 65535)]
     port: u16,
     total: u64,
-    #[schemapb(gte = 0, finite)]
+    #[schemapb(gte = 0.0, finite)]
     ratio: f32,
-    #[schemapb(lt = 1, finite)]
+    #[schemapb(lt = 1.0, finite)]
     score: f64,
     flag: bool,
     opt: Option<String>,
@@ -117,19 +117,6 @@ fn override_is_a_trait_impl() {
     let token = s.lookup_path("token").unwrap();
     assert!(token.secret);
     assert_eq!(token.kind_name(), "string");
-}
-
-#[test]
-#[should_panic(expected = "does not apply")]
-fn misapplied_constraint_is_loud() {
-    #[derive(Reflect)]
-    #[allow(dead_code)]
-    struct Bad {
-        #[schemapb(gte = 3)]
-        flag: bool,
-    }
-
-    let _ = reflect_schema::<Bad>(mirror_id());
 }
 
 /// Native trait overrides express the same attributes as Go's generic tags.

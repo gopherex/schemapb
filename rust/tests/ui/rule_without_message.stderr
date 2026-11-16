@@ -1,0 +1,5 @@
+error: a rule needs message = "..."
+ --> tests/ui/rule_without_message.rs:3:16
+  |
+3 |     #[schemapb(rule("this > 0"))]
+  |                ^^^^

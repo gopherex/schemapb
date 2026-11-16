@@ -1,0 +1,21 @@
+error[E0277]: schemapb: `std::string::String` is not a list: items(...) and unique do not apply
+ --> tests/ui/items_on_string.rs:4:11
+  |
+4 |     name: String,
+  |           ^^^^^^ not a list or set
+  |
+  = help: the trait `Items` is not implemented for `std::string::String`
+  = help: the following other types implement trait `Items`:
+            Arc<T>
+            BTreeSet<T>
+            Box<T>
+            HashSet<T>
+            Rc<T>
+            Vec<T>
+            VecDeque<T>
+            std::option::Option<T>
+note: required by a bound in `items`
+ --> src/reflect.rs
+  |
+  |     pub fn items<T: Items + ?Sized>(f: &mut Field, apply: impl FnOnce(&mut Field)) {
+  |                     ^^^^^ required by this bound in `items`
