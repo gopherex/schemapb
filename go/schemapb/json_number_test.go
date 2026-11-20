@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	sp "github.com/gopherex/schemapb/go/schemapb"
 )
 
@@ -110,5 +112,61 @@ func TestJSONNumberCollections(t *testing.T) {
 
 	if b.Values.Fields["ports"].GetListValue().Items[0].GetInt64Value() != 9007199254740993 || b.Values.Fields["limits"].GetStructValue().Fields["cpu"].GetUint64Value() != math.MaxUint64 {
 		t.Fatal("numeric precision lost")
+	}
+}
+
+// FromGo reads a json.Number (xconf's env source decodes containers with
+// UseNumber) by the same rule as typed fields: an integer that fits int64 is
+// int64, a larger unsigned one uint64, anything else double.
+func TestFromGoJSONNumber(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		in   any
+		want *sp.Value
+		fail bool
+	}{
+		{name: "integer", in: json.Number("1"), want: sp.Int64V(1)},
+		{name: "negative", in: json.Number("-42"), want: sp.Int64V(-42)},
+		{name: "integral exponent", in: json.Number("1e3"), want: sp.Int64V(1000)},
+		{name: "fractional", in: json.Number("1.5"), want: sp.DoubleV(1.5)},
+		{name: "beyond int64", in: json.Number("18446744073709551615"), want: sp.UInt64V(math.MaxUint64)},
+		{name: "beyond uint64", in: json.Number("18446744073709551616"), want: sp.DoubleV(18446744073709551616)},
+		{name: "below int64", in: json.Number("-9223372036854775809"), want: sp.DoubleV(-9223372036854775809)},
+		{name: "invalid", in: json.Number("1x"), fail: true},
+		{name: "out of double range", in: json.Number("1e400"), fail: true},
+		{name: "in a list", in: []any{json.Number("2")}, want: sp.ListV(sp.Int64V(2))},
+		{
+			name: "in a map", in: map[string]any{"n": json.Number("1"), "f": json.Number("0.25")},
+			want: sp.StructV(map[string]*sp.Value{"n": sp.Int64V(1), "f": sp.DoubleV(0.25)}),
+		},
+		{name: "invalid in a map", in: map[string]any{"n": json.Number("-")}, fail: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := sp.FromGo(tc.in)
+			if tc.fail {
+				if err == nil {
+					t.Fatalf("FromGo(%v) = %v, want an error", tc.in, got)
+				}
+
+				return
+			}
+
+			if err != nil || !proto.Equal(got, tc.want) {
+				t.Fatalf("FromGo(%v) = %v, %v; want %v", tc.in, got, err, tc.want)
+			}
+		})
+	}
+}
+
+func BenchmarkFromGoJSONNumber(b *testing.B) {
+	in := map[string]any{"n": json.Number("12345"), "f": json.Number("1.25"), "u": json.Number("18446744073709551615")}
+	for b.Loop() {
+		if _, err := sp.FromGo(in); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

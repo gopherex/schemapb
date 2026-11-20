@@ -2,6 +2,7 @@ package schemapb
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"regexp"
 	"strconv"
@@ -55,6 +56,32 @@ func jsonInteger(number json.Number) (string, bool) {
 	}
 
 	return digits, true
+}
+
+// jsonNumberValue is the best-fitting value of a JSON number, as FromGo
+// picks it for native numbers: an integer that fits int64 is int64, a
+// larger unsigned one uint64, anything else double.
+func jsonNumberValue(number json.Number) (*Value, error) {
+	if !jsonNumberRE.MatchString(string(number)) {
+		return nil, fmt.Errorf("schemapb: invalid JSON number %q", string(number))
+	}
+
+	if raw, integral := jsonInteger(number); integral {
+		if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			return Int64V(n), nil
+		}
+
+		if n, err := strconv.ParseUint(raw, 10, 64); err == nil {
+			return UInt64V(n), nil
+		}
+	}
+
+	n, err := strconv.ParseFloat(string(number), 64)
+	if err != nil {
+		return nil, fmt.Errorf("schemapb: JSON number %q out of double range", string(number))
+	}
+
+	return DoubleV(n), nil
 }
 
 // JSON numbers are numeric input, independent of the schema's string Coerce flag.

@@ -1,6 +1,7 @@
 package schemapb
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -150,7 +151,8 @@ func (s *StructValue) ToGo() map[string]any {
 // =============================================================================
 
 // FromGo converts a native Go value to a wire value using the best-fitting
-// variant (int64 for signed integers, uint64 for unsigned, double for floats).
+// variant (int64 for signed integers, uint64 for unsigned, double for floats;
+// a json.Number by the same rule, so UseNumber-decoded containers convert).
 // Use CanonicalValue when the field kind is known — it picks the exact
 // contract variant. Unsupported types return an error.
 //
@@ -195,6 +197,8 @@ func FromGo(x any) (*Value, error) {
 		return DurationV(t), nil
 	case time.Time:
 		return TimestampV(t), nil
+	case json.Number:
+		return jsonNumberValue(t)
 	case []any:
 		items := make([]*Value, len(t))
 
