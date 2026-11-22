@@ -52,8 +52,8 @@ func TestReflectLoudFailures(t *testing.T) {
 	}
 }
 
-func testID(t *testing.T) *schemapb.SchemaIdentity {
-	t.Helper()
+func testID(tb testing.TB) *schemapb.SchemaIdentity {
+	tb.Helper()
 	return schemapb.ID("t", "reflect", schemapb.Ver(1, 0, 0))
 }
 
@@ -111,6 +111,162 @@ func TestReflectMarshalerBecomesJSON(t *testing.T) {
 	f, err := s.LookupPath("m")
 	if err != nil || schemapb.KindName(f) != schemapb.KindJSON {
 		t.Fatalf("marshaler type should reflect as JSON, got %v %v", schemapb.KindName(f), err)
+	}
+}
+
+// textID is a google/uuid-like [16]byte that encoding/json writes as text.
+type textID [16]byte
+
+func (textID) MarshalText() ([]byte, error) {
+	return []byte("00000000-0000-0000-0000-000000000000"), nil
+}
+
+// textRef marshals as text through a pointer receiver.
+type textRef struct{ ID int }
+
+func (*textRef) MarshalText() ([]byte, error) { return []byte("ref"), nil }
+
+// bothMarshalers prefers JSON, as encoding/json does.
+type bothMarshalers [4]byte
+
+func (bothMarshalers) MarshalJSON() ([]byte, error) { return []byte("null"), nil }
+func (bothMarshalers) MarshalText() ([]byte, error) { return []byte("text"), nil }
+
+// A type encoding/json writes as text reflects as a string, wherever it sits.
+func TestReflectTextMarshalerBecomesString(t *testing.T) {
+	t.Parallel()
+
+	type wrap struct {
+		ID      textID             `json:"id"`
+		Ref     textRef            `json:"ref"`
+		Both    bothMarshalers     `json:"both"`
+		At      time.Time          `json:"at"`
+		IDs     []textID           `json:"ids"`
+		Pair    [2]textID          `json:"pair"`
+		ByName  map[string]textID  `json:"by_name"`
+		Refs    map[string]textRef `json:"refs"`
+		Pointer *textID            `json:"pointer"`
+	}
+
+	s, err := schemapb.ReflectType[wrap](testID(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	item := func(f *schemapb.Schema_Field) *schemapb.Schema_Field { return f.GetList().GetItems()[0] }
+	value := func(f *schemapb.Schema_Field) *schemapb.Schema_Field { return f.GetMap().GetValueField() }
+	self := func(f *schemapb.Schema_Field) *schemapb.Schema_Field { return f }
+
+	for _, tc := range []struct {
+		path string
+		pick func(*schemapb.Schema_Field) *schemapb.Schema_Field
+		want schemapb.FieldKind
+	}{
+		{path: "id", pick: self, want: schemapb.KindString},
+		{path: "ref", pick: self, want: schemapb.KindString},
+		{path: "both", pick: self, want: schemapb.KindJSON},
+		{path: "at", pick: self, want: schemapb.KindTimestamp},
+		{path: "ids", pick: item, want: schemapb.KindString},
+		{path: "pair", pick: item, want: schemapb.KindString},
+		{path: "by_name", pick: value, want: schemapb.KindString},
+		{path: "refs", pick: value, want: schemapb.KindString},
+		{path: "pointer", pick: self, want: schemapb.KindString},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			t.Parallel()
+
+			f, err := s.LookupPath(tc.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if got := schemapb.KindName(tc.pick(f)); got != tc.want {
+				t.Fatalf("%s reflects as %s, want %s", tc.path, got, tc.want)
+			}
+		})
+	}
+}
+
+// A marshaling root struct is one value, like the same type in a field.
+func TestReflectMarshalingRoot(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		typ  reflect.Type
+		want schemapb.FieldKind
+	}{
+		{name: "text marshaler", typ: reflect.TypeFor[textRef](), want: schemapb.KindString},
+		{name: "json marshaler", typ: reflect.TypeFor[asMarshaler](), want: schemapb.KindJSON},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s, err := schemapb.Reflect(tc.typ, testID(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if f, err := s.LookupPath("value"); err != nil || schemapb.KindName(f) != tc.want {
+				t.Fatalf("root reflects as %v %v, want one %s value", schemapb.KindName(f), err, tc.want)
+			}
+		})
+	}
+}
+
+func TestReflectTextMarshalerOverride(t *testing.T) {
+	t.Parallel()
+
+	type wrap struct {
+		ID textID `json:"id"`
+	}
+
+	s, err := schemapb.ReflectType[wrap](testID(t), schemapb.WithType(reflect.TypeFor[textID](),
+		func(name schemapb.FieldName) *schemapb.Schema_Field { return schemapb.Bytes(name).Done() }))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f, err := s.LookupPath("id"); err != nil || schemapb.KindName(f) != schemapb.KindBytes {
+		t.Fatalf("WithType must win over the text rule, got %v %v", schemapb.KindName(f), err)
+	}
+}
+
+// textWrapped marshals as text, but its SchemaInner describes it.
+type textWrapped struct{}
+
+func (textWrapped) MarshalText() ([]byte, error) { return []byte("1"), nil }
+func (textWrapped) SchemaInner() reflect.Type    { return reflect.TypeFor[int64]() }
+
+func TestReflectTextMarshalerWrapper(t *testing.T) {
+	t.Parallel()
+
+	type wrap struct {
+		W textWrapped `json:"w"`
+	}
+
+	s, err := schemapb.ReflectType[wrap](testID(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f, err := s.LookupPath("w"); err != nil || schemapb.KindName(f) != schemapb.KindInt64 {
+		t.Fatalf("SchemaInner must win over the text rule, got %v %v", schemapb.KindName(f), err)
+	}
+}
+
+func BenchmarkReflectTextMarshaler(b *testing.B) {
+	type wrap struct {
+		ID  textID            `json:"id"`
+		IDs []textID          `json:"ids"`
+		Map map[string]textID `json:"map"`
+	}
+
+	id := testID(b)
+	for b.Loop() {
+		if _, err := schemapb.ReflectType[wrap](id); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 

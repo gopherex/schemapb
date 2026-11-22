@@ -115,6 +115,13 @@ type Config struct {
 the infinities on a float/double field; bounds (`gt`, `lte`, ...) always
 reject NaN, an infinity only the bound on its side.
 
+A field's kind follows how `encoding/json` writes its type: `time.Time` is a
+timestamp and `time.Duration` a duration; any other `json.Marshaler` is JSON;
+otherwise an `encoding.TextMarshaler` (value or pointer receiver) is a string,
+so a `uuid.UUID` is a string, not 16 bytes. The rule holds for list and map
+items and for the root type. `WithType` and a `SchemaWrapper`'s inner type
+take precedence; `SchemaFieldConfigurer` decorates the resulting field.
+
 Attributes are discovered from protobuf descriptors. Common attributes such
 as `secret`, `required`, `description`, `normalize` and `rules` address the
 field; attributes such as `default`, `gte`, `pattern` and `min_len` address

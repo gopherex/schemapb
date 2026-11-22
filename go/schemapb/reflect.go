@@ -23,7 +23,9 @@
 //   - stdlib natively: time.Time -> Timestamp, time.Duration -> Duration,
 //     json.RawMessage -> JSON
 //   - interface -> JSON; a type cycle -> JSON (its shape is not finite);
-//     any other json.Marshaler -> JSON (its wire shape is unknowable)
+//     any other json.Marshaler -> JSON (its wire shape is unknowable);
+//     otherwise an encoding.TextMarshaler -> String, as encoding/json writes
+//     it (a google/uuid UUID is a string, not 16 bytes)
 //   - *T -> optional AND nullable (encoding/json writes null for a nil
 //     pointer); `validate:"required"` forces required back on
 //
@@ -37,6 +39,7 @@
 package schemapb
 
 import (
+	"encoding"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -94,7 +97,8 @@ func Reflect(t reflect.Type, id *SchemaIdentity, opts ...ReflectOption) (*Schema
 
 	root := NewSchema(id).Coerce()
 
-	if _, isOverride := r.overrides[t]; !isOverride && t.Kind() == reflect.Struct && t != timeType && !hasSchemaHooks(t) {
+	if _, isOverride := r.overrides[t]; !isOverride && t.Kind() == reflect.Struct && t != timeType && !hasSchemaHooks(t) &&
+		!marshals(t, marshalerT) && !marshals(t, textT) {
 		fields, err := r.fieldsOf(t, map[reflect.Type]bool{})
 		if err != nil {
 			return nil, fmt.Errorf("schemapb: reflect %s: %w", t, err)
@@ -103,7 +107,8 @@ func Reflect(t reflect.Type, id *SchemaIdentity, opts ...ReflectOption) (*Schema
 		return root.Fields(fieldDefs(fields)...).Build()
 	}
 
-	// A scalar, overridden or hook-bearing root becomes one "value" field.
+	// A scalar, overridden, marshaling or hook-bearing root becomes one
+	// "value" field.
 	f, err := r.fieldOf("value", t, true, &fieldConstraints{}, map[reflect.Type]bool{}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("schemapb: reflect %s: %w", t, err)
@@ -123,7 +128,14 @@ var (
 	durationType = reflect.TypeFor[time.Duration]()
 	rawJSONType  = reflect.TypeFor[json.RawMessage]()
 	marshalerT   = reflect.TypeFor[json.Marshaler]()
+	textT        = reflect.TypeFor[encoding.TextMarshaler]()
 )
+
+// marshals reports whether t or *t implements iface: encoding/json uses
+// either for an addressable value.
+func marshals(t, iface reflect.Type) bool {
+	return t.Kind() != reflect.Interface && (t.Implements(iface) || reflect.PointerTo(t).Implements(iface))
+}
 
 type reflector struct {
 	overrides map[reflect.Type]func(FieldName) *Schema_Field
@@ -275,9 +287,15 @@ func (r *reflector) fieldOf(
 		if err != nil {
 			return nil, err
 		}
-	case t.Kind() != reflect.Interface && (t.Implements(marshalerT) || reflect.PointerTo(t).Implements(marshalerT)):
+	case marshals(t, marshalerT):
 		// A custom marshaler's wire shape is unknowable by reflection.
 		field = JSON(fname).Done()
+	case marshals(t, textT):
+		// encoding/json writes a text marshaler as a JSON string.
+		field, err = r.stringField(fname, c)
+		if err != nil {
+			return nil, err
+		}
 	case visited[t] && t.Kind() == reflect.Struct:
 		// A cycle: the shape cannot be described finitely.
 		field = JSON(fname).Done()
@@ -496,7 +514,7 @@ func (r *reflector) fieldOfKind(
 
 		if elem.Kind() == reflect.Struct && r.overrides[elem] == nil && !hasSchemaHooks(elem) &&
 			elem != timeType && elem != durationType && !visited[elem] &&
-			!elem.Implements(marshalerT) && !reflect.PointerTo(elem).Implements(marshalerT) {
+			!marshals(elem, marshalerT) && !marshals(elem, textT) {
 			fields, err := r.fieldsOf(elem, visited)
 			if err != nil {
 				return nil, err
